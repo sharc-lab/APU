@@ -24,7 +24,7 @@ identity:
   family: Panther Lake
   chassis: Dell XPS 16 DA16260
   os_build: "26200"
-  hostname: computadora
+  hostname: <xps-hostname>
 
   # Which claims are independently attested by a committed probe artifact, and which are not.
   # See analysis/aipc-c1/MACHINE.md § "Platform identification evidence (AF-001)".
@@ -355,3 +355,28 @@ npu_config:
   # openvino#35641: NPU + INT8 weight-only IR crashes with an uncatchable 0xC0000005 at
   # generate(). Assert INT4 before constructing an NPU LLMPipeline; do not try to catch it.
   require_int4_weights: true
+
+# ----------------------------------------------------------------------------------------------
+# Pre-measurement gates (PORT-2). Per-platform; read by seam.measurement_gates / launchers.
+# Power-plan GUID is RECORD-ONLY — pass criterion is AC PROCTHROTTLEMIN/MAX == 100/100.
+# ----------------------------------------------------------------------------------------------
+measurement_gates:
+  pre_run_available_mb_min: 7000
+  pre_run_available_mb_min_citation: >-
+    2026-08-09 clean session / 7477 MB Available; arm A lowest free_physical_mb_start 6926;
+    floor 7000 (configs/delta_n.yaml isolation.pre_run_available_mb_min).
+  onset_s: 657
+  onset_status: measured
+  onset_s_citation: >-
+    Shortest observed degradation onset from session 7f569929 / docs/CANARY_PROTOCOL.md;
+    tools/ttft_slo_canary.py ONSET_S.
+  max_uptime_s: 7200
+  max_uptime_s_citation: >-
+    CHOSEN/PROVISIONAL cold-boot window (< 2 h) used by launch_*.ps1 five-gate block;
+    not yet re-derived from an onset curve denser than the 657 s canary bound.
+  require_processor_ac_percent_min: 100
+  require_processor_ac_percent_max: 100
+  _provenance:
+    pre_run_available_mb_min: measured_clean_session
+    onset_s: measured_run_7f569929
+    max_uptime_s: chosen_provisional

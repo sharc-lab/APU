@@ -1,0 +1,298 @@
+{
+  "id": "BR_SESS1_PREDICTIONS",
+  "registration": "docs/registrations/BR_SESS_2026-10-26.md",
+  "generator": "tools/br_predict.py",
+  "runner_must_not_read_this_file": true,
+  "law": "L_hist = (B_BR - a*T)/k_compiled - T (unchunked); chunked: a*min(T, 256)",
+  "B_BR_bytes": 3267086560,
+  "a": 87520,
+  "k_compiled": {
+    "f16": 147456,
+    "i8": 84096,
+    "u4": 47232
+  },
+  "logged_length_check": {
+    "finding": "the CC-GROW records' last HELD turn is the one before the failing turn; the length to compare with L_hist is that turn's prompt_tokens_reported. The lengths in TASK_BK addendum 2 and the GPU-share plan (e.g. d7e8b43e 59,712) are the turn before that (one turn short): d7e8b43e held turn 29 at 61,771 and failed at turn 30",
+    "evidence": "failure_mode grow_turn<k> with k = number of recorded (held) turns"
+  },
+  "held_out": {
+    "f16_T3072": {
+      "L_hist": 17261,
+      "band": [
+        14672,
+        19850
+      ]
+    },
+    "f16_T6144": {
+      "L_hist": 12366,
+      "band": [
+        10511,
+        14221
+      ]
+    },
+    "u4_T3072": {
+      "L_hist": 60407,
+      "band": [
+        51346,
+        69468
+      ]
+    },
+    "u4_T6144": {
+      "L_hist": 51642,
+      "band": [
+        43896,
+        59389
+      ]
+    }
+  },
+  "in_sample_check_corrected_lengths": {
+    "f16_T1024": {
+      "run_id": "e99bb2ad",
+      "last_held_prompt": 21736,
+      "corrected_law": 20525,
+      "old_law_total": 21549,
+      "residual_pct": 5.9
+    },
+    "f16_T2048": {
+      "run_id": "71b7d9d8",
+      "last_held_prompt": 18532,
+      "corrected_law": 18893,
+      "old_law_total": 20941,
+      "residual_pct": -1.9
+    },
+    "f16_T4096": {
+      "run_id": "9cb921fd",
+      "last_held_prompt": 16429,
+      "corrected_law": 15629,
+      "old_law_total": 19725,
+      "residual_pct": 5.1
+    },
+    "u4_T1024": {
+      "run_id": "0c7ae0a3",
+      "last_held_prompt": 65206,
+      "corrected_law": 66250,
+      "old_law_total": 67274,
+      "residual_pct": -1.6
+    },
+    "u4_T2048": {
+      "run_id": "d7e8b43e",
+      "last_held_prompt": 61771,
+      "corrected_law": 63328,
+      "old_law_total": 65376,
+      "residual_pct": -2.5
+    },
+    "u4_T4096": {
+      "run_id": "10cb79e4",
+      "last_held_prompt": 57499,
+      "corrected_law": 57485,
+      "old_law_total": 61581,
+      "residual_pct": 0.0
+    }
+  },
+  "chunked_arm": {
+    "f16_c256_T2048": {
+      "L_hist": 19956,
+      "band": [
+        16963,
+        22950
+      ],
+      "in_sample": {
+        "run_id": "2bfae783",
+        "last_held_prompt": 16473,
+        "residual_pct": -17.5
+      }
+    },
+    "f16_c256_T6144": {
+      "L_hist": 15860,
+      "band": [
+        13481,
+        18239
+      ]
+    },
+    "u4_c256_T2048": {
+      "L_hist": 66649,
+      "band": [
+        56651,
+        76646
+      ],
+      "in_sample": {
+        "run_id": "08e52da9",
+        "last_held_prompt": 65889,
+        "residual_pct": -1.1
+      }
+    },
+    "u4_c256_T6144": {
+      "L_hist": 62553,
+      "band": [
+        53170,
+        71936
+      ]
+    }
+  },
+  "reserved_pool_arm": {
+    "f16_T2048": {
+      "num_kv_blocks": 1308,
+      "pool_bytes": 3085959168,
+      "block_bytes": 2359296,
+      "rule": "blocks = floor((L_hist_pred + T) / 16) at T = 2048 (covers the predicted failing turn exactly)"
+    },
+    "u4_T2048": {
+      "num_kv_blocks": 4086,
+      "pool_bytes": 3087839232,
+      "block_bytes": 755712,
+      "rule": "blocks = floor((L_hist_pred + T) / 16) at T = 2048 (covers the predicted failing turn exactly)"
+    }
+  },
+  "sub_turn_bisection": {
+    "rule": "x* = (B_BR - k*H) / (k + a) for the final-turn size that still holds on history H (H = that run's own last held prompt, a measured input); predicted x* is computed from H at analysis time with this formula and B_BR, nothing refitted",
+    "resolution": 256
+  },
+  "phase_rule": "failure phase from the 10 Hz per-type trace: 'growth' if the last cl_mem sample before the exception is below 0.98 x k*(L_hist + T); 'prefill' otherwise; 'unknown' with fewer than 2 samples in the failing turn",
+  "predictions": {
+    "P-SESS-1": "held-out L_hist within +-15% (session drift) of the values above",
+    "P-SESS-2": "failure phase 'prefill' in >= 2/3 of failing unchunked turns (the pool grows first, then a*T is allocated); 'growth' in most turns favours copy transients",
+    "P-SESS-3": "reserved-pool arm: last held history >= the dynamic arm's at the same T minus one turn; if it holds more turns than the dynamic arm, copy transients are the residual (H-copy)",
+    "P-SESS-4": "chunked arm within +-15% of its law values (the a*T term replaced by a*256, the -T term kept)",
+    "P-SESS-5": "sub-turn bisection: the measured largest final turn within +-1 grid step (256) of x* from the rule"
+  },
+  "budget_rule": {
+    "rule": "B_i = P + k_compiled*L + a*min(L, cap); B_BR = median(B_i); band [min, max]",
+    "cells": [
+      {
+        "run_id": "5943c992",
+        "cell": "mech_u4_unlx",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 25000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3368800000
+      },
+      {
+        "run_id": "d6616dfd",
+        "cell": "bal_g0_u4",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 25000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3368800000
+      },
+      {
+        "run_id": "3cd03df7",
+        "cell": "a33_u4_cache0",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 24250,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3267736000
+      },
+      {
+        "run_id": "aa914c4c",
+        "cell": "mech_f16_unlx",
+        "arm": "f16",
+        "cap": "none",
+        "largest_held": 14000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3289664000
+      },
+      {
+        "run_id": "ba7a1e89",
+        "cell": "bal_g0_f16",
+        "arm": "f16",
+        "cap": "none",
+        "largest_held": 13250,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3113432000
+      },
+      {
+        "run_id": "fd074be1",
+        "cell": "mech_8_unlx",
+        "arm": "i8",
+        "cap": "none",
+        "largest_held": 18000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3089088000
+      },
+      {
+        "run_id": "b038e362",
+        "cell": "a21_8bit_rep",
+        "arm": "i8",
+        "cap": "none",
+        "largest_held": 19750,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3389416000
+      },
+      {
+        "run_id": "f8df3847",
+        "cell": "mech_u4_c256",
+        "arm": "u4",
+        "cap": 256,
+        "largest_held": 70000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3328645120
+      },
+      {
+        "run_id": "d782cf80",
+        "cell": "mech_f16_c256",
+        "arm": "f16",
+        "cap": 256,
+        "largest_held": 22000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3266437120
+      },
+      {
+        "run_id": "1e9671a0",
+        "cell": "mech_8_c256",
+        "arm": "i8",
+        "cap": 256,
+        "largest_held": 38000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3218053120
+      },
+      {
+        "run_id": "f7542f68",
+        "cell": "mech_u4_c1024",
+        "arm": "u4",
+        "cap": 1024,
+        "largest_held": 67000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3254164480
+      },
+      {
+        "run_id": "b48e4cfe",
+        "cell": "mech_f16_c1024",
+        "arm": "f16",
+        "cap": 1024,
+        "largest_held": 21000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3186196480
+      },
+      {
+        "run_id": "3e45f554",
+        "cell": "mech_8_c1024",
+        "arm": "i8",
+        "cap": 1024,
+        "largest_held": 36000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3117076480
+      },
+      {
+        "run_id": "aaadf214",
+        "cell": "a33_u4_cache2",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 13000,
+        "pool_bytes": 2147483648,
+        "implied_B_bytes": 3285243648
+      }
+    ],
+    "B_BR_bytes": 3267086560,
+    "B_BR_GB": 3.267,
+    "B_BR_GiB": 3.043,
+    "band_bytes": [
+      3089088000,
+      3389416000
+    ],
+    "spread_pct": 4.6,
+    "label": "IN-SAMPLE (57% override, windows 20261023_140349_cc_v3 and 20261024_175932_cc_v3b)"
+  }
+}

@@ -1,0 +1,3339 @@
+[
+ {
+  "host": "t2s",
+  "window": "window_20261023_160550_cc_v3",
+  "label": "alloc_f16",
+  "run_id": "50d5a3a4",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261023_160550_cc_v3/alloc_f16/derived__delta_prefill__sealed_50d5a3a4-d6ac-48dc-b0d0-6fdad2afa9f9",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-ALLOC-T2S:f16",
+  "scheduler": null,
+  "largest_n_cached": 12288,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261023_160550_cc_v3",
+  "label": "alloc_u4",
+  "run_id": "460ec188",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261023_160550_cc_v3/alloc_u4/derived__delta_prefill__sealed_460ec188-f757-459d-9abe-319605d5fa53",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-ALLOC-T2S:u4",
+  "scheduler": null,
+  "largest_n_cached": 12288,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261023_160550_cc_v3",
+  "label": "conc_ii",
+  "run_id": "fb3ad7d0",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261023_160550_cc_v3/conc_ii/derived__delta_prefill__sealed_fb3ad7d0-8158-4e1f-ba6e-8954ff95fd8f",
+  "kind": "cc_conc",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-CONC-T2S:ii",
+  "scheduler": {
+   "enable_prefix_caching": false,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": 9,
+  "first_failing_step": 10,
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261023_160550_cc_v3",
+  "label": "conc_ii_bal4p5",
+  "run_id": "cf1237a2",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261023_160550_cc_v3/conc_ii_bal4p5/derived__delta_prefill__sealed_cf1237a2-b689-4be5-b2e6-ab045f27d64f",
+  "kind": "cc_conc",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-CONC-T2S:ii:balloon4.5",
+  "scheduler": {
+   "enable_prefix_caching": false,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": 9,
+  "first_failing_step": 10,
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261023_160550_cc_v3",
+  "label": "conc_ii_bal9",
+  "run_id": "093364f9",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261023_160550_cc_v3/conc_ii_bal9/derived__delta_prefill__sealed_093364f9-5aff-44c3-833e-95938aa3b8d3",
+  "kind": "cc_conc",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-CONC-T2S:ii:balloon9",
+  "scheduler": {
+   "enable_prefix_caching": false,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": 9,
+  "first_failing_step": 10,
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261023_160550_cc_v3",
+  "label": "conc_iv",
+  "rc": "1",
+  "run_id": null
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261023_160550_cc_v3",
+  "label": "slope_f16_unl",
+  "run_id": "b4a96d44",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261023_160550_cc_v3/slope_f16_unl/derived__delta_prefill__sealed_b4a96d44-25d0-4add-9bf7-c987f24ac805",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-MECH-T2S:f16:unl",
+  "scheduler": null,
+  "largest_n_cached": 40448,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    24576,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "not_in_cells_txt"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "slope_u4_unl",
+  "run_id": "e442a753",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261024_143009_cc_v3/slope_u4_unl/derived__delta_prefill__sealed_e442a753-19e5-4c29-a02e-1052b0649ff9",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-MECH-T2S:u4:unl",
+  "scheduler": null,
+  "largest_n_cached": 40448,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    24576,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "slope_f16_c256",
+  "run_id": "910d9273",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261024_143009_cc_v3/slope_f16_c256/derived__delta_prefill__sealed_910d9273-f444-4d56-b2e0-7216e620da5b",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-MECH-T2S:f16:c256",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": 40448,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    24576,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "slope_u4_c256",
+  "run_id": "df77409c",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261024_143009_cc_v3/slope_u4_c256/derived__delta_prefill__sealed_df77409c-a96f-4226-883e-dbde5348c981",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-MECH-T2S:u4:c256",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": 40448,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    24576,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "slope_8_unl",
+  "run_id": "e50468e8",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261024_143009_cc_v3/slope_8_unl/derived__delta_prefill__sealed_e50468e8-c1b4-460b-8824-a011c1e87a77",
+  "kind": "resident_limit",
+  "arm": "gpu_only_i8",
+  "status": "complete",
+  "cc_cell": "CC-MECH-T2S:8bit:unl",
+  "scheduler": null,
+  "largest_n_cached": 40448,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    24576,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "slope_8_c256",
+  "run_id": "99cb55a8",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261024_143009_cc_v3/slope_8_c256/derived__delta_prefill__sealed_99cb55a8-e227-43c8-bd49-05afbc8da6c0",
+  "kind": "resident_limit",
+  "arm": "gpu_only_i8",
+  "status": "complete",
+  "cc_cell": "CC-MECH-T2S:8bit:c256",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": 40448,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    24576,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "slope_f16_c1024",
+  "run_id": "8833b267",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261024_143009_cc_v3/slope_f16_c1024/derived__delta_prefill__sealed_8833b267-5460-414c-99ca-8221a783d0ef",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-MECH-T2S:f16:c1024",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 1024
+  },
+  "largest_n_cached": 40448,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    24576,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "slope_u4_c1024",
+  "run_id": "5ecccb7c",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261024_143009_cc_v3/slope_u4_c1024/derived__delta_prefill__sealed_5ecccb7c-e63b-4bb8-95bc-07a2b8fe88b7",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-MECH-T2S:u4:c1024",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 1024
+  },
+  "largest_n_cached": 40448,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    24576,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "slope_8_c1024",
+  "run_id": "3288cedc",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261024_143009_cc_v3/slope_8_c1024/derived__delta_prefill__sealed_3288cedc-1865-4f35-bb05-f1d93aaaece8",
+  "kind": "resident_limit",
+  "arm": "gpu_only_i8",
+  "status": "complete",
+  "cc_cell": "CC-MECH-T2S:8bit:c1024",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 1024
+  },
+  "largest_n_cached": 40448,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    24576,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "window_f16",
+  "run_id": "7e249f7e",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261024_143009_cc_v3/window_f16/derived__delta_prefill__sealed_7e249f7e-af27-4d78-a24c-31a553e458fe",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-WINDOW-T2S:f16",
+  "scheduler": null,
+  "largest_n_cached": 40448,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    40448,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "window_8",
+  "run_id": "6dfd1a12",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261024_143009_cc_v3/window_8/derived__delta_prefill__sealed_6dfd1a12-c0ac-4947-8152-69a107c7e149",
+  "kind": "resident_limit",
+  "arm": "gpu_only_i8",
+  "status": "complete",
+  "cc_cell": "CC-WINDOW-T2S:8bit",
+  "scheduler": null,
+  "largest_n_cached": 40448,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    40448,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "window_u4",
+  "run_id": "2d329db2",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261024_143009_cc_v3/window_u4/derived__delta_prefill__sealed_2d329db2-667f-493b-98d6-7bbf18ebc52c",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-WINDOW-T2S:u4",
+  "scheduler": null,
+  "largest_n_cached": 40448,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    40448,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ],
+   [
+    40448,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "conc_i",
+  "run_id": "a854b0da",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/t2s_window_20261024_143009_cc_v3/conc_i/derived__delta_prefill__sealed_a854b0da-0124-4347-9a0f-2e1fea00e2aa",
+  "kind": "cc_conc",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-CONC-T2S:i",
+  "scheduler": {
+   "enable_prefix_caching": false,
+   "max_num_batched_tokens": 18446744073709551615
+  },
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": 3,
+  "first_failing_step": 4,
+  "rc": "0"
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_143009_cc_v3",
+  "label": "conc_iii",
+  "rc": "1",
+  "run_id": null
+ },
+ {
+  "host": "t2s",
+  "window": "window_20261024_182749_cc_v3",
+  "label": "conc_iv",
+  "rc": "1",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "alloc_f16",
+  "run_id": "e4e797e7",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/alloc_f16/derived__delta_prefill__sealed_e4e797e7-51c5-4165-8b2d-80bd9db76af0",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-ALLOC-XPS:f16",
+  "scheduler": null,
+  "largest_n_cached": 12288,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "alloc_u4",
+  "run_id": "ae16fcd5",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/alloc_u4/derived__delta_prefill__sealed_ae16fcd5-1eb5-486d-8c28-87b8fffe034c",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-ALLOC-XPS:u4",
+  "scheduler": null,
+  "largest_n_cached": 12288,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "mech_f16_c256",
+  "run_id": "d782cf80",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/mech_f16_c256/derived__delta_prefill__sealed_d782cf80-1528-449b-b0c3-2ddafda7c15b",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:f16:c256",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": 22000,
+  "first_fail_n_cached": 23000,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    40000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    26000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    19000,
+    true,
+    null
+   ],
+   [
+    22000,
+    true,
+    null
+   ],
+   [
+    24000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    23000,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "mech_u4_c256",
+  "run_id": "f8df3847",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/mech_u4_c256/derived__delta_prefill__sealed_f8df3847-1282-4ea3-9b75-ff026d9cfb43",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:u4:c256",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": 70000,
+  "first_fail_n_cached": 71000,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    110000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    61000,
+    true,
+    null
+   ],
+   [
+    85000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    73000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    67000,
+    true,
+    null
+   ],
+   [
+    70000,
+    true,
+    null
+   ],
+   [
+    71000,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "mech_u4_unlx",
+  "run_id": "5943c992",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/mech_u4_unlx/derived__delta_prefill__sealed_5943c992-f8b0-4517-b844-cbb94877c001",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:u4:unlx",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 18446744073709551615
+  },
+  "largest_n_cached": 25000,
+  "first_fail_n_cached": 26000,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    30000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    21000,
+    true,
+    null
+   ],
+   [
+    25000,
+    true,
+    null
+   ],
+   [
+    27000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    26000,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "a21_8bit",
+  "run_id": "de5f641f",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/a21_8bit/derived__delta_prefill__sealed_de5f641f-0d35-41df-bf15-2aabe9499d50",
+  "kind": "resident_limit",
+  "arm": "gpu_only_i8",
+  "status": "complete",
+  "cc_cell": "CC-A21-XPS:8bit:unl",
+  "scheduler": null,
+  "largest_n_cached": 19500,
+  "first_fail_n_cached": 19750,
+  "points": [
+   [
+    18000,
+    true,
+    null
+   ],
+   [
+    24000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    21000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    19500,
+    true,
+    null
+   ],
+   [
+    20250,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    19750,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "a21_8bit_rep",
+  "run_id": "b038e362",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/a21_8bit_rep/derived__delta_prefill__sealed_b038e362-0468-42d3-8966-730b6197132b",
+  "kind": "resident_limit",
+  "arm": "gpu_only_i8",
+  "status": "complete",
+  "cc_cell": "CC-A21-XPS:8bit:unl:rep",
+  "scheduler": null,
+  "largest_n_cached": 19750,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    19500,
+    true,
+    null
+   ],
+   [
+    19750,
+    true,
+    null
+   ],
+   [
+    19500,
+    true,
+    null
+   ],
+   [
+    19750,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bal_g0_f16",
+  "run_id": "ba7a1e89",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/bal_g0_f16/derived__delta_prefill__sealed_ba7a1e89-3f8a-4078-9db3-eb3f6326fd2e",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-BAL-XPS:gpu0:f16",
+  "scheduler": null,
+  "largest_n_cached": 13250,
+  "first_fail_n_cached": 13500,
+  "points": [
+   [
+    8000,
+    true,
+    null
+   ],
+   [
+    18000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    13000,
+    true,
+    null
+   ],
+   [
+    15500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    14250,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    13500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    13250,
+    true,
+    null
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bal_g1_f16",
+  "rc": "1",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bal_g2_f16",
+  "rc": "1",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bal_g0_u4",
+  "run_id": "d6616dfd",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/bal_g0_u4/derived__delta_prefill__sealed_d6616dfd-2555-481e-9399-0a65f45910c1",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-BAL-XPS:gpu0:u4",
+  "scheduler": null,
+  "largest_n_cached": 25000,
+  "first_fail_n_cached": 25250,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    30000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    21000,
+    true,
+    null
+   ],
+   [
+    25500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    23250,
+    true,
+    null
+   ],
+   [
+    24250,
+    true,
+    null
+   ],
+   [
+    24750,
+    true,
+    null
+   ],
+   [
+    25000,
+    true,
+    null
+   ],
+   [
+    25250,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bal_g1_u4",
+  "run_id": "598e882d",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/bal_g1_u4/derived__delta_prefill__sealed_598e882d-174c-4c65-8e7d-780c9402ccb3",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-BAL-XPS:gpu1:u4",
+  "scheduler": null,
+  "largest_n_cached": 25000,
+  "first_fail_n_cached": 25250,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    30000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    21000,
+    true,
+    null
+   ],
+   [
+    25500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    23250,
+    true,
+    null
+   ],
+   [
+    24250,
+    true,
+    null
+   ],
+   [
+    24750,
+    true,
+    null
+   ],
+   [
+    25000,
+    true,
+    null
+   ],
+   [
+    25250,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bal_g2_u4",
+  "rc": "1",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bal_c2_f16",
+  "run_id": "0f3950a3",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/bal_c2_f16/derived__delta_prefill__sealed_0f3950a3-a50f-48bd-86c6-4f6fd1ebbbc6",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-BAL-XPS:cpu2:f16",
+  "scheduler": null,
+  "largest_n_cached": 14000,
+  "first_fail_n_cached": 14250,
+  "points": [
+   [
+    8000,
+    true,
+    null
+   ],
+   [
+    18000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    13000,
+    true,
+    null
+   ],
+   [
+    15500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    14250,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    13500,
+    true,
+    null
+   ],
+   [
+    13750,
+    true,
+    null
+   ],
+   [
+    14000,
+    true,
+    null
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bal_c4_f16",
+  "rc": "1",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bytes_u4_unl",
+  "run_id": "a7c80981",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/bytes_u4_unl/derived__delta_prefill__sealed_a7c80981-6bb8-48dd-b47e-390afb22a262",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-BYTES-XPS:u4:unl",
+  "scheduler": null,
+  "largest_n_cached": 12288,
+  "first_fail_n_cached": 25500,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    25500,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bytes_u4_c256",
+  "run_id": "7efe5417",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/bytes_u4_c256/derived__delta_prefill__sealed_7efe5417-34c2-4bce-ba79-0fc7cd6e1df6",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-BYTES-XPS:u4:c256",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": 25500,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    25500,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bytes_f16_unl",
+  "run_id": "cea2a132",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/bytes_f16_unl/derived__delta_prefill__sealed_cea2a132-9c4f-4293-b333-d6ed208b459e",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-BYTES-XPS:f16:unl",
+  "scheduler": null,
+  "largest_n_cached": 14000,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    14000,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bytes_f16_c256",
+  "run_id": "59f7b2e2",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/bytes_f16_c256/derived__delta_prefill__sealed_59f7b2e2-ae3b-43ed-90e5-3f2dc8422b41",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-BYTES-XPS:f16:c256",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": 14000,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    14000,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bytes_8_unl",
+  "run_id": "4032cfae",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/bytes_8_unl/derived__delta_prefill__sealed_4032cfae-7c57-4981-a9a9-ee9c059fb756",
+  "kind": "resident_limit",
+  "arm": "gpu_only_i8",
+  "status": "complete",
+  "cc_cell": "CC-BYTES-XPS:8bit:unl",
+  "scheduler": null,
+  "largest_n_cached": 19000,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    19000,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bytes_8_c256",
+  "run_id": "03010dd1",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/bytes_8_c256/derived__delta_prefill__sealed_03010dd1-8582-4917-96fd-a9b3892fc332",
+  "kind": "resident_limit",
+  "arm": "gpu_only_i8",
+  "status": "complete",
+  "cc_cell": "CC-BYTES-XPS:8bit:c256",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": 19000,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    19000,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "bytes_u4_c1024",
+  "run_id": "5c28dff2",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/bytes_u4_c1024/derived__delta_prefill__sealed_5c28dff2-3afd-499b-a35b-a4430613e6c8",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-BYTES-XPS:u4:c1024",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 1024
+  },
+  "largest_n_cached": 25500,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    12288,
+    true,
+    null
+   ],
+   [
+    25500,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "mech_f16_unlx",
+  "run_id": "aa914c4c",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/mech_f16_unlx/derived__delta_prefill__sealed_aa914c4c-f9d9-4147-b048-d84eb631f636",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:f16:unlx",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 18446744073709551615
+  },
+  "largest_n_cached": 14000,
+  "first_fail_n_cached": 15000,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    20000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    16000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    14000,
+    true,
+    null
+   ],
+   [
+    15000,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "mech_8_c256",
+  "run_id": "1e9671a0",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/mech_8_c256/derived__delta_prefill__sealed_1e9671a0-e1ee-49e0-bca0-8185fe8d923f",
+  "kind": "resident_limit",
+  "arm": "gpu_only_i8",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:8bit:c256",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": 38000,
+  "first_fail_n_cached": 39000,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    110000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    61000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    36000,
+    true,
+    null
+   ],
+   [
+    48000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    42000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    39000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    37000,
+    true,
+    null
+   ],
+   [
+    38000,
+    true,
+    null
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "mech_u4_c1024",
+  "run_id": "f7542f68",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/mech_u4_c1024/derived__delta_prefill__sealed_f7542f68-99a8-452e-87b6-48c205134411",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:u4:c1024",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 1024
+  },
+  "largest_n_cached": 67000,
+  "first_fail_n_cached": 68000,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    110000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    61000,
+    true,
+    null
+   ],
+   [
+    85000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    73000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    67000,
+    true,
+    null
+   ],
+   [
+    70000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    68000,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "mech_f16_c1024",
+  "run_id": "b48e4cfe",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/mech_f16_c1024/derived__delta_prefill__sealed_b48e4cfe-1e05-4bbf-8998-129aff2036ca",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:f16:c1024",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 1024
+  },
+  "largest_n_cached": 21000,
+  "first_fail_n_cached": 22000,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    40000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    26000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    19000,
+    true,
+    null
+   ],
+   [
+    22000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    20000,
+    true,
+    null
+   ],
+   [
+    21000,
+    true,
+    null
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "mech_8_c1024",
+  "run_id": "3e45f554",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/mech_8_c1024/derived__delta_prefill__sealed_3e45f554-e109-4efd-b429-4871da0fb9b2",
+  "kind": "resident_limit",
+  "arm": "gpu_only_i8",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:8bit:c1024",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 1024
+  },
+  "largest_n_cached": 36000,
+  "first_fail_n_cached": 37000,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    110000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    61000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    36000,
+    true,
+    null
+   ],
+   [
+    48000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    42000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    39000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    37000,
+    false,
+    "turn2:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "mech_8_unlx",
+  "run_id": "fd074be1",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/mech_8_unlx/derived__delta_prefill__sealed_fd074be1-caa9-4938-be31-707ff532f820",
+  "kind": "resident_limit",
+  "arm": "gpu_only_i8",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:8bit:unlx",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 18446744073709551615
+  },
+  "largest_n_cached": 18000,
+  "first_fail_n_cached": 19000,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    24000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    18000,
+    true,
+    null
+   ],
+   [
+    21000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    19000,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "rep_u4_c256",
+  "run_id": "0580176a",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/rep_u4_c256/derived__delta_prefill__sealed_0580176a-81f6-4909-8712-1def2143c0d4",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:u4:c256:rep",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": null,
+  "first_fail_n_cached": 70000,
+  "points": [
+   [
+    70000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    71000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    70000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    71000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    70000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    71000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    70000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    71000,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "rep_f16_c256",
+  "run_id": "e7f0c307",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/rep_f16_c256/20261023_140349_rep_f16_c256/derived__delta_prefill__sealed_e7f0c307-4dc1-492d-ab08-f79908b0c973",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:f16:c256:rep",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": null,
+  "first_fail_n_cached": 22000,
+  "points": [
+   [
+    22000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    23000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    22000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    23000,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "rep_u4_unlx",
+  "run_id": "f262076b",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/rep_u4_unlx/derived__delta_prefill__sealed_f262076b-971f-4bac-9d51-3c0284dbfd43",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:u4:unlx:rep",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 18446744073709551615
+  },
+  "largest_n_cached": null,
+  "first_fail_n_cached": 25000,
+  "points": [
+   [
+    25000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    26000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    25000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    26000,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "rep_f16_unlx",
+  "run_id": "c8d3d799",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/rep_f16_unlx/derived__delta_prefill__sealed_c8d3d799-71d1-4abd-90ed-120577ba3baa",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-MECH-XPS:f16:unlx:rep",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 18446744073709551615
+  },
+  "largest_n_cached": 14000,
+  "first_fail_n_cached": 14000,
+  "points": [
+   [
+    14000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    15000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    14000,
+    true,
+    null
+   ],
+   [
+    15000,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "cliff_f16",
+  "run_id": "83a3c422",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/cliff_f16/derived__delta_prefill__sealed_83a3c422-a7c5-4b37-b9ef-9f111a0ca1ea",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-CLIFF-XPS:f16",
+  "scheduler": null,
+  "largest_n_cached": 12000,
+  "first_fail_n_cached": 13500,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    13500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    14250,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    15000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    15750,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    18750,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    22500,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "cliff_u4",
+  "rc": "1",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "ttft_u4_unlx",
+  "run_id": "d42040c1",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/ttft_u4_unlx/derived__delta_prefill__sealed_d42040c1-56d8-4194-b2a2-35a6c66c59f6",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-TTFT-XPS:u4:unlx",
+  "scheduler": {
+   "enable_prefix_caching": false,
+   "max_num_batched_tokens": 18446744073709551615
+  },
+  "largest_n_cached": 16384,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    16384,
+    true,
+    null
+   ],
+   [
+    16384,
+    true,
+    null
+   ],
+   [
+    16384,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "ttft_u4_c1024",
+  "run_id": "a8018646",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/ttft_u4_c1024/derived__delta_prefill__sealed_a8018646-8eb7-4398-878c-7f9d4394a28e",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-TTFT-XPS:u4:c1024",
+  "scheduler": {
+   "enable_prefix_caching": false,
+   "max_num_batched_tokens": 1024
+  },
+  "largest_n_cached": 16384,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    16384,
+    true,
+    null
+   ],
+   [
+    16384,
+    true,
+    null
+   ],
+   [
+    16384,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "ttft_u4_c256",
+  "run_id": "8997aa4e",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/ttft_u4_c256/derived__delta_prefill__sealed_8997aa4e-a974-4aee-92d7-5cd0dc0c9726",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-TTFT-XPS:u4:c256",
+  "scheduler": {
+   "enable_prefix_caching": false,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": 16384,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    16384,
+    true,
+    null
+   ],
+   [
+    16384,
+    true,
+    null
+   ],
+   [
+    16384,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "energy_u4",
+  "run_id": "69f56f0c",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261023_140349_cc_v3/energy_u4/derived__delta_prefill__sealed_69f56f0c-670c-4bcc-89d7-e4da695649e1",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-ENERGY-XPS:u4:ac",
+  "scheduler": null,
+  "largest_n_cached": 16384,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    2048,
+    true,
+    null
+   ],
+   [
+    2048,
+    true,
+    null
+   ],
+   [
+    2048,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    4096,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    8192,
+    true,
+    null
+   ],
+   [
+    16384,
+    true,
+    null
+   ],
+   [
+    16384,
+    true,
+    null
+   ],
+   [
+    16384,
+    true,
+    null
+   ]
+  ],
+  "note": "fixed points (CC cell), not a bisection",
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261023_140349_cc_v3",
+  "label": "cc_rt",
+  "rc": "NOT_RUN_CONDITIONAL",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "reh_grow",
+  "run_id": "5dac335c",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/reh_grow/derived__delta_prefill__sealed_5dac335c-0a70-46c0-b559-6901795d80c7",
+  "kind": "cc_grow",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-REH-XPS:grow",
+  "scheduler": null,
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": 0,
+  "first_failing_step": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "grow_f16_unl",
+  "run_id": "71b7d9d8",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/grow_f16_unl/derived__delta_prefill__sealed_71b7d9d8-4dc3-43bd-be73-e12ac7f639d5",
+  "kind": "cc_grow",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-GROW-XPS:f16:unl:d2048",
+  "scheduler": null,
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": null,
+  "first_failing_step": 0,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "grow_u4_unl",
+  "run_id": "d7e8b43e",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/grow_u4_unl/derived__delta_prefill__sealed_d7e8b43e-8f2f-43f0-b2c7-b5c313098a4a",
+  "kind": "cc_grow",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-GROW-XPS:u4:unl:d2048",
+  "scheduler": null,
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": null,
+  "first_failing_step": 0,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "grow_f16_c256",
+  "run_id": "2bfae783",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/grow_f16_c256/derived__delta_prefill__sealed_2bfae783-9b1a-4b68-a582-63d71a174d8a",
+  "kind": "cc_grow",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-GROW-XPS:f16:c256:d2048",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": null,
+  "first_failing_step": 0,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "grow_u4_c256",
+  "run_id": "08e52da9",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/grow_u4_c256/derived__delta_prefill__sealed_08e52da9-4946-4ec4-9198-fd7c8b353c49",
+  "kind": "cc_grow",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-GROW-XPS:u4:c256:d2048",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 256
+  },
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": null,
+  "first_failing_step": 0,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "grow_f16_unl_d1k",
+  "run_id": "e99bb2ad",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/grow_f16_unl_d1k/derived__delta_prefill__sealed_e99bb2ad-c636-4edd-8a39-1d39a0ad6027",
+  "kind": "cc_grow",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-GROW-XPS:f16:unl:d1024",
+  "scheduler": null,
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": null,
+  "first_failing_step": 0,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "grow_u4_unl_d1k",
+  "run_id": "0c7ae0a3",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/grow_u4_unl_d1k/derived__delta_prefill__sealed_0c7ae0a3-c22d-49a8-984c-335cdb921232",
+  "kind": "cc_grow",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-GROW-XPS:u4:unl:d1024",
+  "scheduler": null,
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": null,
+  "first_failing_step": 0,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "grow_f16_unl_d4k",
+  "run_id": "9cb921fd",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/grow_f16_unl_d4k/derived__delta_prefill__sealed_9cb921fd-1aed-4623-98c4-71e088fe1b79",
+  "kind": "cc_grow",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-GROW-XPS:f16:unl:d4096",
+  "scheduler": null,
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": null,
+  "first_failing_step": 0,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "grow_u4_unl_d4k",
+  "run_id": "10cb79e4",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/grow_u4_unl_d4k/derived__delta_prefill__sealed_10cb79e4-be11-4faa-8a61-38f3ed80e002",
+  "kind": "cc_grow",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-GROW-XPS:u4:unl:d4096",
+  "scheduler": null,
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [],
+  "note": null,
+  "largest_holding_step": null,
+  "first_failing_step": 0,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "a33_u4_cache2",
+  "run_id": "aaadf214",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/a33_u4_cache2/derived__delta_prefill__sealed_aaadf214-9946-4492-a9d1-0b2528ed30f7",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-A33-XPS:u4:cache2",
+  "scheduler": {
+   "cache_size": 2,
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 18446744073709551615
+  },
+  "largest_n_cached": 13000,
+  "first_fail_n_cached": 13250,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    30000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    21000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    16500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    14250,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    13000,
+    true,
+    null
+   ],
+   [
+    13500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    13250,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "a33_u4_cache0",
+  "run_id": "3cd03df7",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/a33_u4_cache0/derived__delta_prefill__sealed_3cd03df7-b87c-4a68-a0ed-4db18f8237de",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-A33-XPS:u4:cache0",
+  "scheduler": {
+   "enable_prefix_caching": true,
+   "max_num_batched_tokens": 18446744073709551615
+  },
+  "largest_n_cached": 24250,
+  "first_fail_n_cached": 24500,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    30000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    21000,
+    true,
+    null
+   ],
+   [
+    25500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    23250,
+    true,
+    null
+   ],
+   [
+    24250,
+    true,
+    null
+   ],
+   [
+    24750,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    24500,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "cc_rt",
+  "rc": "NOT_RUN_CONDITIONAL",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "bal_g1_f16",
+  "run_id": "0014465c",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/bal_g1_f16/derived__delta_prefill__sealed_0014465c-1d83-4b51-8e55-64ee6cbb9e6b",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-BAL-XPS:gpu1:f16",
+  "scheduler": null,
+  "largest_n_cached": 14250,
+  "first_fail_n_cached": 14500,
+  "points": [
+   [
+    8000,
+    true,
+    null
+   ],
+   [
+    18000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    13000,
+    true,
+    null
+   ],
+   [
+    15500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    14250,
+    true,
+    null
+   ],
+   [
+    14750,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    14500,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "bal_g2_f16",
+  "rc": "1",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "bal_g2_u4",
+  "run_id": "f9953743",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/bal_g2_u4/derived__delta_prefill__sealed_f9953743-4a62-4adc-80ca-5d9edea3c380",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-BAL-XPS:gpu2:u4",
+  "scheduler": null,
+  "largest_n_cached": 24750,
+  "first_fail_n_cached": 25000,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    30000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    21000,
+    true,
+    null
+   ],
+   [
+    25500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    23250,
+    true,
+    null
+   ],
+   [
+    24250,
+    true,
+    null
+   ],
+   [
+    24750,
+    true,
+    null
+   ],
+   [
+    25000,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "bal_c4_f16",
+  "run_id": "62d59ab8",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261024_175932_cc_v3b/bal_c4_f16/derived__delta_prefill__sealed_62d59ab8-c9f8-4742-bd0a-3a4c71085292",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-BAL-XPS:cpu4:f16",
+  "scheduler": null,
+  "largest_n_cached": 14250,
+  "first_fail_n_cached": 14500,
+  "points": [
+   [
+    8000,
+    true,
+    null
+   ],
+   [
+    18000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    13000,
+    true,
+    null
+   ],
+   [
+    15500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    14250,
+    true,
+    null
+   ],
+   [
+    14750,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    14500,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "bal_g1_u4",
+  "rc": "NOT_RUN_COVERED_598e882d",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261024_175932_cc_v3b",
+  "label": "bal_c2_f16",
+  "rc": "NOT_RUN_COVERED_0f3950a3",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261025_174345_cc_v3",
+  "label": "cc_rt",
+  "rc": "NOT_RUN_CONDITIONAL",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261025_174345_cc_v3",
+  "label": "slider_f16",
+  "run_id": "769c5a03",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261025_174345_cc_v3/slider_f16/derived__delta_prefill__sealed_769c5a03-efb7-4c21-81c4-aaaca4d593d5",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-SLIDER-XPS:p50:f16",
+  "scheduler": null,
+  "largest_n_cached": 13250,
+  "first_fail_n_cached": 13500,
+  "points": [
+   [
+    8000,
+    true,
+    null
+   ],
+   [
+    40000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    24000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    16000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    14000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    13000,
+    true,
+    null
+   ],
+   [
+    13500,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    13250,
+    true,
+    null
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261025_174345_cc_v3",
+  "label": "slider_u4",
+  "run_id": "a2a7c763",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261025_174345_cc_v3/slider_u4/derived__delta_prefill__sealed_a2a7c763-8269-4f43-846f-dd32b08e6e09",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-SLIDER-XPS:p50:u4",
+  "scheduler": null,
+  "largest_n_cached": 22750,
+  "first_fail_n_cached": 23000,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    72000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    42000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    27000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    19500,
+    true,
+    null
+   ],
+   [
+    23250,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    21250,
+    true,
+    null
+   ],
+   [
+    22250,
+    true,
+    null
+   ],
+   [
+    22750,
+    true,
+    null
+   ],
+   [
+    23000,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261025_185526_cc_v3",
+  "label": "cc_rt",
+  "rc": "NOT_RUN_CONDITIONAL",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261025_185526_cc_v3",
+  "label": "slider_f16",
+  "run_id": "39d38c85",
+  "seal": "UNSEALED",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261025_185526_cc_v3/slider_f16/derived__delta_prefill__39d38c85-6d10-40a3-a233-151fb091d242",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "REFUSED_CANARY",
+  "cc_cell": "CC-SLIDER-XPS:p74:f16",
+  "scheduler": null,
+  "largest_n_cached": null,
+  "first_fail_n_cached": null,
+  "points": [
+   [
+    8000,
+    false,
+    "turn2:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "1"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261025_185526_cc_v3",
+  "label": "slider_u4",
+  "run_id": "9e31d4cb",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261025_185526_cc_v3/slider_u4/derived__delta_prefill__sealed_9e31d4cb-0f35-4782-bdf4-e5fa9997a3e7",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-SLIDER-XPS:p74:u4",
+  "scheduler": null,
+  "largest_n_cached": 17750,
+  "first_fail_n_cached": 18000,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    72000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    42000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    27000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    19500,
+    false,
+    "turn2:RuntimeError"
+   ],
+   [
+    15750,
+    true,
+    null
+   ],
+   [
+    17500,
+    true,
+    null
+   ],
+   [
+    18500,
+    false,
+    "turn2:RuntimeError"
+   ],
+   [
+    18000,
+    false,
+    "turn2:RuntimeError"
+   ],
+   [
+    17750,
+    true,
+    null
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261025_204059_cc_v3",
+  "label": "cc_rt",
+  "rc": "NOT_RUN_CONDITIONAL",
+  "run_id": null
+ },
+ {
+  "host": "xps",
+  "window": "window_20261025_204059_cc_v3",
+  "label": "slider_f16",
+  "run_id": "c461f165",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261025_204059_cc_v3/slider_f16/derived__delta_prefill__sealed_c461f165-9657-471c-a176-1f75b6515513",
+  "kind": "resident_limit",
+  "arm": "gpu_only_f16",
+  "status": "complete",
+  "cc_cell": "CC-SLIDER-XPS:p57:f16",
+  "scheduler": null,
+  "largest_n_cached": 12500,
+  "first_fail_n_cached": 12750,
+  "points": [
+   [
+    8000,
+    true,
+    null
+   ],
+   [
+    40000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    24000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    16000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    14000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    13000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    12500,
+    true,
+    null
+   ],
+   [
+    12750,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ },
+ {
+  "host": "xps",
+  "window": "window_20261025_204059_cc_v3",
+  "label": "slider_u4",
+  "run_id": "f4abaf6e",
+  "seal": "MATCH_MANIFEST",
+  "dir": "derived/cc/windows_20261023_25/xps_window_20261025_204059_cc_v3/slider_u4/derived__delta_prefill__sealed_f4abaf6e-cab9-446f-b47c-b92cf714a5ae",
+  "kind": "resident_limit",
+  "arm": "gpu_only_u4",
+  "status": "complete",
+  "cc_cell": "CC-SLIDER-XPS:p57:u4",
+  "scheduler": null,
+  "largest_n_cached": 21250,
+  "first_fail_n_cached": 21500,
+  "points": [
+   [
+    12000,
+    true,
+    null
+   ],
+   [
+    72000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    42000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    27000,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    19500,
+    true,
+    null
+   ],
+   [
+    23250,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    21250,
+    true,
+    null
+   ],
+   [
+    22250,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    21750,
+    false,
+    "turn1:RuntimeError"
+   ],
+   [
+    21500,
+    false,
+    "turn1:RuntimeError"
+   ]
+  ],
+  "note": null,
+  "rc": "0"
+ }
+]

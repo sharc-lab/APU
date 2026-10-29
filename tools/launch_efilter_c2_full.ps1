@@ -7,7 +7,7 @@
 # No absolute wall-clock claims (AM-032). Dirty tree allowed with --allow-dirty.
 
 $ErrorActionPreference = "Stop"
-Set-Location "C:\Users\zjohn\Projects\gnn-hls-accel"
+Set-Location "C:\Users\<user>\Projects\gnn-hls-accel"
 
 $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $logDir = "derived\efilter"

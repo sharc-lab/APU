@@ -24,11 +24,11 @@ __all__ = [
     "requested_kv_cache_precision",
 ]
 
-KV_PRECISION_NAMES: tuple[str, ...] = ("f16", "u8", "u4")
+KV_PRECISION_NAMES: tuple[str, ...] = ("f16", "u8", "u4", "i8")
 
 # Qwen3-4B: 2 * n_layers * n_kv_heads * head_dim (elements, not bytes).
 KV_ELEMENTS_PER_TOKEN = 2 * 36 * 8 * 128  # 73728 elements/token
-_KV_BYTES_PER_ELEMENT: dict[str, float] = {"f16": 2.0, "u8": 1.0, "u4": 0.5}
+_KV_BYTES_PER_ELEMENT: dict[str, float] = {"f16": 2.0, "u8": 1.0, "u4": 0.5, "i8": 1.0}
 
 _ALIASES: dict[str, str] = {
     "float16": "f16",
@@ -39,6 +39,10 @@ _ALIASES: dict[str, str] = {
     "uint4_t": "u4",
     "u4": "u4",
     "uint4": "u4",
+    # Task BM (A31): i8 requested and read back (the GPU compiles the sealed u8 request as i8).
+    "int8_t": "i8",
+    "int8": "i8",
+    "i8": "i8",
     "dynamic": "dynamic",
 }
 
@@ -82,6 +86,7 @@ def ov_type_for_kv_precision(name: str) -> Any:
         "f16": Type.f16,
         "u8": Type.u8,
         "u4": Type.u4,
+        "i8": Type.i8,
     }
     if key not in mapping:
         raise ValueError(

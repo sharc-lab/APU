@@ -1,0 +1,99 @@
+{
+  "id": "CC_BL_PREDICTIONS",
+  "status": "registered with docs/registrations/CC_AMEND_2026-10-23b.md before any CC run; DERIVED; adds to CC_PREDICTIONS.json, which is unchanged",
+  "generator": "tools/cc_bl_predict.py",
+  "runner_must_not_read_this_file": true,
+  "hypotheses": {
+    "H_act": {
+      "a_B_per_token": 96768,
+      "budget_GiB": 3.412
+    },
+    "H_quad": {
+      "c_B_per_token2": 2.332,
+      "budget_GiB": 2.549
+    },
+    "MIXED_64T": "retired for the sealed limits; CC-GROW only"
+  },
+  "cc_mech_xps_secondary": {
+    "H_act_limits": {
+      "f16:c256": 24676,
+      "f16:c1024": 24172,
+      "u8:c256": 46448,
+      "u8:c1024": 45500,
+      "u4:c256": 87736,
+      "u4:c1024": 85944
+    },
+    "H_act_capped_u4_over_f16": 3.56,
+    "H_quad": "each capped limit within 10% of the same precision's uncapped limit",
+    "report_u8_capped_band": [
+      46000,
+      48000
+    ],
+    "report_u8_note": "the source report gives u8 capped 46-48K; this generator gives c256 and c1024 above; the decision rule does not use u8",
+    "rule_H_act_confirmed": "f16 c256 >= 21,000 AND u4 c256 >= 60,000 AND |c1024 - c256| <= 0.10 x c256 (per precision measured)",
+    "rule_H_act_refuted": "u4 c256 <= 29,000",
+    "primary_unchanged": "CC_PREDICTIONS.json u4:c256 63,319 [36,239, 99,204]; gate >= 40,000"
+  },
+  "cc_ttft_xps": {
+    "u4_c256_penalty_at_16384_max": 0.15
+  },
+  "cc_grow_xps": {
+    "H_act_kv_bound": {
+      "f16": 24676,
+      "u4": 87736
+    },
+    "MIXED_T2048": {
+      "f16_unl": 13153,
+      "u4_unl": 21231,
+      "u4_c256": 63319
+    }
+  },
+  "cc_rt_xps": {
+    "q4_0_over_f16_ceiling_min": 3.0,
+    "openvino_default_sealed": 1.77
+  },
+  "cc_valid_xps": {
+    "anchor_rule": "2507 uncapped f16 and u4 within 1,000 tokens of 15,000 and 26,500",
+    "u4_c256_L_valid_min": 40000
+  },
+  "t2s": {
+    "available_for_context_GiB": 43.0,
+    "single_session_ceiling_uncapped_tokens": {
+      "f16": 189034,
+      "u8": 263653,
+      "u4": 333961
+    },
+    "window_headroom_f16": 4.62,
+    "cc_window": "40,448 holds at f16 / u8 / u4 uncapped (r = 3); the window, not memory, binds",
+    "byte_slope_B_per_token": {
+      "uncapped_band": [
+        72576,
+        120960
+      ],
+      "capped_max": 24192,
+      "basis": "uncapped within +-25% of the XPS fit a; capped about 0 (<= 0.25 a)"
+    },
+    "conc": {
+      "per_session_kv_GiB": 4.5,
+      "ii_dynamic_cap256_fails_at_N": 10,
+      "ii_N_star": 9.55,
+      "i_unbounded_simultaneous_fails_at_N": 6,
+      "i_N_star": 5.77,
+      "iii_fixed_40GiB_cap256_preemption_from_N": 9,
+      "iv_fixed_50GiB": "construction fails (50 GiB > the 48,124 MiB tier)",
+      "u4_capped_N_star_not_reached": 34.0
+    },
+    "slider_A15": "each +4.5 GiB of tier adds one capped 32,768-token f16 session"
+  },
+  "tokens_per_GiB": {
+    "f16_default": 4397,
+    "f16_bounded": 7282,
+    "u4_default": 7767,
+    "u4_bounded": 25891
+  },
+  "slider_A18_xps": {
+    "f16_unl_tokens_per_GiB": 4397,
+    "plus_4p5_GiB_from_15000": 34786
+  },
+  "scoring": "each item HIT/MISS by its own rule; censored (timeout, no device error) probes leave a limit UNRESOLVED, not MISS"
+}

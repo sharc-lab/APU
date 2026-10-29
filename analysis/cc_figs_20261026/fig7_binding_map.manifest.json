@@ -1,0 +1,13 @@
+{
+ "figure": "fig7_binding_map",
+ "outputs": [
+  "analysis/meeting_20261027/figs/fig7_binding_map.png",
+  "analysis/meeting_20261027/figs/fig7_binding_map.pdf"
+ ],
+ "inputs_sha256": {
+  "analysis/cc_20261026/measured.json": "75e7596d1150ac55579f86dd2485ce2ede38399fda033515618f449e543aae5e"
+ },
+ "notes": [
+  "rows from the award report's regime map (DERIVED)"
+ ]
+}

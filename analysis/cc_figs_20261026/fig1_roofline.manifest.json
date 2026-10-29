@@ -1,0 +1,18 @@
+{
+ "figure": "fig1_roofline",
+ "outputs": [
+  "analysis/meeting_20261027/figs/fig1_roofline.png",
+  "analysis/meeting_20261027/figs/fig1_roofline.pdf"
+ ],
+ "inputs_sha256": {
+  "derived/cc/CC_BL_PREDICTIONS.json": "5a4c4477747b94dc9a0b172497dcb5f35c4fa27adebd386449c140c1df3e9d56",
+  "derived/cc/CC_PREDICTIONS.json": "8bd98ad4fde84a27944dc781029075cfa7757f1307c074cb1f2917599aa2d5ca",
+  "derived/delta_prefill/sealed_553b3a5c-dd68-4502-bb3f-1b6a10a61eb1/summary.json": "a52afc8b3efec13e7e7b12f2dd2548913f84a81f10eefc139f268b92f3746a19",
+  "derived/delta_prefill/sealed_cf3555d5-1361-434f-b1fb-745fc17e6843/summary.json": "3fa6232e55b7d1a20e3bfaeb882e78f156549b9fd0adef69d74b95d8debb12a0",
+  "derived/delta_prefill/sealed_e4a22dac-6301-4dfa-ae12-882328b6ba7c/summary.json": "4ace9157ffc5192ac54ecbd0b6426bdd95e980eb5d0e05e47ac29159a82f7d7f",
+  "analysis/cc_20261026/measured.json": "75e7596d1150ac55579f86dd2485ce2ede38399fda033515618f449e543aae5e"
+ },
+ "notes": [
+  "a and B fitted to the f16/u4 pair: the sealed points are in-sample"
+ ]
+}

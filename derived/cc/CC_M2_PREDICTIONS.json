@@ -1,0 +1,86 @@
+{
+  "id": "CC_M2_PREDICTIONS",
+  "status": "registered with docs/registrations/CC_AMEND_2026-10-23d_MODEL2.md before any Qwen3-8B CC run; DERIVED",
+  "generator": "tools/cc_m2_predict.py",
+  "runner_must_not_read_this_file": true,
+  "inputs": {
+    "config_8b": {
+      "num_hidden_layers": 36,
+      "hidden_size": 4096,
+      "intermediate_size": 12288,
+      "num_attention_heads": 32,
+      "num_key_value_heads": 8,
+      "head_dim": 128,
+      "max_position_embeddings": 40960
+    },
+    "k_B_per_token": {
+      "f16": 147456,
+      "i8": 78336,
+      "u4": 41472
+    },
+    "a_rule": "4 x (2 x intermediate + 2 x hidden) bytes per token",
+    "a_rule_on_4b": 98304,
+    "a_fitted_4b": 96768,
+    "budget_4b_GiB": 3.412,
+    "weights_ir_bytes": {
+      "4b": 2290768181,
+      "8b": 4882865352
+    },
+    "budget_8b_GiB": 0.998,
+    "budget_rule": "B_8B = B_4B(fit) - (W_8B - W_4B). If the A19 record at the M2 run shows a different GPU-shared tier S than the A19 record at the CC v3 queue start, use B_8B + (S_m2 - S_v3) with no refit"
+  },
+  "alloc_slope_a": {
+    "f16": {
+      "point": 131072,
+      "band": [
+        111411,
+        150733
+      ]
+    },
+    "u4": {
+      "point": 131072,
+      "band": [
+        111411,
+        150733
+      ]
+    },
+    "f16_u4_max_diff": 0.1
+  },
+  "uncapped_limits": {
+    "f16": {
+      "point": 3846,
+      "band": [
+        3269,
+        4423
+      ]
+    },
+    "i8": {
+      "point": 5116,
+      "band": [
+        4348,
+        5883
+      ]
+    },
+    "u4": {
+      "point": 6209,
+      "band": [
+        5277,
+        7140
+      ]
+    }
+  },
+  "u4_cap256_limit": {
+    "point": 25022,
+    "band": [
+      21269,
+      28775
+    ]
+  },
+  "f16_cap256_limit_info": 7037,
+  "kv_compression_bound": {
+    "G_max": 2.125,
+    "basis": "(k_f16 + a) / a"
+  },
+  "u4_over_f16_uncapped": 1.614,
+  "scoring": "HIT if the measured value lies in its band; a censored (timeout) probe leaves the cell UNRESOLVED"
+}

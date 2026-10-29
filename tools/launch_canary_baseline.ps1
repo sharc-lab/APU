@@ -12,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-Set-Location "C:\Users\zjohn\Projects\gnn-hls-accel"
+Set-Location "C:\Users\<user>\Projects\gnn-hls-accel"
 
 $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $logDir = "derived\efilter"

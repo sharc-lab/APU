@@ -23,4 +23,4 @@ __version__ = "0.1.0"
 
 #: Manifest schema version. Bump only alongside ``seam/schemas/run_manifest.schema.json``
 #: and an entry in ``AMENDMENTS.md``.
-SPEC_VERSION = "1.0"
+SPEC_VERSION = "1.1"

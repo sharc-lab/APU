@@ -1,4 +1,4 @@
-"""ΔN - does enabling a compute backend reduce the maximum context the device can hold?
+"""delta-N - does enabling a compute backend reduce the maximum context the device can hold?
 
 Three arms. In every one of them the measured generation runs on cpu-p; what varies is whether
 the iGPU also has the model compiled and resident while that generation happens. A is cpu-p
@@ -33,6 +33,7 @@ import json
 import statistics
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from dataclasses import asdict
@@ -215,6 +216,44 @@ def wait_for_recovery(cfg: dict[str, Any]) -> dict[str, Any]:
 # ------------------------------------------------------------------------------------------
 
 
+HANG_DISPOSITION = "HUNG_AFTER_RESULT"
+_TERMINAL_PHASES = frozenset({"done", "failed"})
+
+
+def configured_hang_after_result_s() -> float:
+    """Seconds to wait after a terminal result file before killing a live child."""
+    import yaml
+
+    doc = yaml.safe_load(_DELTA_N_PATH.read_text(encoding="utf-8"))
+    return float(doc["generation"]["hang_after_result_s"])
+
+
+def _peek_result(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def _kill_child(proc: subprocess.Popen[str]) -> str | None:
+    try:
+        proc.kill()
+    except OSError as exc:
+        return str(exc)
+    return None
+
+
+def _drain_stream(stream: Any, sink: list[str]) -> None:
+    if stream is None:
+        return
+    sink.append(stream.read())
+
+
 def run_child(
     *,
     root: Path,
@@ -222,15 +261,22 @@ def run_child(
     spec: dict[str, Any],
     timeout_s: float,
     tag: str,
+    command: list[str] | None = None,
+    hang_after_result_s: float | None = None,
 ) -> dict[str, Any]:
-    """Run one repeat in an isolated process and classify how it ended."""
+    """Run one repeat in an isolated process and classify how it ended.
+
+    A child that has written a terminal result (phase done or failed) and is
+    still alive after hang_after_result_s is killed. The rung outcome stays
+    the one in the result file. The kill is recorded as HUNG_AFTER_RESULT.
+    """
     spec_path = work_dir / f"{tag}.spec.json"
     out_path = work_dir / f"{tag}.result.json"
     spec_path.write_text(json.dumps(spec, indent=2, sort_keys=True), encoding="utf-8")
     if out_path.exists():
         out_path.unlink()
 
-    argv = [
+    argv = command or [
         sys.executable,
         "-u",
         "-m",
@@ -240,23 +286,66 @@ def run_child(
         "--out",
         str(out_path),
     ]
+    grace_s = (
+        float(hang_after_result_s)
+        if hang_after_result_s is not None
+        else configured_hang_after_result_s()
+    )
     started = time.perf_counter()
+    deadline = started + float(timeout_s)
     timed_out = False
+    hung_after_result = False
+    hang_duration_s: float | None = None
+    kill_error: str | None = None
+    terminal_at: float | None = None
+    proc = subprocess.Popen(
+        argv,
+        cwd=str(root),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    stdout_buf: list[str] = []
+    stderr_buf: list[str] = []
+    drains = [
+        threading.Thread(target=_drain_stream, args=(proc.stdout, stdout_buf), daemon=True),
+        threading.Thread(target=_drain_stream, args=(proc.stderr, stderr_buf), daemon=True),
+    ]
+    for drain in drains:
+        drain.start()
+    while True:
+        if proc.poll() is not None:
+            break
+        now = time.perf_counter()
+        if terminal_at is None:
+            peeked = _peek_result(out_path)
+            if peeked is not None and str(peeked.get("phase")) in _TERMINAL_PHASES:
+                terminal_at = now
+        if terminal_at is not None and (now - terminal_at) >= grace_s:
+            hang_duration_s = now - terminal_at
+            hung_after_result = True
+            kill_error = _kill_child(proc)
+            break
+        if now >= deadline:
+            if terminal_at is not None:
+                hang_duration_s = now - terminal_at
+                hung_after_result = True
+            else:
+                timed_out = True
+            kill_error = _kill_child(proc)
+            break
+        time.sleep(0.2)
     try:
-        completed = subprocess.run(
-            argv,
-            cwd=str(root),
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-            check=False,
-        )
-        returncode = completed.returncode
-        stderr_tail = (completed.stderr or "")[-3000:]
-    except subprocess.TimeoutExpired as exc:
-        timed_out = True
-        returncode = None
-        stderr_tail = str(exc.stderr or "")[-3000:]
+        returncode = proc.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        returncode = proc.poll()
+        kill_error = kill_error or "child still alive 30 s after kill"
+    for drain in drains:
+        drain.join(timeout=5)
+    for stream in (proc.stdout, proc.stderr):
+        if stream is not None:
+            stream.close()
+    stderr_tail = "".join(stderr_buf)[-3000:]
     wall_s = time.perf_counter() - started
 
     payload: dict[str, Any] = {}
@@ -272,6 +361,11 @@ def run_child(
 
     if completed_ok:
         outcome, failure_mode = "pass", None
+    elif hung_after_result and payload.get("failure_mode"):
+        outcome = "fail" if reached_resident else "load_failure"
+        failure_mode = str(payload["failure_mode"])
+    elif hung_after_result:
+        outcome, failure_mode = "fail", str(payload.get("failure_mode") or phase)
     elif timed_out:
         outcome, failure_mode = "fail", f"timeout:{timeout_s:.0f}s@{phase}"
     elif payload.get("failure_mode"):
@@ -293,6 +387,11 @@ def run_child(
         "reached_resident": reached_resident,
         "returncode": returncode,
         "timed_out": timed_out,
+        "hung_after_result": hung_after_result,
+        "hang_duration_s": hang_duration_s,
+        "hang_disposition": HANG_DISPOSITION if hung_after_result else None,
+        "kill_error": kill_error,
+        "pid": proc.pid,
         "parent_wall_s": wall_s,
         "stderr_tail": stderr_tail if outcome != "pass" else "",
         "child": payload,
@@ -304,6 +403,8 @@ def run_child(
         failure_mode=failure_mode,
         phase=phase,
         wall_s=round(wall_s, 2),
+        hang_disposition=record["hang_disposition"],
+        hang_duration_s=hang_duration_s,
     )
     return record
 
@@ -875,19 +976,19 @@ def build_verdict(arms: dict[str, dict[str, Any]], cfg: dict[str, Any]) -> dict[
     if not separable:
         verdict = "not separable from noise"
         reason = (
-            f"A/A spread {aa_spread} tokens exceeds {fraction:g}x |ΔN| = "
+            f"A/A spread {aa_spread} tokens exceeds {fraction:g}x |delta-N| = "
             f"{fraction * abs(delta_n):g} tokens; reported null regardless of the point estimate"
         )
     elif delta_n >= int(materiality["material_tokens"]):
         verdict = "material"
-        reason = f"ΔN {delta_n} >= {materiality['material_tokens']} tokens"
+        reason = f"delta-N {delta_n} >= {materiality['material_tokens']} tokens"
     elif delta_n < int(materiality["dead_tokens"]):
         verdict = "immaterial"
-        reason = f"ΔN {delta_n} < {materiality['dead_tokens']} tokens"
+        reason = f"delta-N {delta_n} < {materiality['dead_tokens']} tokens"
     else:
         verdict = "inconclusive"
         reason = (
-            f"ΔN {delta_n} falls between {materiality['dead_tokens']} and "
+            f"delta-N {delta_n} falls between {materiality['dead_tokens']} and "
             f"{materiality['material_tokens']} tokens"
         )
 
@@ -909,7 +1010,7 @@ def build_verdict(arms: dict[str, dict[str, Any]], cfg: dict[str, Any]) -> dict[
         "materiality_prestated": dict(materiality),
         "resolution_note": (
             f"each ceiling is bracketed to {cfg['ladder']['bisect_resolution_tokens']} tokens; "
-            "the bracket width bounds the resolution component of ΔN"
+            "the bracket width bounds the resolution component of delta-N"
         ),
     }
 
@@ -940,7 +1041,7 @@ def _assert_driver_matches_config(cfg: dict[str, Any]) -> None:
             "specifies four gated phases (preflight, acceptance, ceiling_a, delta_n), interleaved "
             "arms, and a working-set lock that this driver does not pass to the child. Running it "
             "would spend hours on the ladder and then fail before sealing. The driver must be "
-            "brought up to the config before ΔN is launched; run the acceptance test first "
+            "brought up to the config before delta-N is launched; run the acceptance test first "
             "(seam.tools.fixed_throughput), which is complete and does match."
         )
 

@@ -5,8 +5,8 @@
 .DESCRIPTION
   From the Mac, with Cursor and browsers closed on the XPS:
 
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/acceptance.ps1 -Orchestrate"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/acceptance.ps1 -Status"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/acceptance.ps1 -Orchestrate"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/acceptance.ps1 -Status"
 
   -Orchestrate is one WMI-detached job: after the interactive-software check passes, idle
   isolation.pre_run_settle_s (300 from configs/delta_n.yaml) *inside the detached process*,
@@ -38,11 +38,11 @@ param(
     [Parameter(ParameterSetName = "Run")]
     [Parameter(ParameterSetName = "Status")]
     [Parameter(ParameterSetName = "Compare")]
-    [string]$PythonExe = "C:\Users\zjohn\Projects\gnn-hls-accel\.venv-seam\Scripts\python.exe"
+    [string]$PythonExe = "C:\Users\<user>\Projects\gnn-hls-accel\.venv-seam\Scripts\python.exe"
 )
 
 $ErrorActionPreference = "Stop"
-$root = "C:\Users\zjohn\Projects\gnn-hls-accel"
+$root = "C:\Users\<user>\Projects\gnn-hls-accel"
 $outDir = Join-Path $root "derived\fixed_throughput\_launches"
 $statePath = Join-Path $outDir "launches.json"
 

@@ -1,0 +1,114 @@
+# Task BR XRT-1 pin, looked up 2026-10-26 09:52 AM ET, metadata only, nothing downloaded.
+# Sources: api.github.com/repos/ggml-org/llama.cpp/releases (+ git/ref/tags/<tag>),
+# raw.githubusercontent.com/ggml-org/llama.cpp/<tag>/..., huggingface.co/api/models/Qwen/Qwen3-4B-GGUF
+# (+ /tree/<revision>, and one HEAD request on the resolve URL for x-repo-commit / x-linked-*).
+# Tag rule: newest tag published at least 14 days before 2026-10-26 00:00 UTC (cutoff
+# 2026-10-12T00:00:00Z) with both a Windows SYCL x64 and a Windows Vulkan x64 zip.
+# Newer tags exist (b11577 at 2026-10-12T22:55Z was under 14 days old at lookup time).
+llamacpp:
+  repo: ggml-org/llama.cpp
+  tag: b11559
+  commit: f2cc7282ce0042641df55e0e563b75e824e2b647
+  published_at: '2026-10-11T19:14:38Z'
+  note: >-
+    The API marks this release prerelease=true (795 of the 800 newest llama.cpp releases carry
+    that flag; it is the project's normal tagging, not a special build). commit = target_commitish
+    and equals refs/tags/b11559 object sha (type commit). No separate oneAPI runtime zip exists on
+    this release: per .github/workflows/release.yml at this tag the windows-sycl job copies the
+    oneAPI runtime DLLs (sycl9, mkl_*, ur_*, ze_loader if found, dnnl, tbb12, umf, ...) into the
+    zip, and release-publish.yml "Merge artifacts" injects the windows-cpu binaries
+    (llama-server.exe + CPU backend) into every backend zip, Vulkan and SYCL included.
+    The cudart-* zips on the release are CUDA-only.
+  assets:
+    sycl:
+      name: llama-b11559-bin-win-sycl-x64.zip
+      url: https://github.com/ggml-org/llama.cpp/releases/download/b11559/llama-b11559-bin-win-sycl-x64.zip
+      size_bytes: 148977354
+      sha256: 4e7aed342a9cebd4c8ac4948628a3284d2b91b13571966f79d6a3bbbf99cb76a
+    vulkan:
+      name: llama-b11559-bin-win-vulkan-x64.zip
+      url: https://github.com/ggml-org/llama.cpp/releases/download/b11559/llama-b11559-bin-win-vulkan-x64.zip
+      size_bytes: 32084119
+      sha256: bf2fb2a7fc5d7669ccabbb6de3f6dd6b54058f213b32e731abc62b590f8566dc
+    sycl_runtime_zip: null
+  sha256_source: GitHub release asset "digest" field (sha256:...) from the releases API
+  flags_checked:
+    - flag: '-fit / --fit [on|off]'
+      source: common/arg.cpp
+      found: '{ "-fit", "--fit" }, "[on|off]" ... is_truthy -> fit_params = true; is_falsey -> false; else "error: unknown value for --fit"'
+      default: 'on (common/common.h: bool fit_params = true)'
+      used_as: '--fit off'
+    - flag: '-fa / --flash-attn [on|off|auto]'
+      source: common/arg.cpp
+      found: '{ "-fa", "--flash-attn" }, "[on|off|auto]" ... is_truthy -> ENABLED; is_falsey -> DISABLED; is_autoy -> AUTO'
+      used_as: '-fa on | -fa off'
+    - flag: '-ctk / --cache-type-k TYPE, -ctv / --cache-type-v TYPE'
+      source: common/arg.cpp
+      found: 'kv_cache_types = F32, F16, BF16, Q8_0, Q4_0, Q4_1, IQ4_NL, Q5_0, Q5_1; matched by ggml_type_name (f16, q8_0, q4_0)'
+      used_as: '-ctk KV -ctv KV with KV in f16 | q8_0 | q4_0'
+    - flag: '-ub / --ubatch-size N'
+      source: common/arg.cpp
+      found: '{"-ub", "--ubatch-size"}, "N", physical maximum batch size (default 512)'
+      used_as: '-ub UB'
+    - flag: '-b / --batch-size N'
+      source: common/arg.cpp
+      found: '{"-b", "--batch-size"}, "N", logical maximum batch size (default 2048)'
+      used_as: '-b max(UB, 2048)'
+    - flag: '--warmup / --no-warmup'
+      source: common/arg.cpp
+      found: '{"--warmup"}, {"--no-warmup"} ... set_examples includes LLAMA_EXAMPLE_SERVER'
+      used_as: '--no-warmup'
+    - flag: 'quantized V cache with -fa off'
+      source: src/llama-context.cpp
+      found: 'LLAMA_LOG_ERROR("%s: quantized V cache requires flash_attn to be enabled\n"); return nullptr'
+      consequence: 'q8_0 / q4_0 with -fa off is expected to refuse at load (census status refused)'
+    - flag: 'server defaults not overridden by the tool'
+      source: common/arg.cpp, tools/server/server.cpp, common/common.h
+      found: '-np default -1 (auto) -> server sets n_parallel = 4 and kv_unified = true; --cache-ram default 8192 MiB'
+      note: 'kv_unified = true lets one slot use the full n_ctx; recorded, not changed'
+    - flag: 'readiness'
+      source: tools/server/server.cpp, tools/server/server-http.cpp
+      found: 'HTTP starts before the model loads; /health answers 503 "Loading model" until ready; then SRV_INF "model loaded" and "listening on http://127.0.0.1:PORT"'
+  buffer_log_lines:
+    model: 'src/llama-model.cpp: "%s: %12s model buffer size = %8.2f MiB"'
+    kv: 'src/llama-kv-cache.cpp: "%s: %10s KV buffer size = %8.2f MiB"'
+    compute: 'src/llama-context.cpp: "%s: %10s compute buffer size = %8.2f MiB"'
+    output: 'src/llama-context.cpp: "%s: %10s  output buffer size = %8.2f MiB"'
+gguf:
+  repo: Qwen/Qwen3-4B-GGUF
+  revision: bc640142c66e1fdd12af0bd68f40445458f3869b
+  last_modified: '2025-05-21T06:32:23.000Z'
+  file: Qwen3-4B-Q4_K_M.gguf
+  url: https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/Qwen3-4B-Q4_K_M.gguf
+  size_bytes: 2497280256
+  sha256: 7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5
+  sha256_source: 'tree API lfs.oid at the revision; equals the resolve URL x-linked-etag; x-repo-commit = revision'
+  license: apache-2.0
+  note: 'Q4_K_M is present (repo files: Q4_K_M, Q5_0, Q5_K_M, Q6_K, Q8_0).'
+install_root: 'C:\Users\<user>\seam_tools\llamacpp'
+install_layout:
+  sycl: 'C:\Users\<user>\seam_tools\llamacpp\b11559-sycl'
+  vulkan: 'C:\Users\<user>\seam_tools\llamacpp\b11559-vulkan'
+# Task BS (2026-10-26 ~8:40 PM ET): pins for the runbooks Rithwik runs on his own machines
+# (docs/registrations/BS_XRT_RUNBOOKS_2026-10-26.md). Same tag b11559; metadata from the GitHub
+# releases API "digest" field, nothing downloaded. The Vulkan zip and the GGUF above are reused.
+# CUDA: the 12.4 build (min Windows driver 551.61 for CUDA 12.4 GA; NVIDIA CUDA release notes,
+# LITERATURE); the 13.4 build needs a newer driver. ROCm is optional (E5_ROCM=1).
+rithwik_assets:
+  cuda_12_4:
+    name: llama-b11559-bin-win-cuda-12.4-x64.zip
+    url: https://github.com/ggml-org/llama.cpp/releases/download/b11559/llama-b11559-bin-win-cuda-12.4-x64.zip
+    size_bytes: 265207128
+    sha256: 4a885b80b26a213e86b774a580ac14fb210eba6220579051339c71b2bda1ecd7
+  cudart_12_4:
+    name: cudart-llama-bin-win-cuda-12.4-x64.zip
+    url: https://github.com/ggml-org/llama.cpp/releases/download/b11559/cudart-llama-bin-win-cuda-12.4-x64.zip
+    size_bytes: 391443627
+    sha256: 8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6
+  rocm:
+    name: llama-b11559-bin-win-rocm-10.0-x64.zip
+    url: https://github.com/ggml-org/llama.cpp/releases/download/b11559/llama-b11559-bin-win-rocm-10.0-x64.zip
+    size_bytes: 257958782
+    sha256: 5511af01bbcaa17ebdb21dd7ab8fc8841903f25a3a08c8441ee5a43ec5afb9ab
+  driver_min_cuda_12_4_windows: '551.61'
+  driver_floor_cuda_12_minor_compat_windows: '528.33'

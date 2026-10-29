@@ -1,0 +1,10 @@
+ R1  RED FLAG          A21 8-bit held-out ceiling: 8-bit held-out ceiling 19750 vs 19900-22600  run_ids=de5f641f,b038e362
+ R2  RED FLAG          A22/A25 slope ratio, slider R^2: ratios [1.94, 0.0] in [1.593, 1.947], slider R^2 1.0  run_ids=a2a7c763,f4abaf6e,9e31d4cb,769c5a03,c461f165,39d38c85,598e882d,f9953743,0014465c,62d59ab8
+ R3  PASS              A20 allocator a: a f16 87.52 / u4 93.28 KB/token, diff 6.4%  run_ids=e4e797e7,ae16fcd5,50d5a3a4,460ec188
+ R4  PASS              A34 cap-256 lift / A32 failure class: no lift: none; budget-check failures: 0  run_ids=d782cf80,aa914c4c,f8df3847,5943c992,1e9671a0,fd074be1
+ R5  PASS              A31/A35 applied KV precision: mismatches: none  run_ids=analysis/cc_20261026/provenance.json
+ R6  PASS              A19 Windows formula: hosts off the formula by > 256 MiB: none  run_ids=a19 window_20261025_*,a19 t2s window_20261023_130443
+ R7  PASS              CC-MECH gate / H-act refutation: u4 cap-256 median 70000 (gate >= 40000; refuted <= 29000)  run_ids=f8df3847,0580176a
+ R8  NOT YET MEASURED  held-out law error, binding ceiling:   run_ids=-
+ R9  NOT YET MEASURED  literature kill criteria:   run_ids=-
+R10  NOT YET MEASURED  integrity of DEMO-2 primary and sealed numbers:   run_ids=-

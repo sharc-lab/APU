@@ -17,7 +17,7 @@ note: The 4B is INT4_SYM; this is INT4_ASYM with scale_estimation on wikitext2. 
   4B-vs-8B comparison confounds model size with quantization recipe. Acceptable for
   latency and footprint; NOT acceptable for a quality comparison without either matching
   recipes or stating the confound.
-ir_dir: C:\Users\zjohn\Projects\gnn-hls-accel\models\Qwen3-8B-int4-ov
+ir_dir: models/Qwen3-8B-int4-ov
 ir_sha256: cd97874b28acfc95cca83801636396c2673703ec800f6675a1b123c3eebb50fe
 ir_files:
   .gitattributes: 34448b82c17d60fec9b65b1f093c115ddbaadc04beb1b0140b6bfed2e012a930

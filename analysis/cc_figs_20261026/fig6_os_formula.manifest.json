@@ -1,0 +1,13 @@
+{
+ "figure": "fig6_os_formula",
+ "outputs": [
+  "analysis/meeting_20261027/figs/fig6_os_formula.png",
+  "analysis/meeting_20261027/figs/fig6_os_formula.pdf"
+ ],
+ "inputs_sha256": {
+  "analysis/cc_20261026/measured.json": "75e7596d1150ac55579f86dd2485ce2ede38399fda033515618f449e543aae5e"
+ },
+ "notes": [
+  "the T2S point is a consistency check until A19 records ullTotalPhys"
+ ]
+}

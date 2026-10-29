@@ -1,0 +1,316 @@
+{
+  "experiment": "COST-1",
+  "title": "Unit cost: DRAM equivalence (RAM-EQ + PRICE + optional CLOUD-Q)",
+  "status": "REGISTERED - NO DATA",
+  "filed_at_ET": "2026-10-29 17:06 EDT",
+  "registration": "docs/registrations/COST1_RAMEQ_2026-10-29.md",
+  "labels": {
+    "MEASURED": "run_id",
+    "DERIVED": "formula given",
+    "ASSUMED": "no source; a choice"
+  },
+  "constants": {
+    "k_B_per_token": {
+      "f16": 147456,
+      "i8": 84096,
+      "u4": 47231
+    },
+    "a_B_per_token": 87520,
+    "B_BR_bytes": 3267086560,
+    "B_BR_note": "3.267 GB at 57% on the XPS (BR_HYB1)",
+    "window_W": 40960,
+    "T_star": 40448,
+    "max_new": 512,
+    "chunk_c": 256,
+    "laws": {
+      "unchunked": "L = B/(k+a)",
+      "chunked": "L = (B - a*c)/k"
+    },
+    "tier_models": {
+      "A": "FLEET tier formula",
+      "B": "57% share of memory"
+    },
+    "source": "BR_HYB1_2026-10-26; DERIVED predictions, no re-fit"
+  },
+  "control_C0": "OpenVINO GenAI true default: i8 KV (read back, 597f40a9), unchunked, 57% override, window 40,960, one cloud fallback on explicit error; f16 = R-full research default, reference only",
+  "hold_definition": "analysis/cc_20261026/SCORES.md (call completes, no allocation/runtime exception)",
+  "emulation_targets_MiB": {
+    "16GB": 15976,
+    "20GB": 20072,
+    "24GB": 24168,
+    "32GB": 32360,
+    "rule": "nominal - 408 MiB (DERIVED: 11,822/0.74 = 15,976)"
+  },
+  "fingerprint_tolerance": 0.02,
+  "cells": {
+    "X16-C0": {
+      "machine": "XPS real 16 GB",
+      "config": "C0",
+      "test": "anchor bisection + 4 at max, each session",
+      "n": "1+4 per session",
+      "prediction": {
+        "ceiling_range": [
+          18000,
+          21700
+        ]
+      },
+      "priority": "P1"
+    },
+    "X16-W": {
+      "machine": "XPS",
+      "config": "u4 + chunk 256, window min(40960, L)",
+      "test": "hold at T*",
+      "n": 30,
+      "prediction": {
+        "holds": 30,
+        "of": 30,
+        "capacity_DERIVED": 68697
+      },
+      "priority": "P1"
+    },
+    "X16-CAP": {
+      "machine": "XPS",
+      "config": "u4 + chunk 256",
+      "test": "hold at 62K/66K/70K",
+      "levels": [
+        62000,
+        66000,
+        70000
+      ],
+      "n_per_level": 10,
+      "prediction": {
+        "L50_range": [
+          66000,
+          69000
+        ]
+      },
+      "skip_rule": "SKIP if STAT-1 registers u4 c256 L50 with CI by Nov 14 ET (then reuse STAT-1)",
+      "priority": "P1"
+    },
+    "X-Q": {
+      "machine": "XPS",
+      "config": "u4-c256 vs i8-c256",
+      "test": "paired exact/AST-equal agreement",
+      "n_pairs": 30,
+      "prediction": {
+        "agree_at_least": 29,
+        "of": 30
+      },
+      "items": "QASPER, Qwen3-token-filtered 24-37K, seed 20261030, first 30",
+      "item_rule_basis": "0/30 DEMO2_HELDOUT_60_B_LONG30 items at 24,000-37,000 tokens (max 2,150)",
+      "priority": "P1"
+    },
+    "X16-LC": {
+      "machine": "XPS @57%",
+      "config": "llama.cpp SYCL f16; q4_0",
+      "test": "f16 bisection+4; q4_0 hold at T*",
+      "n": {
+        "f16": 5,
+        "q4_0": 10
+      },
+      "prediction": {
+        "f16_ceiling_approx": 33000,
+        "f16_basis": "linear interp 29,696@50% -> window@74%",
+        "q4_0_holds": 10,
+        "q4_0_of": 10
+      },
+      "priority": "P2"
+    },
+    "X12-LAW": {
+      "machine": "XPS @12 GB",
+      "config": "C0",
+      "test": "bisection+4",
+      "n": 5,
+      "prediction": {
+        "model_A": 9100,
+        "model_B": 4800
+      },
+      "priority": "P2"
+    },
+    "T16-KAT": {
+      "machine": "T2S @15,976 MiB",
+      "config": "C0",
+      "test": "bisection+4",
+      "n": 10,
+      "prediction": {
+        "range": [
+          19000,
+          21600
+        ],
+        "pass_band": [
+          16200,
+          21725
+        ]
+      },
+      "priority": "P1"
+    },
+    "T24-W": {
+      "machine": "T2S @24,168 MiB",
+      "config": "C0",
+      "test": "hold at T*",
+      "n": 10,
+      "prediction": {
+        "holds": true,
+        "capacity_A_B": [
+          46400,
+          47200
+        ]
+      },
+      "priority": "P1"
+    },
+    "T32-W": {
+      "machine": "T2S @32,360 MiB",
+      "config": "C0",
+      "test": "hold at T*",
+      "n": 30,
+      "prediction": {
+        "holds": 30,
+        "of": 30,
+        "capacity_A_B": [
+          71400,
+          75700
+        ]
+      },
+      "priority": "P1"
+    },
+    "T32-CAP": {
+      "machine": "T2S @32 GB",
+      "config": "C0",
+      "test": "hold at 60K/68K/76K",
+      "levels": [
+        60000,
+        68000,
+        76000
+      ],
+      "n_per_level": 6,
+      "prediction": {
+        "L50_range": [
+          71000,
+          76000
+        ]
+      },
+      "priority": "P2"
+    },
+    "T16-S": {
+      "machine": "T2S @16 GB",
+      "config": "u4 + chunk 256",
+      "test": "hold at T*; cold TTFT",
+      "n": 10,
+      "prediction": {
+        "holds": true,
+        "cold_ttft_s_gt": 60,
+        "cold_ttft_DERIVED_s": 119,
+        "basis": "48.1 s x 40,448/16,384"
+      },
+      "priority": "P2"
+    },
+    "T20-W": {
+      "machine": "T2S @20,072 MiB",
+      "config": "C0",
+      "test": "hold at T*",
+      "n": 10,
+      "prediction": {
+        "holds": false,
+        "capacity_A_B": [
+          33800,
+          32900
+        ]
+      },
+      "priority": "P3"
+    }
+  },
+  "PRICE": {
+    "when": "after the Nov 6 fleet gate only; HYB-1 frozen simulator; no trace row opened before",
+    "controls": [
+      "C0-i8",
+      "G-only",
+      "Haiku-cascade"
+    ],
+    "headline": "MIN saving over the three controls",
+    "price_sheet": "HYB-1 2026-10-26",
+    "cache_hit_grid": [
+      0.55,
+      0.75,
+      0.9,
+      0.96
+    ],
+    "cache_hit_central": 0.96,
+    "cache_rule": "full 5-min cache write on the first cloud call after any local excursion > 5 min",
+    "predictions": {
+      "P-$1": "dollar share of calls in band (19,750, 40,960] < 5%",
+      "P-$2": "saving vs C0-i8, Sonnet, h 96% <= $2 per 1,000 calls",
+      "P-$3": "saving vs Haiku-cascade <= $0.15 per 1,000 calls",
+      "P-$4": "net saving <= 0 when mean local run < 8.4 calls per cloud re-entry"
+    },
+    "thresholds": {
+      "P-$1_share_lt": 0.05,
+      "P-$2_usd_per_1000_le": 2.0,
+      "P-$3_usd_per_1000_le": 0.15,
+      "P-$4_break_even_calls": 8.4
+    }
+  },
+  "CLOUD-Q": {
+    "optional": true,
+    "estimate_usd": 2,
+    "cap_usd": 10,
+    "hard_stop_usd": 15,
+    "approval": "Zach's written approval logged in PLAN_LOCK before any call"
+  },
+  "decision_rules": {
+    "DR-1": {
+      "name": "H-cap",
+      "condition": "X16-W 30/30 AND T32-W >= 29/30 AND KAT pass AND 90% bootstrap CI (B=10,000) of L50(X16)/L50(T32) inside [0.85, 1.15] AND X-Q >= 29/30",
+      "claim": "16 GB DRAM per device",
+      "margin": [
+        0.85,
+        1.15
+      ],
+      "bootstrap_B": 10000
+    },
+    "DR-2": {
+      "condition": "ratio CI lower bound >= 0.85 but not inside",
+      "claim": "at least 85% of a 32 GB machine"
+    },
+    "DR-3": {
+      "name": "H-use",
+      "condition": "X16-W >= 29/30 AND T24-W >= 9/10 AND T16-KAT fails at T*",
+      "claim": "(M* - 16) GB"
+    },
+    "DR-4": {
+      "condition": "X16-W <= 28/30",
+      "action": "bisect to largest T with 30/30; quote law-equivalent default tier"
+    },
+    "DR-5": {
+      "condition": "KAT outside 16,200-21,725",
+      "claim": "same silicon restricted to 32 GB",
+      "action": "seek real 32 GB X7 358H by Nov 20"
+    },
+    "DR-6": {
+      "condition": "slider/shared memory unchanged after removememory",
+      "action": "balloon + slider",
+      "label": "partial emulation"
+    },
+    "DR-7": {
+      "condition": "X-Q <= 26/30",
+      "action": "fallback i8-c256 (38,000, 1e9671a0)"
+    }
+  },
+  "statistics": "Clopper-Pearson one-sided 95% bounds on hold rates; logistic hold-curve with session-cluster bootstrap for L50",
+  "slide_gates": {
+    "cloud_usd": "only if PRICE lower 95% CI > 5% vs the min control",
+    "seat_month": "only if central >= $10 and break-even lost-wait share >= 0.25"
+  },
+  "machine_hours": {
+    "XPS": "8.5-12",
+    "T2S": "4.5-5.5 (one evening)",
+    "evo-x2": 0,
+    "4070": 0,
+    "cloud_usd": 0
+  },
+  "not_claimed": [
+    "cloud savings as a headline",
+    "$/seat-month",
+    "usable context above 40,960 on Qwen3-4B (capacity only)",
+    "any llama.cpp claim beyond X16-LC"
+  ]
+}

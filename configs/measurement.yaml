@@ -1,0 +1,55 @@
+locking:
+  resource: .locks/machine
+  wait_timeout_s: 7200
+  poll_interval_s: 5
+  record_acquire_release_timestamps: true
+quiescence:
+  window_s: 10
+  sample_interval_s: 0.5
+  total_cpu_max_pct: 20
+  p_core_cpu_max_pct: 30
+  available_memory_min_mb: 2048
+canary:
+  algorithm: xorshift64-plus-index-mix
+  cpus:
+  - 0
+  - 1
+  - 2
+  - 3
+  iterations_per_cpu: 500000
+  seed: 20260803
+  max_relative_drift: 0.26982298013017153
+  gate_mode: baseline_relative
+  idle_p95: 0.2198229801301715
+  margin_above_idle_p95: 0.05
+  baseline_run_id: f632701a-0306-4226-900c-223b343593f8
+  threshold_justification: 'Idle compute-canary consecutive-pair relative drift (n_pairs=30,
+    spacing_s=10.0: median=0.018711800150854878, p95=0.2198229801301715, max=0.42827892783051474,
+    fraction_above_0.15=0.06666666666666667). Gate is baseline-relative: threshold
+    = idle_p95 + margin = 0.2198229801301715 + 0.05 = 0.26982298013017153. Threshold
+    derived from sealed baseline run_id=f632701a-0306-4226-900c-223b343593f8; not
+    chosen to make a pilot pass (C2f).'
+paging:
+  sample_interval_s: 0.5
+  available_memory_min_mb: 500
+  sustained_nonzero_consecutive_samples: 2
+  exclude_on_failure: true
+  gate_mode: baseline_relative
+  hard_page_reads_threshold_per_s: 1.0
+  idle_p95: 0.0
+  margin_above_idle_p95: 1.0
+  baseline_run_id: e6bae93f-998c-42c4-ac8c-6351cf389f57
+  threshold_justification: 'Idle Page Reads/sec is not cleanly zero (run_id=e6bae93f-998c-42c4-ac8c-6351cf389f57:
+    idle fraction_above_zero=0.017241379310344827, median=0, p95=0, max=595.0385684165428;
+    generation fraction_above_zero=0.2972972972972973, median=0, p95=5103.928244308032,
+    max=5380.289546611703). Gate is baseline-relative: threshold = idle_p95 + margin
+    = 0.0 + 1.0 = 1.0 page reads/sec, sustained for >=2 consecutive samples at sample_interval_s.
+    Available-memory <500 MB invalidation unchanged. Canary and quiescence thresholds
+    unchanged. Generation shows sustained runs above this threshold (finding recorded
+    in the baseline summary); excluded blocks remain in records[] with reasons and
+    are never silently dropped.'
+frequency:
+  sample_interval_s: 1.0
+  interpretation: PDH Processor Frequency and percent-of-maximum counters are inert/nominal
+    on Platform A based on the already-recorded idle-versus-burn evidence. Retain
+    both fields for audit only; do not infer actual clock frequency from them.

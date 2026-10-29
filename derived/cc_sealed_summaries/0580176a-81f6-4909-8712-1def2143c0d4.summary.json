@@ -1,0 +1,1799 @@
+{
+  "arm": "gpu_only_u4",
+  "canaries": [
+    {
+      "after_probe_count": -1,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 7330.0,
+      "canary_index": 0,
+      "classification": "OK",
+      "counts_toward_calibration": false,
+      "delta": 400,
+      "discarded_from_calibration": true,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": false,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": true,
+        "battery_status_values": [
+          2
+        ],
+        "estimated_charge_remaining_pct": 100,
+        "estimated_charge_remaining_pct_all": [
+          100
+        ],
+        "note": "ac_ok",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "baseline",
+        "current_on_ac": true,
+        "note": "first canary power snapshot; no prior transition to compare",
+        "ok": true,
+        "previous_on_ac": null
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": null,
+      "rel_drift_t2": null,
+      "threshold_t1": null,
+      "threshold_t2": null,
+      "trip_detail": null,
+      "turn1_prefill_s": 2.928295166,
+      "turn2_prefill_s": 0.849387512,
+      "utc": "2026-10-24T00:07:43.518573+00:00",
+      "warmup": true,
+      "workloads_session_host": {
+        "CPU_s": [
+          8.46875,
+          0.890625,
+          55.84375,
+          0.09375,
+          6.921875,
+          26.90625
+        ],
+        "WS_MB": [
+          347.859375,
+          109.6015625,
+          43.3828125,
+          15.35546875,
+          225.86328125,
+          202.6875
+        ],
+        "instance_count": 6,
+        "pids": [
+          2892,
+          15020,
+          15744,
+          16596,
+          19212,
+          19488
+        ],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": -1,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 6972.0,
+      "canary_index": 1,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": false,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": true,
+        "battery_status_values": [
+          2
+        ],
+        "estimated_charge_remaining_pct": 100,
+        "estimated_charge_remaining_pct_all": [
+          100
+        ],
+        "note": "ac_ok",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_stable",
+        "current_on_ac": true,
+        "note": "on_ac unchanged since previous canary",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": null,
+      "rel_drift_t2": null,
+      "threshold_t1": null,
+      "threshold_t2": null,
+      "trip_detail": null,
+      "turn1_prefill_s": 2.81253833,
+      "turn2_prefill_s": 0.843141479,
+      "utc": "2026-10-24T00:07:59.516784+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [
+          8.46875,
+          0.890625,
+          55.84375,
+          0.09375,
+          6.921875,
+          26.90625
+        ],
+        "WS_MB": [
+          347.140625,
+          109.6015625,
+          43.3828125,
+          15.35546875,
+          225.86328125,
+          202.6875
+        ],
+        "instance_count": 6,
+        "pids": [
+          2892,
+          15020,
+          15744,
+          16596,
+          19212,
+          19488
+        ],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": 1,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 7202.0,
+      "canary_index": 2,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": false,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": true,
+        "battery_status_values": [
+          2
+        ],
+        "estimated_charge_remaining_pct": 100,
+        "estimated_charge_remaining_pct_all": [
+          100
+        ],
+        "note": "ac_ok",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_stable",
+        "current_on_ac": true,
+        "note": "on_ac unchanged since previous canary",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": null,
+      "rel_drift_t2": null,
+      "threshold_t1": null,
+      "threshold_t2": null,
+      "trip_detail": null,
+      "turn1_prefill_s": 2.586167968,
+      "turn2_prefill_s": 0.821172241,
+      "utc": "2026-10-24T00:09:40.297903+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [
+          8.46875,
+          0.890625,
+          55.84375,
+          0.09375,
+          6.921875,
+          26.9375
+        ],
+        "WS_MB": [
+          347.0703125,
+          109.6015625,
+          43.40234375,
+          15.375,
+          225.81640625,
+          202.62109375
+        ],
+        "instance_count": 6,
+        "pids": [
+          2892,
+          15020,
+          15744,
+          16596,
+          19212,
+          19488
+        ],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": 3,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 7242.0,
+      "canary_index": 3,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": true,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": true,
+        "battery_status_values": [
+          2
+        ],
+        "estimated_charge_remaining_pct": 100,
+        "estimated_charge_remaining_pct_all": [
+          100
+        ],
+        "note": "ac_ok",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_stable",
+        "current_on_ac": true,
+        "note": "on_ac unchanged since previous canary",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": null,
+      "rel_drift_t2": null,
+      "threshold_t1": 0.17506238171765987,
+      "threshold_t2": 0.1642942216508742,
+      "trip_detail": null,
+      "turn1_prefill_s": 2.585457031,
+      "turn2_prefill_s": 0.822134948,
+      "utc": "2026-10-24T00:11:20.423300+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [
+          8.46875,
+          0.890625,
+          55.84375,
+          0.109375,
+          6.921875,
+          26.953125
+        ],
+        "WS_MB": [
+          347.0703125,
+          109.58203125,
+          43.3828125,
+          15.35546875,
+          225.81640625,
+          202.62109375
+        ],
+        "instance_count": 6,
+        "pids": [
+          2892,
+          15020,
+          15744,
+          16596,
+          19212,
+          19488
+        ],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": 5,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 7221.0,
+      "canary_index": 4,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": true,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": true,
+        "battery_status_values": [
+          2
+        ],
+        "estimated_charge_remaining_pct": 100,
+        "estimated_charge_remaining_pct_all": [
+          100
+        ],
+        "note": "ac_ok",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_stable",
+        "current_on_ac": true,
+        "note": "on_ac unchanged since previous canary",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": 0.08717869171288109,
+      "rel_drift_t2": 0.00593079641226972,
+      "threshold_t1": 0.17506238171765987,
+      "threshold_t2": 0.1642942216508742,
+      "trip_detail": null,
+      "turn1_prefill_s": 2.811626708,
+      "turn2_prefill_s": 0.817259033,
+      "utc": "2026-10-24T00:13:00.630177+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [
+          8.46875,
+          0.890625,
+          55.84375,
+          0.109375,
+          6.921875,
+          26.953125
+        ],
+        "WS_MB": [
+          347.08984375,
+          109.58203125,
+          43.3828125,
+          15.35546875,
+          225.0859375,
+          201.75390625
+        ],
+        "instance_count": 6,
+        "pids": [
+          2892,
+          15020,
+          15744,
+          16596,
+          19212,
+          19488
+        ],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": 7,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 7239.0,
+      "canary_index": 5,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": true,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": true,
+        "battery_status_values": [
+          2
+        ],
+        "estimated_charge_remaining_pct": 100,
+        "estimated_charge_remaining_pct_all": [
+          100
+        ],
+        "note": "ac_ok",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_stable",
+        "current_on_ac": true,
+        "note": "on_ac unchanged since previous canary",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": 0.02454785025007328,
+      "rel_drift_t2": 0.009442489969420504,
+      "threshold_t1": 0.17506238171765987,
+      "threshold_t2": 0.1642942216508742,
+      "trip_detail": null,
+      "turn1_prefill_s": 2.649652832,
+      "turn2_prefill_s": 0.829897949,
+      "utc": "2026-10-24T00:14:40.530804+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [
+          8.46875,
+          0.890625,
+          55.84375,
+          0.109375,
+          6.921875,
+          26.953125
+        ],
+        "WS_MB": [
+          347.08984375,
+          109.6015625,
+          43.3984375,
+          15.375,
+          225.0625,
+          201.49609375
+        ],
+        "instance_count": 6,
+        "pids": [
+          2892,
+          15020,
+          15744,
+          16596,
+          19212,
+          19488
+        ],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    }
+  ],
+  "canary": {
+    "abort_on_trip": "FAIL_CANARY_DRIFT",
+    "allow_unguarded": false,
+    "budget_preflight": {
+      "calibration_c": 3,
+      "min_canaries_required": 4,
+      "n_budget": 2,
+      "ok": true,
+      "planned_probe_count": 8
+    },
+    "calibration_c": 3,
+    "canary_every_n": 2,
+    "canary_gate": {
+      "armed": true,
+      "calibration_c": 3,
+      "calibration_complete": true,
+      "calibration_turn1_prefill_s": [
+        2.81253833,
+        2.586167968,
+        2.585457031
+      ],
+      "calibration_turn2_prefill_s": [
+        0.843141479,
+        0.821172241,
+        0.822134948
+      ],
+      "derivation_applied": "calib_n=3; ref_t1=2.586168 ref_t2=0.822135; early_max_rel_t1=0.087531 early_max_rel_t2=0.025551; threshold_t1=max(2*early_max_t1,healthy_floor_t1=0.07709453214145699)=0.175062; threshold_t2=max(2*early_max_t2,healthy_floor_t2=0.1642942216508742)=0.164294",
+      "early_max_rel_t1": 0.08753119085882993,
+      "early_max_rel_t2": 0.02555119576305866,
+      "fixed_cell": {
+        "arm": "gpu_only_f16",
+        "delta": 400,
+        "mode": "RESIDENT",
+        "n_cached": 4000
+      },
+      "onset_s": 657.0,
+      "protocol": "docs/CANARY_PROTOCOL.md",
+      "ref_turn1_prefill_s": 2.586167968,
+      "ref_turn2_prefill_s": 0.822134948,
+      "rel_drift_floor_t1": 0.07709453214145699,
+      "rel_drift_floor_t2": 0.1642942216508742,
+      "threshold_derivation": {
+        "analysis": "derived/c2_ttft/analysis/canary_threshold_pool.json",
+        "cell": "gpu_only_f16 RESIDENT n_cached=4000 delta=400",
+        "formula": "threshold = max(2 * early_max_rel, healthy_floor)",
+        "healthy_floor_t1": 0.07709453214145699,
+        "healthy_floor_t2": 0.1642942216508742,
+        "host": "<platform:aipc_c1>",
+        "n_canaries_current_rule": 31,
+        "p95_method": "statistics.quantiles(data, n=100, method=inclusive)[94]",
+        "platform_id": "aipc-c1",
+        "pool_rule": "Current calibration discards one warm-up canary, then calibrates on the next three. Sessions before WARM_KV_AMEND_2 had no warm-up discard, so each of those sessions contributes every canary except its first. The current-rule pool is the derivation.",
+        "pooled_max_rel_t1": 0.07709453214145699,
+        "pooled_max_rel_t2": 0.1642942216508742,
+        "pooled_p95_rel_t1": 0.062365838022024195,
+        "pooled_p95_rel_t2": 0.10864235515205196,
+        "previous_healthy_floor_t1": 0.07709453214145699,
+        "previous_healthy_floor_t2": 0.5655217613849336,
+        "rationale": "healthy_floor is the largest relative drift, abs(t - session_ref) / session_ref, in the current-rule pool: sealed guarded XPS sessions on this cell that finished without a trip, excluding each pre-WARM_KV_AMEND_2 session's first canary. No accepted session exceeded it, so a larger relative drift is evidence of degradation. The pool rule is not chosen by whether a later check would trip.",
+        "replaced_floor": 0.05,
+        "sessions": [
+          "322b2f86-9571-46ae-be6a-ba1cec44e018",
+          "69234ed5-a716-4274-b851-33509bdb9972",
+          "7f232f86-2525-481b-a000-c6b8491bc224",
+          "a427233b-df1c-4c4a-87b9-c368bb270b31",
+          "c2246b1f-c588-4998-838a-5507da87e9ee",
+          "d3dcbd3b-5107-4b5e-a0dd-402f99f6f90c",
+          "fea55e0c-b9f8-4ba9-b5ea-558401910d74",
+          "e9264a0a-d2f0-46dd-99af-8e4d9e36ad44"
+        ]
+      },
+      "threshold_t1": 0.17506238171765987,
+      "threshold_t2": 0.1642942216508742
+    },
+    "criterion_path": "ttft_slo",
+    "enabled": true,
+    "enforcement": "CanaryDriftAbort exception; session status FAIL_CANARY_DRIFT. Does not return a soft bool that a caller can ignore (Invoke-DriftCanary Write-Output bug class). INF-1b: refuse start if budget < C+1 canaries; refuse seal with armed==false unless AllowUnguarded writes UNGUARDED.",
+    "fixed_cell": {
+      "arm": "gpu_only_f16",
+      "delta": 400,
+      "mode": "RESIDENT",
+      "n_cached": 4000
+    },
+    "model_spec": "C:\\Users\\<user>\\Projects\\gnn-hls-accel\\configs\\models\\Qwen3-4B-int4-ov.yaml",
+    "n_canaries": 6,
+    "n_derivation": {
+      "binding_bound": "budget",
+      "calibration_c": 3,
+      "derivable": true,
+      "derivation": "N=min(floor(onset_s/mean_probe_wall_s), floor(planned/(C+1)))=min(59,2)=2 (binding=budget); onset_s=657.0; mean_probe_wall_s=10.9748 from THIS run (8 probes); planned_probe_count=8; C=3.",
+      "mean_probe_wall_s": 10.974758874999907,
+      "n": 2,
+      "n_budget": 2,
+      "n_onset": 59,
+      "n_probes_in_mean": 8,
+      "onset_s": 657.0,
+      "planned_probe_count": 8,
+      "refuse": false
+    },
+    "onset_s": 657.0,
+    "planned_probe_count": 8,
+    "power_transition_refuse": "INF-6: capture Win32_Battery BatteryStatus + EstimatedChargeRemaining at every canary; refuse on AC on_ac transition. No-battery hosts pass trivially.",
+    "rel_drift_floor_t1": 0.07709453214145699,
+    "rel_drift_floor_t2": 0.1642942216508742,
+    "threshold_derivation": {
+      "analysis": "derived/c2_ttft/analysis/canary_threshold_pool.json",
+      "cell": "gpu_only_f16 RESIDENT n_cached=4000 delta=400",
+      "formula": "threshold = max(2 * early_max_rel, healthy_floor)",
+      "healthy_floor_t1": 0.07709453214145699,
+      "healthy_floor_t2": 0.1642942216508742,
+      "host": "<platform:aipc_c1>",
+      "n_canaries_current_rule": 31,
+      "p95_method": "statistics.quantiles(data, n=100, method=inclusive)[94]",
+      "platform_id": "aipc-c1",
+      "pool_rule": "Current calibration discards one warm-up canary, then calibrates on the next three. Sessions before WARM_KV_AMEND_2 had no warm-up discard, so each of those sessions contributes every canary except its first. The current-rule pool is the derivation.",
+      "pooled_max_rel_t1": 0.07709453214145699,
+      "pooled_max_rel_t2": 0.1642942216508742,
+      "pooled_p95_rel_t1": 0.062365838022024195,
+      "pooled_p95_rel_t2": 0.10864235515205196,
+      "previous_healthy_floor_t1": 0.07709453214145699,
+      "previous_healthy_floor_t2": 0.5655217613849336,
+      "rationale": "healthy_floor is the largest relative drift, abs(t - session_ref) / session_ref, in the current-rule pool: sealed guarded XPS sessions on this cell that finished without a trip, excluding each pre-WARM_KV_AMEND_2 session's first canary. No accepted session exceeded it, so a larger relative drift is evidence of degradation. The pool rule is not chosen by whether a later check would trip.",
+      "replaced_floor": 0.05,
+      "sessions": [
+        "322b2f86-9571-46ae-be6a-ba1cec44e018",
+        "69234ed5-a716-4274-b851-33509bdb9972",
+        "7f232f86-2525-481b-a000-c6b8491bc224",
+        "a427233b-df1c-4c4a-87b9-c368bb270b31",
+        "c2246b1f-c588-4998-838a-5507da87e9ee",
+        "d3dcbd3b-5107-4b5e-a0dd-402f99f6f90c",
+        "fea55e0c-b9f8-4ba9-b5ea-558401910d74",
+        "e9264a0a-d2f0-46dd-99af-8e4d9e36ad44"
+      ]
+    },
+    "workloads_session_host_at_canaries": [
+      {
+        "canary_index": 0,
+        "workloads_session_host": {
+          "CPU_s": [
+            8.46875,
+            0.890625,
+            55.84375,
+            0.09375,
+            6.921875,
+            26.90625
+          ],
+          "WS_MB": [
+            347.859375,
+            109.6015625,
+            43.3828125,
+            15.35546875,
+            225.86328125,
+            202.6875
+          ],
+          "instance_count": 6,
+          "pids": [
+            2892,
+            15020,
+            15744,
+            16596,
+            19212,
+            19488
+          ],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 1,
+        "workloads_session_host": {
+          "CPU_s": [
+            8.46875,
+            0.890625,
+            55.84375,
+            0.09375,
+            6.921875,
+            26.90625
+          ],
+          "WS_MB": [
+            347.140625,
+            109.6015625,
+            43.3828125,
+            15.35546875,
+            225.86328125,
+            202.6875
+          ],
+          "instance_count": 6,
+          "pids": [
+            2892,
+            15020,
+            15744,
+            16596,
+            19212,
+            19488
+          ],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 2,
+        "workloads_session_host": {
+          "CPU_s": [
+            8.46875,
+            0.890625,
+            55.84375,
+            0.09375,
+            6.921875,
+            26.9375
+          ],
+          "WS_MB": [
+            347.0703125,
+            109.6015625,
+            43.40234375,
+            15.375,
+            225.81640625,
+            202.62109375
+          ],
+          "instance_count": 6,
+          "pids": [
+            2892,
+            15020,
+            15744,
+            16596,
+            19212,
+            19488
+          ],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 3,
+        "workloads_session_host": {
+          "CPU_s": [
+            8.46875,
+            0.890625,
+            55.84375,
+            0.109375,
+            6.921875,
+            26.953125
+          ],
+          "WS_MB": [
+            347.0703125,
+            109.58203125,
+            43.3828125,
+            15.35546875,
+            225.81640625,
+            202.62109375
+          ],
+          "instance_count": 6,
+          "pids": [
+            2892,
+            15020,
+            15744,
+            16596,
+            19212,
+            19488
+          ],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 4,
+        "workloads_session_host": {
+          "CPU_s": [
+            8.46875,
+            0.890625,
+            55.84375,
+            0.109375,
+            6.921875,
+            26.953125
+          ],
+          "WS_MB": [
+            347.08984375,
+            109.58203125,
+            43.3828125,
+            15.35546875,
+            225.0859375,
+            201.75390625
+          ],
+          "instance_count": 6,
+          "pids": [
+            2892,
+            15020,
+            15744,
+            16596,
+            19212,
+            19488
+          ],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 5,
+        "workloads_session_host": {
+          "CPU_s": [
+            8.46875,
+            0.890625,
+            55.84375,
+            0.109375,
+            6.921875,
+            26.953125
+          ],
+          "WS_MB": [
+            347.08984375,
+            109.6015625,
+            43.3984375,
+            15.375,
+            225.0625,
+            201.49609375
+          ],
+          "instance_count": 6,
+          "pids": [
+            2892,
+            15020,
+            15744,
+            16596,
+            19212,
+            19488
+          ],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      }
+    ],
+    "workloads_session_host_policy": "Kill WorkloadsSessionHost and refuse if it remains. Kill again in every cell preamble; it respawns about 4 min after a kill. Record instance_count, pids, WS_MB, and CPU_s at every gate and every canary. A failed kill records the exception text in the refusal. Record-only would break parity with sealed runs measured with the host cleared."
+  },
+  "canary_finalize": {
+    "UNGUARDED": false,
+    "armed": true,
+    "ok": true
+  },
+  "ended_utc": "2026-10-24T00:14:40.534824Z",
+  "failure_in_range": true,
+  "first_fail_n_cached": 70000,
+  "kind": "resident_limit",
+  "largest_n_cached": null,
+  "model_name": "Qwen3-4B-int4-ov",
+  "note": "fixed points (CC cell), not a bisection",
+  "passing_turn2_ttft_s": {},
+  "points": [
+    {
+      "arm": "gpu_only_u4",
+      "cc_mem": [
+        {
+          "gpu_memory_statistics": {
+            "GPU": {
+              "cl_mem": 0,
+              "unknown": 0,
+              "usm_device": 0,
+              "usm_host": 2267177611,
+              "usm_shared": 0
+            }
+          },
+          "gpu_process_counters": {
+            "dedicated_usage_mb": 0.0,
+            "shared_usage_mb": 2255.1
+          },
+          "stage": "loaded",
+          "system": {
+            "available_mb": 6590.546875,
+            "percent": 58.7,
+            "rss_mb": 2553.91015625,
+            "used_mb": 9385.62890625
+          },
+          "t_unix": 1792800513.7827723
+        }
+      ],
+      "compiled_kv": [
+        {
+          "backend": "PA",
+          "captured_chars": 3055,
+          "key_cache_quant_mode": null,
+          "kv_cache_precision": "u4",
+          "n_pa_properties": 25,
+          "pa_property_dump_seen": true,
+          "sdpa_fallback_warning": false,
+          "value_cache_quant_mode": null
+        }
+      ],
+      "failure_kind": "memory_wall",
+      "failure_mode": "turn1:RuntimeError",
+      "hang_disposition": null,
+      "hang_duration_s": null,
+      "holds": false,
+      "hung_after_result": false,
+      "memory": {
+        "memory_after_import": {
+          "available_mb": 9054.77734375,
+          "percent": 43.3,
+          "rss_mb": 52.94921875,
+          "used_mb": 6921.3984375
+        },
+        "memory_at_failure": {
+          "available_mb": 3406.83984375,
+          "percent": 78.7,
+          "rss_mb": 5717.26171875,
+          "used_mb": 12569.3359375
+        },
+        "memory_baseline": {
+          "available_mb": 9091.2421875,
+          "percent": 43.1,
+          "rss_mb": 19.265625,
+          "used_mb": 6884.93359375
+        },
+        "memory_before_generate": {
+          "available_mb": 6559.20703125,
+          "percent": 58.9,
+          "rss_mb": 2595.0078125,
+          "used_mb": 9416.96875
+        },
+        "memory_resident_before_inference": {
+          "available_mb": 6590.5625,
+          "percent": 58.7,
+          "rss_mb": 2553.8828125,
+          "used_mb": 9385.61328125
+        },
+        "memory_trace_at_failure": {
+          "available_min_mb": 3406.9,
+          "dxgi": {
+            "budget_change_events": 4,
+            "error": null,
+            "first_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2359926784
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "last_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2360299520
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "peak_current_usage": {
+              "LOCAL": 5717053440,
+              "NON_LOCAL": 0
+            }
+          },
+          "errors": 0,
+          "gpu_stat_total_first_bytes": 2267177611,
+          "gpu_stat_total_last_bytes": 5595822523,
+          "gpu_stat_total_peak_bytes": 5595822523,
+          "hz": 10.0,
+          "n": 11
+        }
+      },
+      "n_cached": 70000,
+      "outcome": "fail",
+      "past_trained_positions": true,
+      "rung": 70000,
+      "turn1_prefill_s": null,
+      "turn2": [],
+      "turn2_prefill_s": [],
+      "turn2_ttft_s": null
+    },
+    {
+      "arm": "gpu_only_u4",
+      "cc_mem": [
+        {
+          "gpu_memory_statistics": {
+            "GPU": {
+              "cl_mem": 0,
+              "unknown": 0,
+              "usm_device": 0,
+              "usm_host": 2267177611,
+              "usm_shared": 0
+            }
+          },
+          "gpu_process_counters": {
+            "dedicated_usage_mb": 0.0,
+            "shared_usage_mb": 2255.1
+          },
+          "stage": "loaded",
+          "system": {
+            "available_mb": 6585.76171875,
+            "percent": 58.8,
+            "rss_mb": 2552.30078125,
+            "used_mb": 9390.4140625
+          },
+          "t_unix": 1792800556.2818005
+        }
+      ],
+      "compiled_kv": [
+        {
+          "backend": "PA",
+          "captured_chars": 3055,
+          "key_cache_quant_mode": null,
+          "kv_cache_precision": "u4",
+          "n_pa_properties": 25,
+          "pa_property_dump_seen": true,
+          "sdpa_fallback_warning": false,
+          "value_cache_quant_mode": null
+        }
+      ],
+      "failure_kind": "memory_wall",
+      "failure_mode": "turn1:RuntimeError",
+      "hang_disposition": null,
+      "hang_duration_s": null,
+      "holds": false,
+      "hung_after_result": false,
+      "memory": {
+        "memory_after_import": {
+          "available_mb": 9058.5234375,
+          "percent": 43.3,
+          "rss_mb": 53.01953125,
+          "used_mb": 6917.65234375
+        },
+        "memory_at_failure": {
+          "available_mb": 3383.6640625,
+          "percent": 78.8,
+          "rss_mb": 5721.0625,
+          "used_mb": 12592.51171875
+        },
+        "memory_baseline": {
+          "available_mb": 9086.9921875,
+          "percent": 43.1,
+          "rss_mb": 19.39453125,
+          "used_mb": 6889.18359375
+        },
+        "memory_before_generate": {
+          "available_mb": 6553.734375,
+          "percent": 59.0,
+          "rss_mb": 2593.08203125,
+          "used_mb": 9422.44140625
+        },
+        "memory_resident_before_inference": {
+          "available_mb": 6585.77734375,
+          "percent": 58.8,
+          "rss_mb": 2552.27734375,
+          "used_mb": 9390.3984375
+        },
+        "memory_trace_at_failure": {
+          "available_min_mb": 3384.2,
+          "dxgi": {
+            "budget_change_events": 2,
+            "error": null,
+            "first_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2359926784
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "last_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2360299520
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "peak_current_usage": {
+              "LOCAL": 5764239360,
+              "NON_LOCAL": 0
+            }
+          },
+          "errors": 0,
+          "gpu_stat_total_first_bytes": 2267177611,
+          "gpu_stat_total_last_bytes": 5642676667,
+          "gpu_stat_total_peak_bytes": 5642676667,
+          "hz": 10.0,
+          "n": 12
+        }
+      },
+      "n_cached": 71000,
+      "outcome": "fail",
+      "past_trained_positions": true,
+      "rung": 71000,
+      "turn1_prefill_s": null,
+      "turn2": [],
+      "turn2_prefill_s": [],
+      "turn2_ttft_s": null
+    },
+    {
+      "arm": "gpu_only_u4",
+      "cc_mem": [
+        {
+          "gpu_memory_statistics": {
+            "GPU": {
+              "cl_mem": 0,
+              "unknown": 0,
+              "usm_device": 0,
+              "usm_host": 2267177611,
+              "usm_shared": 0
+            }
+          },
+          "gpu_process_counters": {
+            "dedicated_usage_mb": 0.0,
+            "shared_usage_mb": 2255.1
+          },
+          "stage": "loaded",
+          "system": {
+            "available_mb": 6562.08203125,
+            "percent": 58.9,
+            "rss_mb": 2549.9765625,
+            "used_mb": 9414.09375
+          },
+          "t_unix": 1792800614.666596
+        }
+      ],
+      "compiled_kv": [
+        {
+          "backend": "PA",
+          "captured_chars": 3055,
+          "key_cache_quant_mode": null,
+          "kv_cache_precision": "u4",
+          "n_pa_properties": 25,
+          "pa_property_dump_seen": true,
+          "sdpa_fallback_warning": false,
+          "value_cache_quant_mode": null
+        }
+      ],
+      "failure_kind": "memory_wall",
+      "failure_mode": "turn1:RuntimeError",
+      "hang_disposition": null,
+      "hang_duration_s": null,
+      "holds": false,
+      "hung_after_result": false,
+      "memory": {
+        "memory_after_import": {
+          "available_mb": 9032.99609375,
+          "percent": 43.5,
+          "rss_mb": 53.2734375,
+          "used_mb": 6943.1796875
+        },
+        "memory_at_failure": {
+          "available_mb": 3369.80078125,
+          "percent": 78.9,
+          "rss_mb": 5723.08984375,
+          "used_mb": 12606.375
+        },
+        "memory_baseline": {
+          "available_mb": 9066.40234375,
+          "percent": 43.3,
+          "rss_mb": 19.2421875,
+          "used_mb": 6909.7734375
+        },
+        "memory_before_generate": {
+          "available_mb": 6527.16796875,
+          "percent": 59.1,
+          "rss_mb": 2593.99609375,
+          "used_mb": 9449.0078125
+        },
+        "memory_resident_before_inference": {
+          "available_mb": 6562.09765625,
+          "percent": 58.9,
+          "rss_mb": 2549.94921875,
+          "used_mb": 9414.078125
+        },
+        "memory_trace_at_failure": {
+          "available_min_mb": 3376.8,
+          "dxgi": {
+            "budget_change_events": 4,
+            "error": null,
+            "first_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2359926784
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "last_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2360299520
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "peak_current_usage": {
+              "LOCAL": 5717053440,
+              "NON_LOCAL": 0
+            }
+          },
+          "errors": 0,
+          "gpu_stat_total_first_bytes": 2267177611,
+          "gpu_stat_total_last_bytes": 5595822523,
+          "gpu_stat_total_peak_bytes": 5595822523,
+          "hz": 10.0,
+          "n": 11
+        }
+      },
+      "n_cached": 70000,
+      "outcome": "fail",
+      "past_trained_positions": true,
+      "rung": 70000,
+      "turn1_prefill_s": null,
+      "turn2": [],
+      "turn2_prefill_s": [],
+      "turn2_ttft_s": null
+    },
+    {
+      "arm": "gpu_only_u4",
+      "cc_mem": [
+        {
+          "gpu_memory_statistics": {
+            "GPU": {
+              "cl_mem": 0,
+              "unknown": 0,
+              "usm_device": 0,
+              "usm_host": 2267177611,
+              "usm_shared": 0
+            }
+          },
+          "gpu_process_counters": {
+            "dedicated_usage_mb": 0.0,
+            "shared_usage_mb": 2255.1
+          },
+          "stage": "loaded",
+          "system": {
+            "available_mb": 6557.1640625,
+            "percent": 59.0,
+            "rss_mb": 2553.125,
+            "used_mb": 9419.01171875
+          },
+          "t_unix": 1792800656.6913056
+        }
+      ],
+      "compiled_kv": [
+        {
+          "backend": "PA",
+          "captured_chars": 3055,
+          "key_cache_quant_mode": null,
+          "kv_cache_precision": "u4",
+          "n_pa_properties": 25,
+          "pa_property_dump_seen": true,
+          "sdpa_fallback_warning": false,
+          "value_cache_quant_mode": null
+        }
+      ],
+      "failure_kind": "memory_wall",
+      "failure_mode": "turn1:RuntimeError",
+      "hang_disposition": null,
+      "hang_duration_s": null,
+      "holds": false,
+      "hung_after_result": false,
+      "memory": {
+        "memory_after_import": {
+          "available_mb": 9035.28125,
+          "percent": 43.4,
+          "rss_mb": 52.9453125,
+          "used_mb": 6940.89453125
+        },
+        "memory_at_failure": {
+          "available_mb": 3364.48046875,
+          "percent": 78.9,
+          "rss_mb": 5725.40234375,
+          "used_mb": 12611.6953125
+        },
+        "memory_baseline": {
+          "available_mb": 9064.1171875,
+          "percent": 43.3,
+          "rss_mb": 19.38671875,
+          "used_mb": 6912.05859375
+        },
+        "memory_before_generate": {
+          "available_mb": 6529.03125,
+          "percent": 59.1,
+          "rss_mb": 2596.5078125,
+          "used_mb": 9447.14453125
+        },
+        "memory_resident_before_inference": {
+          "available_mb": 6557.1796875,
+          "percent": 59.0,
+          "rss_mb": 2553.09765625,
+          "used_mb": 9418.99609375
+        },
+        "memory_trace_at_failure": {
+          "available_min_mb": 3368.0,
+          "dxgi": {
+            "budget_change_events": 3,
+            "error": null,
+            "first_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2359926784
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "last_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2360299520
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "peak_current_usage": {
+              "LOCAL": 5764239360,
+              "NON_LOCAL": 0
+            }
+          },
+          "errors": 0,
+          "gpu_stat_total_first_bytes": 2267177611,
+          "gpu_stat_total_last_bytes": 5642676667,
+          "gpu_stat_total_peak_bytes": 5642676667,
+          "hz": 10.0,
+          "n": 11
+        }
+      },
+      "n_cached": 71000,
+      "outcome": "fail",
+      "past_trained_positions": true,
+      "rung": 71000,
+      "turn1_prefill_s": null,
+      "turn2": [],
+      "turn2_prefill_s": [],
+      "turn2_ttft_s": null
+    },
+    {
+      "arm": "gpu_only_u4",
+      "cc_mem": [
+        {
+          "gpu_memory_statistics": {
+            "GPU": {
+              "cl_mem": 0,
+              "unknown": 0,
+              "usm_device": 0,
+              "usm_host": 2267177611,
+              "usm_shared": 0
+            }
+          },
+          "gpu_process_counters": {
+            "dedicated_usage_mb": 0.0,
+            "shared_usage_mb": 2255.1
+          },
+          "stage": "loaded",
+          "system": {
+            "available_mb": 6575.453125,
+            "percent": 58.8,
+            "rss_mb": 2549.32421875,
+            "used_mb": 9400.72265625
+          },
+          "t_unix": 1792800714.7162015
+        }
+      ],
+      "compiled_kv": [
+        {
+          "backend": "PA",
+          "captured_chars": 3055,
+          "key_cache_quant_mode": null,
+          "kv_cache_precision": "u4",
+          "n_pa_properties": 25,
+          "pa_property_dump_seen": true,
+          "sdpa_fallback_warning": false,
+          "value_cache_quant_mode": null
+        }
+      ],
+      "failure_kind": "memory_wall",
+      "failure_mode": "turn1:RuntimeError",
+      "hang_disposition": null,
+      "hang_duration_s": null,
+      "holds": false,
+      "hung_after_result": false,
+      "memory": {
+        "memory_after_import": {
+          "available_mb": 9040.2734375,
+          "percent": 43.4,
+          "rss_mb": 53.21875,
+          "used_mb": 6935.90234375
+        },
+        "memory_at_failure": {
+          "available_mb": 3343.796875,
+          "percent": 79.1,
+          "rss_mb": 5725.453125,
+          "used_mb": 12632.37890625
+        },
+        "memory_baseline": {
+          "available_mb": 9072.453125,
+          "percent": 43.2,
+          "rss_mb": 19.24609375,
+          "used_mb": 6903.72265625
+        },
+        "memory_before_generate": {
+          "available_mb": 6541.2890625,
+          "percent": 59.1,
+          "rss_mb": 2593.95703125,
+          "used_mb": 9434.88671875
+        },
+        "memory_resident_before_inference": {
+          "available_mb": 6575.46875,
+          "percent": 58.8,
+          "rss_mb": 2549.3046875,
+          "used_mb": 9400.70703125
+        },
+        "memory_trace_at_failure": {
+          "available_min_mb": 3361.5,
+          "dxgi": {
+            "budget_change_events": 4,
+            "error": null,
+            "first_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2359926784
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "last_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2360299520
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "peak_current_usage": {
+              "LOCAL": 5717053440,
+              "NON_LOCAL": 0
+            }
+          },
+          "errors": 0,
+          "gpu_stat_total_first_bytes": 2267177611,
+          "gpu_stat_total_last_bytes": 5595822523,
+          "gpu_stat_total_peak_bytes": 5595822523,
+          "hz": 10.0,
+          "n": 11
+        }
+      },
+      "n_cached": 70000,
+      "outcome": "fail",
+      "past_trained_positions": true,
+      "rung": 70000,
+      "turn1_prefill_s": null,
+      "turn2": [],
+      "turn2_prefill_s": [],
+      "turn2_ttft_s": null
+    },
+    {
+      "arm": "gpu_only_u4",
+      "cc_mem": [
+        {
+          "gpu_memory_statistics": {
+            "GPU": {
+              "cl_mem": 0,
+              "unknown": 0,
+              "usm_device": 0,
+              "usm_host": 2267177611,
+              "usm_shared": 0
+            }
+          },
+          "gpu_process_counters": {
+            "dedicated_usage_mb": 0.0,
+            "shared_usage_mb": 2255.1
+          },
+          "stage": "loaded",
+          "system": {
+            "available_mb": 6573.3359375,
+            "percent": 58.9,
+            "rss_mb": 2553.9296875,
+            "used_mb": 9402.83984375
+          },
+          "t_unix": 1792800756.7419305
+        }
+      ],
+      "compiled_kv": [
+        {
+          "backend": "PA",
+          "captured_chars": 3055,
+          "key_cache_quant_mode": null,
+          "kv_cache_precision": "u4",
+          "n_pa_properties": 25,
+          "pa_property_dump_seen": true,
+          "sdpa_fallback_warning": false,
+          "value_cache_quant_mode": null
+        }
+      ],
+      "failure_kind": "memory_wall",
+      "failure_mode": "turn1:RuntimeError",
+      "hang_disposition": null,
+      "hang_duration_s": null,
+      "holds": false,
+      "hung_after_result": false,
+      "memory": {
+        "memory_after_import": {
+          "available_mb": 9048.625,
+          "percent": 43.4,
+          "rss_mb": 53.92578125,
+          "used_mb": 6927.55078125
+        },
+        "memory_at_failure": {
+          "available_mb": 3374.93359375,
+          "percent": 78.9,
+          "rss_mb": 5727.13671875,
+          "used_mb": 12601.2421875
+        },
+        "memory_baseline": {
+          "available_mb": 9073.69140625,
+          "percent": 43.2,
+          "rss_mb": 19.234375,
+          "used_mb": 6902.484375
+        },
+        "memory_before_generate": {
+          "available_mb": 6541.93359375,
+          "percent": 59.1,
+          "rss_mb": 2594.109375,
+          "used_mb": 9434.2421875
+        },
+        "memory_resident_before_inference": {
+          "available_mb": 6573.3515625,
+          "percent": 58.9,
+          "rss_mb": 2553.8984375,
+          "used_mb": 9402.82421875
+        },
+        "memory_trace_at_failure": {
+          "available_min_mb": 3367.2,
+          "dxgi": {
+            "budget_change_events": 2,
+            "error": null,
+            "first_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2359926784
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "last_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2360299520
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "peak_current_usage": {
+              "LOCAL": 5764239360,
+              "NON_LOCAL": 0
+            }
+          },
+          "errors": 0,
+          "gpu_stat_total_first_bytes": 2267177611,
+          "gpu_stat_total_last_bytes": 5642676667,
+          "gpu_stat_total_peak_bytes": 5642676667,
+          "hz": 10.0,
+          "n": 12
+        }
+      },
+      "n_cached": 71000,
+      "outcome": "fail",
+      "past_trained_positions": true,
+      "rung": 71000,
+      "turn1_prefill_s": null,
+      "turn2": [],
+      "turn2_prefill_s": [],
+      "turn2_ttft_s": null
+    },
+    {
+      "arm": "gpu_only_u4",
+      "cc_mem": [
+        {
+          "gpu_memory_statistics": {
+            "GPU": {
+              "cl_mem": 0,
+              "unknown": 0,
+              "usm_device": 0,
+              "usm_host": 2267177611,
+              "usm_shared": 0
+            }
+          },
+          "gpu_process_counters": {
+            "dedicated_usage_mb": 0.0,
+            "shared_usage_mb": 2255.1
+          },
+          "stage": "loaded",
+          "system": {
+            "available_mb": 6588.45703125,
+            "percent": 58.8,
+            "rss_mb": 2553.890625,
+            "used_mb": 9387.71875
+          },
+          "t_unix": 1792800814.9448562
+        }
+      ],
+      "compiled_kv": [
+        {
+          "backend": "PA",
+          "captured_chars": 3055,
+          "key_cache_quant_mode": null,
+          "kv_cache_precision": "u4",
+          "n_pa_properties": 25,
+          "pa_property_dump_seen": true,
+          "sdpa_fallback_warning": false,
+          "value_cache_quant_mode": null
+        }
+      ],
+      "failure_kind": "memory_wall",
+      "failure_mode": "turn1:RuntimeError",
+      "hang_disposition": null,
+      "hang_duration_s": null,
+      "holds": false,
+      "hung_after_result": false,
+      "memory": {
+        "memory_after_import": {
+          "available_mb": 9032.02734375,
+          "percent": 43.5,
+          "rss_mb": 53.01171875,
+          "used_mb": 6944.1484375
+        },
+        "memory_at_failure": {
+          "available_mb": 3377.96484375,
+          "percent": 78.9,
+          "rss_mb": 5726.27734375,
+          "used_mb": 12598.2109375
+        },
+        "memory_baseline": {
+          "available_mb": 9087.00390625,
+          "percent": 43.1,
+          "rss_mb": 19.3828125,
+          "used_mb": 6889.171875
+        },
+        "memory_before_generate": {
+          "available_mb": 6556.0078125,
+          "percent": 59.0,
+          "rss_mb": 2595.92578125,
+          "used_mb": 9420.16796875
+        },
+        "memory_resident_before_inference": {
+          "available_mb": 6588.47265625,
+          "percent": 58.8,
+          "rss_mb": 2553.87109375,
+          "used_mb": 9387.703125
+        },
+        "memory_trace_at_failure": {
+          "available_min_mb": 3394.1,
+          "dxgi": {
+            "budget_change_events": 3,
+            "error": null,
+            "first_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2359926784
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "last_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2360299520
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "peak_current_usage": {
+              "LOCAL": 5717053440,
+              "NON_LOCAL": 0
+            }
+          },
+          "errors": 0,
+          "gpu_stat_total_first_bytes": 2267177611,
+          "gpu_stat_total_last_bytes": 5595822523,
+          "gpu_stat_total_peak_bytes": 5595822523,
+          "hz": 10.0,
+          "n": 11
+        }
+      },
+      "n_cached": 70000,
+      "outcome": "fail",
+      "past_trained_positions": true,
+      "rung": 70000,
+      "turn1_prefill_s": null,
+      "turn2": [],
+      "turn2_prefill_s": [],
+      "turn2_ttft_s": null
+    },
+    {
+      "arm": "gpu_only_u4",
+      "cc_mem": [
+        {
+          "gpu_memory_statistics": {
+            "GPU": {
+              "cl_mem": 0,
+              "unknown": 0,
+              "usm_device": 0,
+              "usm_host": 2267177611,
+              "usm_shared": 0
+            }
+          },
+          "gpu_process_counters": {
+            "dedicated_usage_mb": 0.0,
+            "shared_usage_mb": 2255.1
+          },
+          "stage": "loaded",
+          "system": {
+            "available_mb": 6583.65234375,
+            "percent": 58.8,
+            "rss_mb": 2553.51171875,
+            "used_mb": 9392.5234375
+          },
+          "t_unix": 1792800856.942531
+        }
+      ],
+      "compiled_kv": [
+        {
+          "backend": "PA",
+          "captured_chars": 3055,
+          "key_cache_quant_mode": null,
+          "kv_cache_precision": "u4",
+          "n_pa_properties": 25,
+          "pa_property_dump_seen": true,
+          "sdpa_fallback_warning": false,
+          "value_cache_quant_mode": null
+        }
+      ],
+      "failure_kind": "memory_wall",
+      "failure_mode": "turn1:RuntimeError",
+      "hang_disposition": null,
+      "hang_duration_s": null,
+      "holds": false,
+      "hung_after_result": false,
+      "memory": {
+        "memory_after_import": {
+          "available_mb": 9055.125,
+          "percent": 43.3,
+          "rss_mb": 52.73828125,
+          "used_mb": 6921.05078125
+        },
+        "memory_at_failure": {
+          "available_mb": 3384.12890625,
+          "percent": 78.8,
+          "rss_mb": 5728.58203125,
+          "used_mb": 12592.046875
+        },
+        "memory_baseline": {
+          "available_mb": 9083.9609375,
+          "percent": 43.1,
+          "rss_mb": 19.35546875,
+          "used_mb": 6892.21484375
+        },
+        "memory_before_generate": {
+          "available_mb": 6546.75390625,
+          "percent": 59.0,
+          "rss_mb": 2601.08203125,
+          "used_mb": 9429.421875
+        },
+        "memory_resident_before_inference": {
+          "available_mb": 6583.66796875,
+          "percent": 58.8,
+          "rss_mb": 2553.49609375,
+          "used_mb": 9392.5078125
+        },
+        "memory_trace_at_failure": {
+          "available_min_mb": 3372.1,
+          "dxgi": {
+            "budget_change_events": 3,
+            "error": null,
+            "first_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2359926784
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "last_budget_usage": {
+              "LOCAL": [
+                8802899523,
+                2360299520
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "peak_current_usage": {
+              "LOCAL": 5764239360,
+              "NON_LOCAL": 0
+            }
+          },
+          "errors": 0,
+          "gpu_stat_total_first_bytes": 2267177611,
+          "gpu_stat_total_last_bytes": 5642676667,
+          "gpu_stat_total_peak_bytes": 5642676667,
+          "hz": 10.0,
+          "n": 11
+        }
+      },
+      "n_cached": 71000,
+      "outcome": "fail",
+      "past_trained_positions": true,
+      "rung": 71000,
+      "turn1_prefill_s": null,
+      "turn2": [],
+      "turn2_prefill_s": [],
+      "turn2_ttft_s": null
+    }
+  ],
+  "sealed_dir": "C:\\Users\\<user>\\Projects\\gnn-hls-accel\\derived\\delta_prefill\\sealed_0580176a-81f6-4909-8712-1def2143c0d4",
+  "search": {
+    "high": 30000,
+    "low": 12000,
+    "one_attempt": true,
+    "resolution": 500
+  },
+  "session_id": "0580176a-81f6-4909-8712-1def2143c0d4",
+  "status": "complete",
+  "validity": {
+    "L_mem": null,
+    "L_valid": null,
+    "past_trained_positions": null
+  }
+}

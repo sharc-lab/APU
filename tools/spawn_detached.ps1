@@ -24,11 +24,18 @@
 param(
     [Parameter(Mandatory = $true)][string]$CommandLine,
     [Parameter(Mandatory = $true)][string]$LogPath,
-    [string]$WorkingDirectory = "C:\Users\zjohn\Projects\gnn-hls-accel"
+    [string]$WorkingDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
 
+
+if ([string]::IsNullOrWhiteSpace($WorkingDirectory)) {
+    $WorkingDirectory = Split-Path -Parent $PSScriptRoot
+    if (-not $WorkingDirectory) {
+        $WorkingDirectory = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    }
+}
 $logDir = Split-Path -Parent $LogPath
 if ($logDir -and -not (Test-Path $logDir)) {
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null

@@ -5,7 +5,7 @@
 # No Phase 1. No 8192 MB headroom gate. Paging gate is reporting-only for this run.
 
 $ErrorActionPreference = "Stop"
-Set-Location "C:\Users\zjohn\Projects\gnn-hls-accel"
+Set-Location "C:\Users\<user>\Projects\gnn-hls-accel"
 
 $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $logDir = "derived\prompt_a"

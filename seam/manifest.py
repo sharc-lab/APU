@@ -40,6 +40,11 @@ from seam.jsonlog import add_json_sink, log_event, remove_json_sink, utc_now_iso
 from seam.launch_context import resolve_launch_context
 from seam.locks import exclusive
 from seam.rawstore import RunDir, create_run_dir
+from seam.run_environment import (
+    lift_session_fields,
+    merge_run_environment,
+    require_run_environment,
+)
 
 __all__ = [
     "SCHEMA_PATH",
@@ -281,6 +286,8 @@ def build_manifest(
     measurement_power_from_records: bool = False,
     promote_time_power_state: dict[str, Any] | None = None,
     power_state_note: str | None = None,
+    run_environment: dict[str, Any] | None = None,
+    capture_run_environment_host: bool = True,
 ) -> dict[str, Any]:
     """Assemble a manifest dict. Does not validate or write it.
 
@@ -305,6 +312,11 @@ def build_manifest(
     come from measurement records (``measurement_power_from_records=True``) or stay null;
     promote-time host samples go only in ``promote_time_power_state`` (AM-036). Both flags are
     written into the manifest so loaders can detect leakage structurally.
+
+    ``run_environment`` is the INF-5 / AM-040 block. Host-readable fields are auto-collected when
+    ``capture_run_environment_host`` is True; session fields (prompt-render SHA-256, session
+    design, arm order, available_mb_start, WSH-during-run) must be supplied. Any absent required
+    field refuses the seal — no silent defaults.
     """
     _refuse_retro_seal_measurement_power(
         retro_seal=retro_seal,
@@ -350,6 +362,13 @@ def build_manifest(
 
     npu_config = config.get("npu_config") or {}
 
+    resolved_run_environment = require_run_environment(
+        merge_run_environment(
+            run_environment,
+            capture_host=capture_run_environment_host,
+        )
+    )
+
     manifest: dict[str, Any] = {
         "run_id": run_id,
         "spec_version": SPEC_VERSION,
@@ -367,6 +386,7 @@ def build_manifest(
         "launch_context": launch_context,
         "session_id": session_id,
         "window_station": window_station,
+        "run_environment": resolved_run_environment,
         "platform": {
             "id": config.require("platform_id"),
             "cpu": config.require("identity.cpu"),
@@ -523,6 +543,8 @@ def _emit_locked_body(
     measurement_power_from_records: bool = False,
     promote_time_power_state: dict[str, Any] | None = None,
     power_state_note: str | None = None,
+    run_environment: dict[str, Any] | None = None,
+    capture_run_environment_host: bool = True,
 ) -> RunHandle:
     """Emit a schema-valid manifest into a fresh, sealed ``raw/<run_id>/`` directory.
 
@@ -545,6 +567,8 @@ def _emit_locked_body(
             May return a dict merged into ``summary``.
         retro_seal: Post-hoc promote into ``raw/``. Refuses measurement ``power_state`` from
             promote-time sampling unless ``measurement_power_from_records=True`` (AM-036).
+        run_environment: INF-5 / AM-040 fields. Host keys may be auto-collected; session keys
+            must be supplied or seal is refused.
 
     Returns:
         A :class:`RunHandle`.
@@ -552,7 +576,8 @@ def _emit_locked_body(
     Raises:
         DirtyTreeError: Dirty tree without ``allow_dirty``.
         ProvenanceError: A declared provenance artifact is missing, or retro-seal power leak.
-        ManifestValidationError: The assembled manifest is not schema-valid.
+        ManifestValidationError: The assembled manifest is not schema-valid, or INF-5 fields
+            are absent.
     """
     _refuse_retro_seal_measurement_power(
         retro_seal=retro_seal,
@@ -617,6 +642,18 @@ def _emit_locked_body(
         if extra:
             summary_obj.update(extra)
 
+    # INF-5: session fields staged on summary["run_environment"] or common plan/summary
+    # aliases (lift_session_fields) flow into the seal. Explicit run_environment= wins.
+    effective_run_environment = dict(run_environment) if run_environment else {}
+    for key, value in lift_session_fields(summary_obj).items():
+        effective_run_environment.setdefault(key, value)
+    # Keep a copy on summary so the sealed summary.json matches what the manifest used.
+    if effective_run_environment:
+        staged = dict(summary_obj.get("run_environment") or {})
+        for key, value in effective_run_environment.items():
+            staged.setdefault(key, value)
+        summary_obj["run_environment"] = staged
+
     run_dir.write_json(_SUMMARY_FILENAME, summary_obj)
 
     # `integrity.raw_sha256` covers the run's DATA outputs only. Two files are necessarily excluded:
@@ -656,6 +693,8 @@ def _emit_locked_body(
         measurement_power_from_records=measurement_power_from_records,
         promote_time_power_state=promote_time_power_state,
         power_state_note=power_state_note,
+        run_environment=effective_run_environment or None,
+        capture_run_environment_host=capture_run_environment_host,
     )
 
     # Validate before writing. An invalid manifest must never reach raw/, because raw/ is
@@ -716,6 +755,8 @@ def emit(
     measurement_power_from_records: bool = False,
     promote_time_power_state: dict[str, Any] | None = None,
     power_state_note: str | None = None,
+    run_environment: dict[str, Any] | None = None,
+    capture_run_environment_host: bool = True,
 ) -> RunHandle:
     """Emit under the shared raw-store lock.
 
@@ -752,4 +793,6 @@ def emit(
             measurement_power_from_records=measurement_power_from_records,
             promote_time_power_state=promote_time_power_state,
             power_state_note=power_state_note,
+            run_environment=run_environment,
+            capture_run_environment_host=capture_run_environment_host,
         )

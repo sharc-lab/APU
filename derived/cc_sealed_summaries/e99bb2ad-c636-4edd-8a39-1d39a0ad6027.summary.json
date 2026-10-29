@@ -1,0 +1,6345 @@
+{
+  "arm": "gpu_only_f16",
+  "canaries": [
+    {
+      "after_probe_count": -1,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 7419.0,
+      "canary_index": 0,
+      "classification": "OK",
+      "counts_toward_calibration": false,
+      "delta": 400,
+      "discarded_from_calibration": true,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": false,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": true,
+        "battery_status_values": [
+          2
+        ],
+        "estimated_charge_remaining_pct": 100,
+        "estimated_charge_remaining_pct_all": [
+          100
+        ],
+        "note": "ac_ok",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "baseline",
+        "current_on_ac": true,
+        "note": "first canary power snapshot; no prior transition to compare",
+        "ok": true,
+        "previous_on_ac": null
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": null,
+      "rel_drift_t2": null,
+      "threshold_t1": null,
+      "threshold_t2": null,
+      "trip_detail": null,
+      "turn1_prefill_s": 2.57226538,
+      "turn2_prefill_s": 0.837873596,
+      "utc": "2026-10-24T22:58:50.833151+00:00",
+      "warmup": true,
+      "workloads_session_host": {
+        "CPU_s": [
+          0.125,
+          0.453125,
+          0.859375,
+          654.46875,
+          15.40625,
+          0.703125
+        ],
+        "WS_MB": [
+          23.90625,
+          138.4375,
+          201.5703125,
+          65.28125,
+          125.09375,
+          289.80078125
+        ],
+        "instance_count": 6,
+        "pids": [
+          1936,
+          6740,
+          16528,
+          16832,
+          17352,
+          20244
+        ],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": -1,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 7068.0,
+      "canary_index": 1,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": false,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": true,
+        "battery_status_values": [
+          2
+        ],
+        "estimated_charge_remaining_pct": 100,
+        "estimated_charge_remaining_pct_all": [
+          100
+        ],
+        "note": "ac_ok",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_stable",
+        "current_on_ac": true,
+        "note": "on_ac unchanged since previous canary",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": null,
+      "rel_drift_t2": null,
+      "threshold_t1": null,
+      "threshold_t2": null,
+      "trip_detail": null,
+      "turn1_prefill_s": 2.74407666,
+      "turn2_prefill_s": 0.829171752,
+      "utc": "2026-10-24T22:59:06.854750+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [
+          0.125,
+          0.453125,
+          0.859375,
+          654.46875,
+          15.40625,
+          0.703125
+        ],
+        "WS_MB": [
+          23.90625,
+          138.4375,
+          201.5703125,
+          65.28125,
+          125.09375,
+          289.80078125
+        ],
+        "instance_count": 6,
+        "pids": [
+          1936,
+          6740,
+          16528,
+          16832,
+          17352,
+          20244
+        ],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": -1,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 7052.0,
+      "canary_index": 2,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": false,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": true,
+        "battery_status_values": [
+          2
+        ],
+        "estimated_charge_remaining_pct": 100,
+        "estimated_charge_remaining_pct_all": [
+          100
+        ],
+        "note": "ac_ok",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_stable",
+        "current_on_ac": true,
+        "note": "on_ac unchanged since previous canary",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": null,
+      "rel_drift_t2": null,
+      "threshold_t1": null,
+      "threshold_t2": null,
+      "trip_detail": null,
+      "turn1_prefill_s": 2.606295898,
+      "turn2_prefill_s": 0.813626708,
+      "utc": "2026-10-24T22:59:22.726636+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [
+          0.125,
+          0.453125,
+          0.859375,
+          654.46875,
+          15.40625,
+          0.703125
+        ],
+        "WS_MB": [
+          23.90625,
+          138.4375,
+          201.5703125,
+          65.28125,
+          125.09375,
+          289.80078125
+        ],
+        "instance_count": 6,
+        "pids": [
+          1936,
+          6740,
+          16528,
+          16832,
+          17352,
+          20244
+        ],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": -1,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 6980.0,
+      "canary_index": 3,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": true,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": true,
+        "battery_status_values": [
+          2
+        ],
+        "estimated_charge_remaining_pct": 100,
+        "estimated_charge_remaining_pct_all": [
+          100
+        ],
+        "note": "ac_ok",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_stable",
+        "current_on_ac": true,
+        "note": "on_ac unchanged since previous canary",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": null,
+      "rel_drift_t2": null,
+      "threshold_t1": 0.10572917841426172,
+      "threshold_t2": 0.1642942216508742,
+      "trip_detail": null,
+      "turn1_prefill_s": 2.538925292,
+      "turn2_prefill_s": 0.838561035,
+      "utc": "2026-10-24T22:59:38.558829+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [
+          0.125,
+          0.453125,
+          0.859375,
+          654.46875,
+          15.40625,
+          0.703125
+        ],
+        "WS_MB": [
+          23.90625,
+          138.4375,
+          201.5703125,
+          65.28125,
+          125.09375,
+          289.80078125
+        ],
+        "instance_count": 6,
+        "pids": [
+          1936,
+          6740,
+          16528,
+          16832,
+          17352,
+          20244
+        ],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": 0,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 7355.0,
+      "canary_index": 4,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": true,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": true,
+        "battery_status_values": [
+          2
+        ],
+        "estimated_charge_remaining_pct": 100,
+        "estimated_charge_remaining_pct_all": [
+          100
+        ],
+        "note": "ac_ok",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_stable",
+        "current_on_ac": true,
+        "note": "on_ac unchanged since previous canary",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": 0.018551176033811963,
+      "rel_drift_t2": 0.02442689340434743,
+      "threshold_t1": 0.10572917841426172,
+      "threshold_t2": 0.1642942216508742,
+      "trip_detail": null,
+      "turn1_prefill_s": 2.557946044,
+      "turn2_prefill_s": 0.849425842,
+      "utc": "2026-10-24T23:02:13.149422+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [
+          0.125,
+          0.453125,
+          0.859375,
+          654.46875,
+          15.40625,
+          0.703125
+        ],
+        "WS_MB": [
+          23.94140625,
+          87.3828125,
+          149.1484375,
+          65.30859375,
+          112.93359375,
+          233.73046875
+        ],
+        "instance_count": 6,
+        "pids": [
+          1936,
+          6740,
+          16528,
+          16832,
+          17352,
+          20244
+        ],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    }
+  ],
+  "canary": {
+    "abort_on_trip": "FAIL_CANARY_DRIFT",
+    "allow_unguarded": false,
+    "budget_preflight": {
+      "budget_rule": "calibrated_before_probes: C canaries up front + 1 armed check",
+      "calibration_c": 3,
+      "min_canaries_required": 4,
+      "n_budget": 1,
+      "ok": true,
+      "planned_probe_count": 1
+    },
+    "budget_rule": "up_front (CC fix 2026-10-23e)",
+    "calibration_c": 3,
+    "canary_every_n": 1,
+    "canary_gate": {
+      "armed": true,
+      "calibration_c": 3,
+      "calibration_complete": true,
+      "calibration_turn1_prefill_s": [
+        2.74407666,
+        2.606295898,
+        2.538925292
+      ],
+      "calibration_turn2_prefill_s": [
+        0.829171752,
+        0.813626708,
+        0.838561035
+      ],
+      "derivation_applied": "calib_n=3; ref_t1=2.606296 ref_t2=0.829172; early_max_rel_t1=0.052865 early_max_rel_t2=0.018748; threshold_t1=max(2*early_max_t1,healthy_floor_t1=0.07709453214145699)=0.105729; threshold_t2=max(2*early_max_t2,healthy_floor_t2=0.1642942216508742)=0.164294",
+      "early_max_rel_t1": 0.05286458920713086,
+      "early_max_rel_t2": 0.018747676778067577,
+      "fixed_cell": {
+        "arm": "gpu_only_f16",
+        "delta": 400,
+        "mode": "RESIDENT",
+        "n_cached": 4000
+      },
+      "onset_s": 657.0,
+      "protocol": "docs/CANARY_PROTOCOL.md",
+      "ref_turn1_prefill_s": 2.606295898,
+      "ref_turn2_prefill_s": 0.829171752,
+      "rel_drift_floor_t1": 0.07709453214145699,
+      "rel_drift_floor_t2": 0.1642942216508742,
+      "threshold_derivation": {
+        "analysis": "derived/c2_ttft/analysis/canary_threshold_pool.json",
+        "cell": "gpu_only_f16 RESIDENT n_cached=4000 delta=400",
+        "formula": "threshold = max(2 * early_max_rel, healthy_floor)",
+        "healthy_floor_t1": 0.07709453214145699,
+        "healthy_floor_t2": 0.1642942216508742,
+        "host": "<platform:aipc_c1>",
+        "n_canaries_current_rule": 31,
+        "p95_method": "statistics.quantiles(data, n=100, method=inclusive)[94]",
+        "platform_id": "aipc-c1",
+        "pool_rule": "Current calibration discards one warm-up canary, then calibrates on the next three. Sessions before WARM_KV_AMEND_2 had no warm-up discard, so each of those sessions contributes every canary except its first. The current-rule pool is the derivation.",
+        "pooled_max_rel_t1": 0.07709453214145699,
+        "pooled_max_rel_t2": 0.1642942216508742,
+        "pooled_p95_rel_t1": 0.062365838022024195,
+        "pooled_p95_rel_t2": 0.10864235515205196,
+        "previous_healthy_floor_t1": 0.07709453214145699,
+        "previous_healthy_floor_t2": 0.5655217613849336,
+        "rationale": "healthy_floor is the largest relative drift, abs(t - session_ref) / session_ref, in the current-rule pool: sealed guarded XPS sessions on this cell that finished without a trip, excluding each pre-WARM_KV_AMEND_2 session's first canary. No accepted session exceeded it, so a larger relative drift is evidence of degradation. The pool rule is not chosen by whether a later check would trip.",
+        "replaced_floor": 0.05,
+        "sessions": [
+          "322b2f86-9571-46ae-be6a-ba1cec44e018",
+          "69234ed5-a716-4274-b851-33509bdb9972",
+          "7f232f86-2525-481b-a000-c6b8491bc224",
+          "a427233b-df1c-4c4a-87b9-c368bb270b31",
+          "c2246b1f-c588-4998-838a-5507da87e9ee",
+          "d3dcbd3b-5107-4b5e-a0dd-402f99f6f90c",
+          "fea55e0c-b9f8-4ba9-b5ea-558401910d74",
+          "e9264a0a-d2f0-46dd-99af-8e4d9e36ad44"
+        ]
+      },
+      "threshold_t1": 0.10572917841426172,
+      "threshold_t2": 0.1642942216508742
+    },
+    "criterion_path": "ttft_slo",
+    "enabled": true,
+    "enforcement": "CanaryDriftAbort exception; session status FAIL_CANARY_DRIFT. Does not return a soft bool that a caller can ignore (Invoke-DriftCanary Write-Output bug class). INF-1b: refuse start if budget < C+1 canaries; refuse seal with armed==false unless AllowUnguarded writes UNGUARDED.",
+    "fixed_cell": {
+      "arm": "gpu_only_f16",
+      "delta": 400,
+      "mode": "RESIDENT",
+      "n_cached": 4000
+    },
+    "model_spec": "C:\\Users\\<user>\\Projects\\gnn-hls-accel\\configs\\models\\Qwen3-4B-int4-ov.yaml",
+    "n_canaries": 5,
+    "n_derivation": {
+      "binding_bound": "budget",
+      "calibration_c": 3,
+      "derivable": true,
+      "derivation": "N=min(floor(onset_s/mean_probe_wall_s), floor(planned/(C+1)))=min(6,1)=1 (binding=budget); onset_s=657.0; mean_probe_wall_s=103.1469 from THIS run (1 probes); planned_probe_count=1; C=3.",
+      "mean_probe_wall_s": 103.14691019999964,
+      "n": 1,
+      "n_budget": 1,
+      "n_onset": 6,
+      "n_probes_in_mean": 1,
+      "onset_s": 657.0,
+      "planned_probe_count": 1,
+      "refuse": false
+    },
+    "onset_s": 657.0,
+    "planned_probe_count": 1,
+    "power_transition_refuse": "INF-6: capture Win32_Battery BatteryStatus + EstimatedChargeRemaining at every canary; refuse on AC on_ac transition. No-battery hosts pass trivially.",
+    "rel_drift_floor_t1": 0.07709453214145699,
+    "rel_drift_floor_t2": 0.1642942216508742,
+    "schedule": "arm_before_probes",
+    "threshold_derivation": {
+      "analysis": "derived/c2_ttft/analysis/canary_threshold_pool.json",
+      "cell": "gpu_only_f16 RESIDENT n_cached=4000 delta=400",
+      "formula": "threshold = max(2 * early_max_rel, healthy_floor)",
+      "healthy_floor_t1": 0.07709453214145699,
+      "healthy_floor_t2": 0.1642942216508742,
+      "host": "<platform:aipc_c1>",
+      "n_canaries_current_rule": 31,
+      "p95_method": "statistics.quantiles(data, n=100, method=inclusive)[94]",
+      "platform_id": "aipc-c1",
+      "pool_rule": "Current calibration discards one warm-up canary, then calibrates on the next three. Sessions before WARM_KV_AMEND_2 had no warm-up discard, so each of those sessions contributes every canary except its first. The current-rule pool is the derivation.",
+      "pooled_max_rel_t1": 0.07709453214145699,
+      "pooled_max_rel_t2": 0.1642942216508742,
+      "pooled_p95_rel_t1": 0.062365838022024195,
+      "pooled_p95_rel_t2": 0.10864235515205196,
+      "previous_healthy_floor_t1": 0.07709453214145699,
+      "previous_healthy_floor_t2": 0.5655217613849336,
+      "rationale": "healthy_floor is the largest relative drift, abs(t - session_ref) / session_ref, in the current-rule pool: sealed guarded XPS sessions on this cell that finished without a trip, excluding each pre-WARM_KV_AMEND_2 session's first canary. No accepted session exceeded it, so a larger relative drift is evidence of degradation. The pool rule is not chosen by whether a later check would trip.",
+      "replaced_floor": 0.05,
+      "sessions": [
+        "322b2f86-9571-46ae-be6a-ba1cec44e018",
+        "69234ed5-a716-4274-b851-33509bdb9972",
+        "7f232f86-2525-481b-a000-c6b8491bc224",
+        "a427233b-df1c-4c4a-87b9-c368bb270b31",
+        "c2246b1f-c588-4998-838a-5507da87e9ee",
+        "d3dcbd3b-5107-4b5e-a0dd-402f99f6f90c",
+        "fea55e0c-b9f8-4ba9-b5ea-558401910d74",
+        "e9264a0a-d2f0-46dd-99af-8e4d9e36ad44"
+      ]
+    },
+    "workloads_session_host_at_canaries": [
+      {
+        "canary_index": 0,
+        "workloads_session_host": {
+          "CPU_s": [
+            0.125,
+            0.453125,
+            0.859375,
+            654.46875,
+            15.40625,
+            0.703125
+          ],
+          "WS_MB": [
+            23.90625,
+            138.4375,
+            201.5703125,
+            65.28125,
+            125.09375,
+            289.80078125
+          ],
+          "instance_count": 6,
+          "pids": [
+            1936,
+            6740,
+            16528,
+            16832,
+            17352,
+            20244
+          ],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 1,
+        "workloads_session_host": {
+          "CPU_s": [
+            0.125,
+            0.453125,
+            0.859375,
+            654.46875,
+            15.40625,
+            0.703125
+          ],
+          "WS_MB": [
+            23.90625,
+            138.4375,
+            201.5703125,
+            65.28125,
+            125.09375,
+            289.80078125
+          ],
+          "instance_count": 6,
+          "pids": [
+            1936,
+            6740,
+            16528,
+            16832,
+            17352,
+            20244
+          ],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 2,
+        "workloads_session_host": {
+          "CPU_s": [
+            0.125,
+            0.453125,
+            0.859375,
+            654.46875,
+            15.40625,
+            0.703125
+          ],
+          "WS_MB": [
+            23.90625,
+            138.4375,
+            201.5703125,
+            65.28125,
+            125.09375,
+            289.80078125
+          ],
+          "instance_count": 6,
+          "pids": [
+            1936,
+            6740,
+            16528,
+            16832,
+            17352,
+            20244
+          ],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 3,
+        "workloads_session_host": {
+          "CPU_s": [
+            0.125,
+            0.453125,
+            0.859375,
+            654.46875,
+            15.40625,
+            0.703125
+          ],
+          "WS_MB": [
+            23.90625,
+            138.4375,
+            201.5703125,
+            65.28125,
+            125.09375,
+            289.80078125
+          ],
+          "instance_count": 6,
+          "pids": [
+            1936,
+            6740,
+            16528,
+            16832,
+            17352,
+            20244
+          ],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 4,
+        "workloads_session_host": {
+          "CPU_s": [
+            0.125,
+            0.453125,
+            0.859375,
+            654.46875,
+            15.40625,
+            0.703125
+          ],
+          "WS_MB": [
+            23.94140625,
+            87.3828125,
+            149.1484375,
+            65.30859375,
+            112.93359375,
+            233.73046875
+          ],
+          "instance_count": 6,
+          "pids": [
+            1936,
+            6740,
+            16528,
+            16832,
+            17352,
+            20244
+          ],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      }
+    ],
+    "workloads_session_host_policy": "Kill WorkloadsSessionHost and refuse if it remains. Kill again in every cell preamble; it respawns about 4 min after a kill. Record instance_count, pids, WS_MB, and CPU_s at every gate and every canary. A failed kill records the exception text in the refusal. Record-only would break parity with sealed runs measured with the host cleared."
+  },
+  "canary_finalize": {
+    "UNGUARDED": false,
+    "armed": true,
+    "ok": true
+  },
+  "ended_utc": "2026-10-24T23:02:13.149422Z",
+  "first_failing_step": 0,
+  "kind": "cc_grow",
+  "largest_holding_step": null,
+  "model_name": "Qwen3-4B-int4-ov",
+  "points": [
+    {
+      "arm": "gpu_only_f16",
+      "exception": {
+        "message": "Exception from src\\inference\\src\\cpp\\infer_request.cpp:224:\nException from src\\plugins\\intel_gpu\\src\\runtime\\ocl\\ocl_common.hpp:62:\n[GPU] CL_OUT_OF_RESOURCES exception.\n\tDue to a driver bug, any subsequent OpenCL API call may cause the application to hang, so the GPU plugin may be unable to finish correctly.\n\tThe CL_OUT_OF_RESOURCES error typically occurs in two cases:\n\t1. Insufficient memory for the current inference.\n\t2. An out-of-bounds access to GPU memory from a kernel.\n\tFor case 1 (Insufficient Memory)\t  - Try adjusting some model parameters (e.g., using a smaller batch size, lower inference precision, fewer streams, etc.) to \n\t    reduce the required memory size.\n\t  - Alternatively, for Intel integrated Arc GPUs on Microsoft Windows 10 or 11 host systems with more than 10 GB of system memory, the \n\t    shared memory allocation can be increased via the Intel Graphics Software tool: 'Graphics > General > Shared GPU Memory Override', \n\t    as long as it is not already at its software-defined upper limit.\n\tFor case 2 (Out-of-Bounds Access):\n\t  - Please submit a bug report to the OpenVINO team.\n\tAdditionally, please try updating the driver to the latest version.\n\n\n",
+        "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\<user>\\Projects\\gnn-hls-accel\\seam\\tools\\_delta_n_child.py\", line 856, in _cc_grow\n    rec = _traced(spec, lambda: _chat_once(pipe, history, cfg, ov_genai))\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\<user>\\Projects\\gnn-hls-accel\\seam\\tools\\_delta_n_child.py\", line 192, in _traced\n    rec = fn()\n          ^^^^\n  File \"C:\\Users\\<user>\\Projects\\gnn-hls-accel\\seam\\tools\\_delta_n_child.py\", line 856, in <lambda>\n    rec = _traced(spec, lambda: _chat_once(pipe, history, cfg, ov_genai))\n                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\<user>\\Projects\\gnn-hls-accel\\seam\\tools\\_delta_n_child.py\", line 648, in _chat_once\n    result = pipe.generate(history, cfg, streamer)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: Exception from src\\inference\\src\\cpp\\infer_request.cpp:224:\nException from src\\plugins\\intel_gpu\\src\\runtime\\ocl\\ocl_common.hpp:62:\n[GPU] CL_OUT_OF_RESOURCES exception.\n\tDue to a driver bug, any subsequent OpenCL API call may cause the application to hang, so the GPU plugin may be unable to finish correctly.\n\tThe CL_OUT_OF_RESOURCES error typically occurs in two cases:\n\t1. Insufficient memory for the current inference.\n\t2. An out-of-bounds access to GPU memory from a kernel.\n\tFor case 1 (Insufficient Memory)\t  - Try adjusting some model parameters (e.g., using a smaller batch size, lower inference precision, fewer streams, etc.) to \n\t    reduce the required memory size.\n\t  - Alternatively, for Intel integrated Arc GPUs on Microsoft Windows 10 or 11 host systems with more than 10 GB of system memory, the \n\t    shared memory allocation can be increased via the Intel Graphics Software tool: 'Graphics > General > Shared GPU Memory Override', \n\t    as long as it is not already at its software-defined upper limit.\n\tFor case 2 (Out-of-Bounds Access):\n\t  - Please submit a bug report to the OpenVINO team.\n\tAdditionally, please try updating the driver to the latest version.\n\n\n\n",
+        "type": "RuntimeError"
+      },
+      "failure_kind": "memory_wall",
+      "failure_mode": "grow_turn21:RuntimeError",
+      "generation": {
+        "cc_grow": true,
+        "turns": [
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 6344.9,
+              "dxgi": {
+                "budget_change_events": 1,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    2361843712
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    2641707008
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 2641707008,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 2268781195,
+              "gpu_stat_total_last_bytes": 2512847979,
+              "gpu_stat_total_peak_bytes": 2512847979,
+              "hz": 10.0,
+              "n": 6,
+              "trace": [
+                [
+                  1792882812.8390067,
+                  6621.2,
+                  2268781195
+                ],
+                [
+                  1792882812.9489703,
+                  6505.4,
+                  2512164555
+                ],
+                [
+                  1792882813.049898,
+                  6344.9,
+                  2512847979
+                ],
+                [
+                  1792882813.1505024,
+                  6344.9,
+                  2512847979
+                ],
+                [
+                  1792882813.2514932,
+                  6345.0,
+                  2512847979
+                ],
+                [
+                  1792882813.352012,
+                  6345.0,
+                  2512847979
+                ]
+              ]
+            },
+            "prefill_s": 0.584821838,
+            "prompt_tokens_reported": 1036,
+            "system_after": {
+              "available_mb": 6344.99609375,
+              "percent": 60.3,
+              "rss_mb": 2831.65625,
+              "used_mb": 9631.1796875
+            },
+            "ttft_ns": 584821838,
+            "ttft_source": "perf_metrics",
+            "turn": 0,
+            "wall_s": 0.5855955000001813
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 6016.9,
+              "dxgi": {
+                "budget_change_events": 1,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    2641707008
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    2874761216
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 2944159744,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 2512240235,
+              "gpu_stat_total_last_bytes": 2716578319,
+              "gpu_stat_total_peak_bytes": 2816327275,
+              "hz": 10.0,
+              "n": 7,
+              "trace": [
+                [
+                  1792882813.4316566,
+                  6344.8,
+                  2512240235
+                ],
+                [
+                  1792882813.5438027,
+                  6059.1,
+                  2816327275
+                ],
+                [
+                  1792882813.658166,
+                  6016.9,
+                  2716578319
+                ],
+                [
+                  1792882813.7586572,
+                  6016.9,
+                  2716578319
+                ],
+                [
+                  1792882813.859597,
+                  6016.9,
+                  2716578319
+                ],
+                [
+                  1792882813.960741,
+                  6016.9,
+                  2716578319
+                ],
+                [
+                  1792882814.0607488,
+                  6016.9,
+                  2716578319
+                ]
+              ]
+            },
+            "prefill_s": 0.721558349,
+            "prompt_tokens_reported": 2071,
+            "system_after": {
+              "available_mb": 6016.95703125,
+              "percent": 62.3,
+              "rss_mb": 3162.390625,
+              "used_mb": 9959.21875
+            },
+            "ttft_ns": 721558349,
+            "ttft_source": "perf_metrics",
+            "turn": 1,
+            "wall_s": 0.7221374000000651
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 5624.5,
+              "dxgi": {
+                "budget_change_events": 1,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    2874761216
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3025756160
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 3177537536,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 2716578319,
+              "gpu_stat_total_last_bytes": 2867573523,
+              "gpu_stat_total_peak_bytes": 3017912847,
+              "hz": 10.0,
+              "n": 10,
+              "trace": [
+                [
+                  1792882814.1642818,
+                  6017.0,
+                  2716578319
+                ],
+                [
+                  1792882814.2749965,
+                  5812.6,
+                  3017912847
+                ],
+                [
+                  1792882814.387155,
+                  5626.6,
+                  2867573523
+                ],
+                [
+                  1792882814.488084,
+                  5624.5,
+                  2867573523
+                ],
+                [
+                  1792882814.5887747,
+                  5624.5,
+                  2867573523
+                ],
+                [
+                  1792882814.6895924,
+                  5624.5,
+                  2867573523
+                ],
+                [
+                  1792882814.789772,
+                  5624.5,
+                  2867573523
+                ],
+                [
+                  1792882814.8907309,
+                  5624.7,
+                  2867573523
+                ],
+                [
+                  1792882814.9910288,
+                  5624.7,
+                  2867573523
+                ],
+                [
+                  1792882815.091306,
+                  5624.8,
+                  2867573523
+                ]
+              ]
+            },
+            "prefill_s": 0.938574951,
+            "prompt_tokens_reported": 3106,
+            "system_after": {
+              "available_mb": 5624.75,
+              "percent": 64.8,
+              "rss_mb": 3550.4921875,
+              "used_mb": 10351.42578125
+            },
+            "ttft_ns": 938574951,
+            "ttft_source": "perf_metrics",
+            "turn": 2,
+            "wall_s": 0.9391516000000593
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 4997.6,
+              "dxgi": {
+                "budget_change_events": 1,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3025756160
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3224264704
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 3658440704,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 2867573523,
+              "gpu_stat_total_last_bytes": 3014883827,
+              "gpu_stat_total_peak_bytes": 3491116147,
+              "hz": 10.0,
+              "n": 13,
+              "trace": [
+                [
+                  1792882815.1139572,
+                  5624.5,
+                  2867573523
+                ],
+                [
+                  1792882815.2265902,
+                  5341.6,
+                  3171726099
+                ],
+                [
+                  1792882815.3337262,
+                  4997.6,
+                  3491116147
+                ],
+                [
+                  1792882815.434038,
+                  5472.1,
+                  3014883827
+                ],
+                [
+                  1792882815.5351732,
+                  5472.1,
+                  3014883827
+                ],
+                [
+                  1792882815.6362014,
+                  5472.1,
+                  3014883827
+                ],
+                [
+                  1792882815.743284,
+                  5472.1,
+                  3014883827
+                ],
+                [
+                  1792882815.8440754,
+                  5472.1,
+                  3014883827
+                ],
+                [
+                  1792882815.945003,
+                  5473.0,
+                  3014883827
+                ],
+                [
+                  1792882816.046148,
+                  5473.0,
+                  3014883827
+                ],
+                [
+                  1792882816.1472795,
+                  5473.0,
+                  3014883827
+                ],
+                [
+                  1792882816.2482123,
+                  5475.4,
+                  3014883827
+                ],
+                [
+                  1792882816.348462,
+                  5475.4,
+                  3014883827
+                ]
+              ]
+            },
+            "prefill_s": 1.234297729,
+            "prompt_tokens_reported": 4141,
+            "system_after": {
+              "available_mb": 5475.453125,
+              "percent": 65.7,
+              "rss_mb": 3692.5234375,
+              "used_mb": 10500.72265625
+            },
+            "ttft_ns": 1234297729,
+            "ttft_source": "perf_metrics",
+            "turn": 3,
+            "wall_s": 1.2349731999997857
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 4858.9,
+              "dxgi": {
+                "budget_change_events": 1,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3224264704
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3375259648
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 3866648576,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 3014883827,
+              "gpu_stat_total_last_bytes": 3165879031,
+              "gpu_stat_total_peak_bytes": 3655367155,
+              "hz": 10.0,
+              "n": 15,
+              "trace": [
+                [
+                  1792882816.3612804,
+                  5475.5,
+                  3014883827
+                ],
+                [
+                  1792882816.4711273,
+                  5191.9,
+                  3324082675
+                ],
+                [
+                  1792882816.5778954,
+                  4858.9,
+                  3655367155
+                ],
+                [
+                  1792882816.6868558,
+                  5201.4,
+                  3309009655
+                ],
+                [
+                  1792882816.7946181,
+                  5235.6,
+                  3165879031
+                ],
+                [
+                  1792882816.8946924,
+                  5235.6,
+                  3165879031
+                ],
+                [
+                  1792882816.994773,
+                  5235.6,
+                  3165879031
+                ],
+                [
+                  1792882817.0958722,
+                  5235.6,
+                  3165879031
+                ],
+                [
+                  1792882817.1964488,
+                  5237.3,
+                  3165879031
+                ],
+                [
+                  1792882817.2969513,
+                  5240.2,
+                  3165879031
+                ],
+                [
+                  1792882817.397888,
+                  5240.2,
+                  3165879031
+                ],
+                [
+                  1792882817.4988976,
+                  5234.7,
+                  3165879031
+                ],
+                [
+                  1792882817.5989418,
+                  5232.0,
+                  3165879031
+                ],
+                [
+                  1792882817.6994276,
+                  5231.2,
+                  3165879031
+                ],
+                [
+                  1792882817.8003266,
+                  5231.3,
+                  3165879031
+                ]
+              ]
+            },
+            "prefill_s": 1.504744995,
+            "prompt_tokens_reported": 5176,
+            "system_after": {
+              "available_mb": 5231.2421875,
+              "percent": 67.3,
+              "rss_mb": 3928.0390625,
+              "used_mb": 10744.93359375
+            },
+            "ttft_ns": 1504744995,
+            "ttft_source": "perf_metrics",
+            "turn": 4,
+            "wall_s": 1.5054309000001922
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 4584.5,
+              "dxgi": {
+                "budget_change_events": 1,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3375259648
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3530448896
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 4047069184,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 3165879031,
+              "gpu_stat_total_last_bytes": 3316874235,
+              "gpu_stat_total_peak_bytes": 3849157367,
+              "hz": 10.0,
+              "n": 18,
+              "trace": [
+                [
+                  1792882817.8873804,
+                  5231.0,
+                  3165879031
+                ],
+                [
+                  1792882817.99053,
+                  4934.6,
+                  3481238263
+                ],
+                [
+                  1792882818.1061807,
+                  4584.5,
+                  3849157367
+                ],
+                [
+                  1792882818.2181146,
+                  4586.6,
+                  3692329979
+                ],
+                [
+                  1792882818.3274066,
+                  5103.5,
+                  3316874235
+                ],
+                [
+                  1792882818.4278371,
+                  5103.5,
+                  3316874235
+                ],
+                [
+                  1792882818.528569,
+                  5104.8,
+                  3316874235
+                ],
+                [
+                  1792882818.6289208,
+                  5104.8,
+                  3316874235
+                ],
+                [
+                  1792882818.7294557,
+                  5104.8,
+                  3316874235
+                ],
+                [
+                  1792882818.8304808,
+                  5104.8,
+                  3316874235
+                ],
+                [
+                  1792882818.9313793,
+                  5104.8,
+                  3316874235
+                ],
+                [
+                  1792882819.0320432,
+                  5104.8,
+                  3316874235
+                ],
+                [
+                  1792882819.132931,
+                  5104.8,
+                  3316874235
+                ],
+                [
+                  1792882819.2334468,
+                  5104.8,
+                  3316874235
+                ],
+                [
+                  1792882819.3336189,
+                  5106.1,
+                  3316874235
+                ],
+                [
+                  1792882819.4347355,
+                  5106.1,
+                  3316874235
+                ],
+                [
+                  1792882819.5347679,
+                  5103.8,
+                  3316874235
+                ],
+                [
+                  1792882819.634853,
+                  5104.3,
+                  3316874235
+                ]
+              ]
+            },
+            "prefill_s": 1.80059143,
+            "prompt_tokens_reported": 6211,
+            "system_after": {
+              "available_mb": 5104.35546875,
+              "percent": 68.1,
+              "rss_mb": 4048.390625,
+              "used_mb": 10871.8203125
+            },
+            "ttft_ns": 1800591430,
+            "ttft_source": "perf_metrics",
+            "turn": 5,
+            "wall_s": 1.8012450000001081
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 4054.8,
+              "dxgi": {
+                "budget_change_events": 1,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3530448896
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3681443840
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 4616708096,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 3316874235,
+              "gpu_stat_total_last_bytes": 3467869451,
+              "gpu_stat_total_peak_bytes": 4400807179,
+              "hz": 10.0,
+              "n": 21,
+              "trace": [
+                [
+                  1792882819.6880147,
+                  5104.4,
+                  3316874235
+                ],
+                [
+                  1792882819.8055882,
+                  4789.3,
+                  3652090875
+                ],
+                [
+                  1792882819.921353,
+                  4405.0,
+                  4048255995
+                ],
+                [
+                  1792882820.0222342,
+                  4054.8,
+                  4400807179
+                ],
+                [
+                  1792882820.1230438,
+                  4847.2,
+                  3467869451
+                ],
+                [
+                  1792882820.2241585,
+                  4847.2,
+                  3467869451
+                ],
+                [
+                  1792882820.3246286,
+                  4847.9,
+                  3467869451
+                ],
+                [
+                  1792882820.4255297,
+                  4852.5,
+                  3467869451
+                ],
+                [
+                  1792882820.5263913,
+                  4848.2,
+                  3467869451
+                ],
+                [
+                  1792882820.6270213,
+                  4848.3,
+                  3467869451
+                ],
+                [
+                  1792882820.7272365,
+                  4848.2,
+                  3467869451
+                ],
+                [
+                  1792882820.8281682,
+                  4848.3,
+                  3467869451
+                ],
+                [
+                  1792882820.929571,
+                  4848.3,
+                  3467869451
+                ],
+                [
+                  1792882821.0305126,
+                  4848.3,
+                  3467869451
+                ],
+                [
+                  1792882821.1310985,
+                  4848.3,
+                  3467869451
+                ],
+                [
+                  1792882821.2319908,
+                  4848.3,
+                  3467869451
+                ],
+                [
+                  1792882821.3325174,
+                  4848.5,
+                  3467869451
+                ],
+                [
+                  1792882821.4329827,
+                  4848.5,
+                  3467869451
+                ],
+                [
+                  1792882821.5330262,
+                  4848.2,
+                  3467869451
+                ],
+                [
+                  1792882821.6339145,
+                  4848.2,
+                  3467869451
+                ],
+                [
+                  1792882821.7348583,
+                  4848.2,
+                  3467869451
+                ]
+              ]
+            },
+            "prefill_s": 2.07901416,
+            "prompt_tokens_reported": 7246,
+            "system_after": {
+              "available_mb": 4848.26171875,
+              "percent": 69.7,
+              "rss_mb": 4304.4140625,
+              "used_mb": 11127.9140625
+            },
+            "ttft_ns": 2079014160,
+            "ttft_source": "perf_metrics",
+            "turn": 6,
+            "wall_s": 2.0796385999997256
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 3863.2,
+              "dxgi": {
+                "budget_change_events": 1,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3681443840
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3736559616
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 4723466240,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 3467869451,
+              "gpu_stat_total_last_bytes": 3618864655,
+              "gpu_stat_total_peak_bytes": 4507925771,
+              "hz": 10.0,
+              "n": 25,
+              "trace": [
+                [
+                  1792882821.7793753,
+                  4848.3,
+                  3467869451
+                ],
+                [
+                  1792882821.8986263,
+                  4531.1,
+                  3814554891
+                ],
+                [
+                  1792882822.0049884,
+                  4166.0,
+                  4195908875
+                ],
+                [
+                  1792882822.113569,
+                  3863.2,
+                  4507925771
+                ],
+                [
+                  1792882822.2265756,
+                  3937.7,
+                  4380720655
+                ],
+                [
+                  1792882822.326841,
+                  4727.2,
+                  3618864655
+                ],
+                [
+                  1792882822.427356,
+                  4733.6,
+                  3618864655
+                ],
+                [
+                  1792882822.527708,
+                  4733.5,
+                  3618864655
+                ],
+                [
+                  1792882822.628497,
+                  4733.6,
+                  3618864655
+                ],
+                [
+                  1792882822.7294154,
+                  4734.5,
+                  3618864655
+                ],
+                [
+                  1792882822.830241,
+                  4734.5,
+                  3618864655
+                ],
+                [
+                  1792882822.9308,
+                  4734.5,
+                  3618864655
+                ],
+                [
+                  1792882823.0313413,
+                  4734.4,
+                  3618864655
+                ],
+                [
+                  1792882823.1316018,
+                  4734.3,
+                  3618864655
+                ],
+                [
+                  1792882823.2318716,
+                  4734.4,
+                  3618864655
+                ],
+                [
+                  1792882823.332954,
+                  4733.5,
+                  3618864655
+                ],
+                [
+                  1792882823.4339347,
+                  4733.5,
+                  3618864655
+                ],
+                [
+                  1792882823.534972,
+                  4733.5,
+                  3618864655
+                ],
+                [
+                  1792882823.6358988,
+                  4804.6,
+                  3618864655
+                ],
+                [
+                  1792882823.7364538,
+                  4995.6,
+                  3618864655
+                ],
+                [
+                  1792882823.8375258,
+                  4995.6,
+                  3618864655
+                ],
+                [
+                  1792882823.9380007,
+                  4995.6,
+                  3618864655
+                ],
+                [
+                  1792882824.0386515,
+                  4995.6,
+                  3618864655
+                ],
+                [
+                  1792882824.1394947,
+                  4995.6,
+                  3618864655
+                ],
+                [
+                  1792882824.240357,
+                  4995.6,
+                  3618864655
+                ]
+              ]
+            },
+            "prefill_s": 2.500874755,
+            "prompt_tokens_reported": 8281,
+            "system_after": {
+              "available_mb": 4995.59765625,
+              "percent": 68.7,
+              "rss_mb": 4175.26171875,
+              "used_mb": 10980.578125
+            },
+            "ttft_ns": 2500874755,
+            "ttft_source": "perf_metrics",
+            "turn": 7,
+            "wall_s": 2.501573300000018
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 3766.6,
+              "dxgi": {
+                "budget_change_events": 1,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3736559616
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3887554560
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 4807090176,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 3618864655,
+              "gpu_stat_total_last_bytes": 3769859859,
+              "gpu_stat_total_peak_bytes": 4707024399,
+              "hz": 10.0,
+              "n": 28,
+              "trace": [
+                [
+                  1792882824.29301,
+                  4995.5,
+                  3618864655
+                ],
+                [
+                  1792882824.410928,
+                  4688.5,
+                  3968630287
+                ],
+                [
+                  1792882824.5162926,
+                  4332.8,
+                  4318395919
+                ],
+                [
+                  1792882824.6206937,
+                  3976.3,
+                  4707024399
+                ],
+                [
+                  1792882824.7290986,
+                  3766.6,
+                  4705910547
+                ],
+                [
+                  1792882824.8337717,
+                  4717.8,
+                  3769859859
+                ],
+                [
+                  1792882824.9346356,
+                  4717.8,
+                  3769859859
+                ],
+                [
+                  1792882825.0351646,
+                  4716.5,
+                  3769859859
+                ],
+                [
+                  1792882825.1354644,
+                  4717.0,
+                  3769859859
+                ],
+                [
+                  1792882825.2363467,
+                  4716.2,
+                  3769859859
+                ],
+                [
+                  1792882825.3373327,
+                  4714.4,
+                  3769859859
+                ],
+                [
+                  1792882825.4379656,
+                  4714.5,
+                  3769859859
+                ],
+                [
+                  1792882825.5388741,
+                  4714.5,
+                  3769859859
+                ],
+                [
+                  1792882825.6399305,
+                  4757.1,
+                  3769859859
+                ],
+                [
+                  1792882825.7409708,
+                  4757.4,
+                  3769859859
+                ],
+                [
+                  1792882825.8419561,
+                  4757.5,
+                  3769859859
+                ],
+                [
+                  1792882825.9420805,
+                  4760.0,
+                  3769859859
+                ],
+                [
+                  1792882826.0422668,
+                  4760.0,
+                  3769859859
+                ],
+                [
+                  1792882826.1423423,
+                  4760.3,
+                  3769859859
+                ],
+                [
+                  1792882826.2427542,
+                  4760.6,
+                  3769859859
+                ],
+                [
+                  1792882826.343359,
+                  4763.5,
+                  3769859859
+                ],
+                [
+                  1792882826.4439662,
+                  4762.7,
+                  3769859859
+                ],
+                [
+                  1792882826.544237,
+                  4763.6,
+                  3769859859
+                ],
+                [
+                  1792882826.645168,
+                  4755.8,
+                  3769859859
+                ],
+                [
+                  1792882826.7456346,
+                  4743.7,
+                  3769859859
+                ],
+                [
+                  1792882826.8466825,
+                  4721.1,
+                  3769859859
+                ],
+                [
+                  1792882826.947494,
+                  4713.0,
+                  3769859859
+                ],
+                [
+                  1792882827.0477161,
+                  4706.0,
+                  3769859859
+                ]
+              ]
+            },
+            "prefill_s": 2.824695556,
+            "prompt_tokens_reported": 9316,
+            "system_after": {
+              "available_mb": 4706.04296875,
+              "percent": 70.5,
+              "rss_mb": 4437.60546875,
+              "used_mb": 11270.1328125
+            },
+            "ttft_ns": 2824695556,
+            "ttft_source": "perf_metrics",
+            "turn": 8,
+            "wall_s": 2.825542300000052
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 3762.2,
+              "dxgi": {
+                "budget_change_events": 3,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3887554560
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4038549504
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 5116551168,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 3769859859,
+              "gpu_stat_total_last_bytes": 3920855059,
+              "gpu_stat_total_peak_bytes": 5190745875,
+              "hz": 10.0,
+              "n": 33,
+              "trace": [
+                [
+                  1792882827.1288226,
+                  4705.9,
+                  3769859859
+                ],
+                [
+                  1792882827.2435243,
+                  4414.5,
+                  4114317075
+                ],
+                [
+                  1792882827.34527,
+                  4083.0,
+                  4458774291
+                ],
+                [
+                  1792882827.4460447,
+                  3762.2,
+                  4803231507
+                ],
+                [
+                  1792882827.553548,
+                  3982.7,
+                  5018517267
+                ],
+                [
+                  1792882827.655565,
+                  3779.2,
+                  5190745875
+                ],
+                [
+                  1792882827.764259,
+                  3926.5,
+                  4698112019
+                ],
+                [
+                  1792882827.864457,
+                  4707.5,
+                  3920855059
+                ],
+                [
+                  1792882827.965056,
+                  4706.9,
+                  3920855059
+                ],
+                [
+                  1792882828.0659492,
+                  4706.9,
+                  3920855059
+                ],
+                [
+                  1792882828.1668983,
+                  4706.4,
+                  3920855059
+                ],
+                [
+                  1792882828.2672083,
+                  4706.4,
+                  3920855059
+                ],
+                [
+                  1792882828.3682466,
+                  4706.3,
+                  3920855059
+                ],
+                [
+                  1792882828.4691772,
+                  4706.4,
+                  3920855059
+                ],
+                [
+                  1792882828.5703795,
+                  4706.4,
+                  3920855059
+                ],
+                [
+                  1792882828.6707797,
+                  4706.5,
+                  3920855059
+                ],
+                [
+                  1792882828.771024,
+                  4711.4,
+                  3920855059
+                ],
+                [
+                  1792882828.8715594,
+                  4711.1,
+                  3920855059
+                ],
+                [
+                  1792882828.9719148,
+                  4711.2,
+                  3920855059
+                ],
+                [
+                  1792882829.072455,
+                  4708.0,
+                  3920855059
+                ],
+                [
+                  1792882829.1725905,
+                  4702.3,
+                  3920855059
+                ],
+                [
+                  1792882829.2729702,
+                  4696.8,
+                  3920855059
+                ],
+                [
+                  1792882829.373579,
+                  4687.0,
+                  3920855059
+                ],
+                [
+                  1792882829.4738123,
+                  4670.0,
+                  3920855059
+                ],
+                [
+                  1792882829.5747726,
+                  4661.5,
+                  3920855059
+                ],
+                [
+                  1792882829.6751983,
+                  4668.7,
+                  3920855059
+                ],
+                [
+                  1792882829.7762632,
+                  4670.0,
+                  3920855059
+                ],
+                [
+                  1792882829.8765626,
+                  4670.1,
+                  3920855059
+                ],
+                [
+                  1792882829.977297,
+                  4672.1,
+                  3920855059
+                ],
+                [
+                  1792882830.0779252,
+                  4671.9,
+                  3920855059
+                ],
+                [
+                  1792882830.1782477,
+                  4673.0,
+                  3920855059
+                ],
+                [
+                  1792882830.2783365,
+                  4671.8,
+                  3920855059
+                ],
+                [
+                  1792882830.3788595,
+                  4668.5,
+                  3920855059
+                ]
+              ]
+            },
+            "prefill_s": 3.331311035,
+            "prompt_tokens_reported": 10351,
+            "system_after": {
+              "available_mb": 4656.16015625,
+              "percent": 70.9,
+              "rss_mb": 4465.375,
+              "used_mb": 11320.015625
+            },
+            "ttft_ns": 3331311035,
+            "ttft_source": "perf_metrics",
+            "turn": 9,
+            "wall_s": 3.3319211000002724
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 3349.9,
+              "dxgi": {
+                "budget_change_events": 4,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4038549504
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4189544448
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 5103181824,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 3920855059,
+              "gpu_stat_total_last_bytes": 4071850263,
+              "gpu_stat_total_peak_bytes": 5621907475,
+              "hz": 10.0,
+              "n": 37,
+              "trace": [
+                [
+                  1792882830.4807777,
+                  4657.0,
+                  3920855059
+                ],
+                [
+                  1792882830.5901513,
+                  4341.4,
+                  4251615251
+                ],
+                [
+                  1792882830.694446,
+                  3979.6,
+                  4629626899
+                ],
+                [
+                  1792882830.7968519,
+                  3652.8,
+                  5007638547
+                ],
+                [
+                  1792882830.8970833,
+                  3642.1,
+                  5267521555
+                ],
+                [
+                  1792882831.0014107,
+                  3516.1,
+                  5432901651
+                ],
+                [
+                  1792882831.1064334,
+                  3349.9,
+                  5621907475
+                ],
+                [
+                  1792882831.2129335,
+                  4150.6,
+                  4222550295
+                ],
+                [
+                  1792882831.3264737,
+                  4403.5,
+                  4071850263
+                ],
+                [
+                  1792882831.4269855,
+                  4404.6,
+                  4071850263
+                ],
+                [
+                  1792882831.526996,
+                  4403.7,
+                  4071850263
+                ],
+                [
+                  1792882831.628055,
+                  4403.8,
+                  4071850263
+                ],
+                [
+                  1792882831.7285905,
+                  4403.8,
+                  4071850263
+                ],
+                [
+                  1792882831.8290644,
+                  4409.1,
+                  4071850263
+                ],
+                [
+                  1792882831.9297247,
+                  4400.3,
+                  4071850263
+                ],
+                [
+                  1792882832.0307539,
+                  4408.8,
+                  4071850263
+                ],
+                [
+                  1792882832.1312146,
+                  4408.7,
+                  4071850263
+                ],
+                [
+                  1792882832.2316892,
+                  4408.8,
+                  4071850263
+                ],
+                [
+                  1792882832.3324075,
+                  4408.9,
+                  4071850263
+                ],
+                [
+                  1792882832.4330075,
+                  4409.0,
+                  4071850263
+                ],
+                [
+                  1792882832.5333815,
+                  4403.2,
+                  4071850263
+                ],
+                [
+                  1792882832.6335187,
+                  4403.2,
+                  4071850263
+                ],
+                [
+                  1792882832.7342596,
+                  4403.2,
+                  4071850263
+                ],
+                [
+                  1792882832.8346903,
+                  4403.4,
+                  4071850263
+                ],
+                [
+                  1792882832.9352665,
+                  4403.8,
+                  4071850263
+                ],
+                [
+                  1792882833.0357552,
+                  4403.8,
+                  4071850263
+                ],
+                [
+                  1792882833.1364615,
+                  4403.8,
+                  4071850263
+                ],
+                [
+                  1792882833.2365396,
+                  4403.8,
+                  4071850263
+                ],
+                [
+                  1792882833.3375132,
+                  4403.8,
+                  4071850263
+                ],
+                [
+                  1792882833.4383988,
+                  4403.2,
+                  4071850263
+                ],
+                [
+                  1792882833.5392516,
+                  4402.5,
+                  4071850263
+                ],
+                [
+                  1792882833.6392665,
+                  4402.6,
+                  4071850263
+                ],
+                [
+                  1792882833.7398853,
+                  4402.4,
+                  4071850263
+                ],
+                [
+                  1792882833.840402,
+                  4402.3,
+                  4071850263
+                ],
+                [
+                  1792882833.9411867,
+                  4402.3,
+                  4071850263
+                ],
+                [
+                  1792882834.0417366,
+                  4402.3,
+                  4071850263
+                ],
+                [
+                  1792882834.142357,
+                  4649.0,
+                  4071850263
+                ]
+              ]
+            },
+            "prefill_s": 3.67111621,
+            "prompt_tokens_reported": 11386,
+            "system_after": {
+              "available_mb": 4648.94140625,
+              "percent": 70.9,
+              "rss_mb": 4477.11328125,
+              "used_mb": 11327.234375
+            },
+            "ttft_ns": 3671116210,
+            "ttft_source": "perf_metrics",
+            "turn": 10,
+            "wall_s": 3.672073100000034
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 3067.4,
+              "dxgi": {
+                "budget_change_events": 6,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4189544448
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4340539392
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 4910702592,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 4071850263,
+              "gpu_stat_total_last_bytes": 4222845467,
+              "gpu_stat_total_peak_bytes": 5923897623,
+              "hz": 10.0,
+              "n": 41,
+              "trace": [
+                [
+                  1792882834.1557014,
+                  4648.9,
+                  4071850263
+                ],
+                [
+                  1792882834.2727168,
+                  4329.6,
+                  4431970583
+                ],
+                [
+                  1792882834.3773162,
+                  3961.1,
+                  4792090903
+                ],
+                [
+                  1792882834.4805317,
+                  3648.9,
+                  5152211223
+                ],
+                [
+                  1792882834.5806732,
+                  3399.1,
+                  5409440023
+                ],
+                [
+                  1792882834.6933837,
+                  3364.9,
+                  5615223063
+                ],
+                [
+                  1792882834.8056283,
+                  3257.1,
+                  5718114583
+                ],
+                [
+                  1792882834.910332,
+                  3166.4,
+                  5821006103
+                ],
+                [
+                  1792882835.0151727,
+                  3067.4,
+                  5923897623
+                ],
+                [
+                  1792882835.1208713,
+                  4047.9,
+                  4411851291
+                ],
+                [
+                  1792882835.234328,
+                  4170.1,
+                  4222845467
+                ],
+                [
+                  1792882835.3349054,
+                  4170.0,
+                  4222845467
+                ],
+                [
+                  1792882835.435144,
+                  4169.8,
+                  4222845467
+                ],
+                [
+                  1792882835.53522,
+                  4169.9,
+                  4222845467
+                ],
+                [
+                  1792882835.6360357,
+                  4169.8,
+                  4222845467
+                ],
+                [
+                  1792882835.736266,
+                  4169.8,
+                  4222845467
+                ],
+                [
+                  1792882835.8366702,
+                  4169.8,
+                  4222845467
+                ],
+                [
+                  1792882835.9368787,
+                  4172.3,
+                  4222845467
+                ],
+                [
+                  1792882836.0376265,
+                  4172.3,
+                  4222845467
+                ],
+                [
+                  1792882836.137992,
+                  4172.1,
+                  4222845467
+                ],
+                [
+                  1792882836.2379947,
+                  4172.1,
+                  4222845467
+                ],
+                [
+                  1792882836.3387039,
+                  4172.1,
+                  4222845467
+                ],
+                [
+                  1792882836.438905,
+                  4169.4,
+                  4222845467
+                ],
+                [
+                  1792882836.5394788,
+                  4169.9,
+                  4222845467
+                ],
+                [
+                  1792882836.6399698,
+                  4169.9,
+                  4222845467
+                ],
+                [
+                  1792882836.7409165,
+                  4169.9,
+                  4222845467
+                ],
+                [
+                  1792882836.8416455,
+                  4169.8,
+                  4222845467
+                ],
+                [
+                  1792882836.942602,
+                  4169.9,
+                  4222845467
+                ],
+                [
+                  1792882837.0428634,
+                  4169.9,
+                  4222845467
+                ],
+                [
+                  1792882837.1433861,
+                  4169.9,
+                  4222845467
+                ],
+                [
+                  1792882837.2437913,
+                  4169.9,
+                  4222845467
+                ],
+                [
+                  1792882837.3441575,
+                  4169.9,
+                  4222845467
+                ],
+                [
+                  1792882837.4449744,
+                  4169.4,
+                  4222845467
+                ],
+                [
+                  1792882837.5452485,
+                  4169.4,
+                  4222845467
+                ],
+                [
+                  1792882837.6454039,
+                  4169.4,
+                  4222845467
+                ],
+                [
+                  1792882837.746035,
+                  4169.4,
+                  4222845467
+                ],
+                [
+                  1792882837.8461866,
+                  4169.4,
+                  4222845467
+                ],
+                [
+                  1792882837.9466932,
+                  4169.4,
+                  4222845467
+                ],
+                [
+                  1792882838.0474308,
+                  4417.5,
+                  4222845467
+                ],
+                [
+                  1792882838.1483066,
+                  4417.5,
+                  4222845467
+                ],
+                [
+                  1792882838.2483575,
+                  4417.6,
+                  4222845467
+                ]
+              ]
+            },
+            "prefill_s": 4.125427246,
+            "prompt_tokens_reported": 12421,
+            "system_after": {
+              "available_mb": 4417.59375,
+              "percent": 72.3,
+              "rss_mb": 4705.11328125,
+              "used_mb": 11558.58203125
+            },
+            "ttft_ns": 4125427246,
+            "ttft_source": "perf_metrics",
+            "turn": 11,
+            "wall_s": 4.1260551000000305
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 2762.1,
+              "dxgi": {
+                "budget_change_events": 10,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4340539392
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4491534336
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 5064712192,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 4222845467,
+              "gpu_stat_total_last_bytes": 4373840667,
+              "gpu_stat_total_peak_bytes": 6225887771,
+              "hz": 10.0,
+              "n": 47,
+              "trace": [
+                [
+                  1792882838.2931578,
+                  4417.6,
+                  4222845467
+                ],
+                [
+                  1792882838.4089103,
+                  4098.7,
+                  4556685851
+                ],
+                [
+                  1792882838.5137508,
+                  3726.3,
+                  4946166299
+                ],
+                [
+                  1792882838.6144392,
+                  3376.5,
+                  5335646747
+                ],
+                [
+                  1792882838.7149014,
+                  3384.7,
+                  5558207003
+                ],
+                [
+                  1792882838.8151476,
+                  3281.3,
+                  5669487131
+                ],
+                [
+                  1792882838.9166906,
+                  3193.1,
+                  5780767259
+                ],
+                [
+                  1792882839.0221992,
+                  3090.0,
+                  5892047387
+                ],
+                [
+                  1792882839.1385317,
+                  2982.6,
+                  6003327515
+                ],
+                [
+                  1792882839.2504406,
+                  2896.2,
+                  6114607643
+                ],
+                [
+                  1792882839.364171,
+                  2822.8,
+                  6170247707
+                ],
+                [
+                  1792882839.4655337,
+                  2762.1,
+                  6225887771
+                ],
+                [
+                  1792882839.5714297,
+                  3272.4,
+                  5068358427
+                ],
+                [
+                  1792882839.685538,
+                  4184.3,
+                  4373840667
+                ],
+                [
+                  1792882839.79062,
+                  4184.3,
+                  4373840667
+                ],
+                [
+                  1792882839.8908038,
+                  4185.6,
+                  4373840667
+                ],
+                [
+                  1792882839.9915047,
+                  4185.7,
+                  4373840667
+                ],
+                [
+                  1792882840.0925913,
+                  4185.8,
+                  4373840667
+                ],
+                [
+                  1792882840.19277,
+                  4185.7,
+                  4373840667
+                ],
+                [
+                  1792882840.293535,
+                  4185.8,
+                  4373840667
+                ],
+                [
+                  1792882840.3939183,
+                  4185.8,
+                  4373840667
+                ],
+                [
+                  1792882840.494986,
+                  4183.8,
+                  4373840667
+                ],
+                [
+                  1792882840.5957515,
+                  4189.4,
+                  4373840667
+                ],
+                [
+                  1792882840.6957552,
+                  4189.4,
+                  4373840667
+                ],
+                [
+                  1792882840.7967424,
+                  4189.3,
+                  4373840667
+                ],
+                [
+                  1792882840.8968813,
+                  4189.8,
+                  4373840667
+                ],
+                [
+                  1792882840.9969094,
+                  4190.1,
+                  4373840667
+                ],
+                [
+                  1792882841.0975533,
+                  4190.0,
+                  4373840667
+                ],
+                [
+                  1792882841.1978908,
+                  4190.0,
+                  4373840667
+                ],
+                [
+                  1792882841.298639,
+                  4190.0,
+                  4373840667
+                ],
+                [
+                  1792882841.3991704,
+                  4190.0,
+                  4373840667
+                ],
+                [
+                  1792882841.4997213,
+                  4184.5,
+                  4373840667
+                ],
+                [
+                  1792882841.6002142,
+                  4184.9,
+                  4373840667
+                ],
+                [
+                  1792882841.7010026,
+                  4184.9,
+                  4373840667
+                ],
+                [
+                  1792882841.8011062,
+                  4184.9,
+                  4373840667
+                ],
+                [
+                  1792882841.9011135,
+                  4184.9,
+                  4373840667
+                ],
+                [
+                  1792882842.001578,
+                  4184.9,
+                  4373840667
+                ],
+                [
+                  1792882842.1025577,
+                  4184.9,
+                  4373840667
+                ],
+                [
+                  1792882842.2025955,
+                  4184.9,
+                  4373840667
+                ],
+                [
+                  1792882842.3031383,
+                  4185.1,
+                  4373840667
+                ],
+                [
+                  1792882842.4037433,
+                  4185.1,
+                  4373840667
+                ],
+                [
+                  1792882842.504045,
+                  4185.4,
+                  4373840667
+                ],
+                [
+                  1792882842.6043966,
+                  4431.3,
+                  4373840667
+                ],
+                [
+                  1792882842.7048182,
+                  4428.2,
+                  4373840667
+                ],
+                [
+                  1792882842.8056903,
+                  4428.6,
+                  4373840667
+                ],
+                [
+                  1792882842.9061248,
+                  4429.7,
+                  4373840667
+                ],
+                [
+                  1792882843.0064363,
+                  4430.4,
+                  4373840667
+                ]
+              ]
+            },
+            "prefill_s": 4.743876953,
+            "prompt_tokens_reported": 13456,
+            "system_after": {
+              "available_mb": 4428.7265625,
+              "percent": 72.3,
+              "rss_mb": 4675.1640625,
+              "used_mb": 11547.44921875
+            },
+            "ttft_ns": 4743876953,
+            "ttft_source": "perf_metrics",
+            "turn": 12,
+            "wall_s": 4.744557700000314
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 2433.2,
+              "dxgi": {
+                "budget_change_events": 12,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4491534336
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4642529280
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 5067792384,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 4373840667,
+              "gpu_stat_total_last_bytes": 4524835871,
+              "gpu_stat_total_peak_bytes": 6527877915,
+              "hz": 10.0,
+              "n": 53,
+              "trace": [
+                [
+                  1792882843.0488353,
+                  4428.3,
+                  4373840667
+                ],
+                [
+                  1792882843.1638436,
+                  4115.0,
+                  4732846875
+                ],
+                [
+                  1792882843.2690344,
+                  3739.1,
+                  5091853083
+                ],
+                [
+                  1792882843.3721726,
+                  3396.1,
+                  5450859291
+                ],
+                [
+                  1792882843.4879234,
+                  3298.6,
+                  5630362395
+                ],
+                [
+                  1792882843.589591,
+                  3208.2,
+                  5750031131
+                ],
+                [
+                  1792882843.6982565,
+                  3107.9,
+                  5869699867
+                ],
+                [
+                  1792882843.8052404,
+                  3006.6,
+                  5989368603
+                ],
+                [
+                  1792882843.910916,
+                  2916.0,
+                  6049202971
+                ],
+                [
+                  1792882844.0197346,
+                  2801.0,
+                  6168871707
+                ],
+                [
+                  1792882844.1300762,
+                  2708.0,
+                  6288540443
+                ],
+                [
+                  1792882844.240763,
+                  2644.4,
+                  6348374811
+                ],
+                [
+                  1792882844.3492565,
+                  2569.0,
+                  6408209179
+                ],
+                [
+                  1792882844.449376,
+                  2498.4,
+                  6468043547
+                ],
+                [
+                  1792882844.5643778,
+                  2433.2,
+                  6527877915
+                ],
+                [
+                  1792882844.67775,
+                  3459.1,
+                  4942136351
+                ],
+                [
+                  1792882844.78924,
+                  4023.3,
+                  4524835871
+                ],
+                [
+                  1792882844.898401,
+                  4023.5,
+                  4524835871
+                ],
+                [
+                  1792882844.999302,
+                  4034.0,
+                  4524835871
+                ],
+                [
+                  1792882845.100199,
+                  4035.8,
+                  4524835871
+                ],
+                [
+                  1792882845.2011359,
+                  4037.3,
+                  4524835871
+                ],
+                [
+                  1792882845.3012567,
+                  4034.9,
+                  4524835871
+                ],
+                [
+                  1792882845.4019065,
+                  4034.6,
+                  4524835871
+                ],
+                [
+                  1792882845.5020003,
+                  4022.3,
+                  4524835871
+                ],
+                [
+                  1792882845.602009,
+                  4021.1,
+                  4524835871
+                ],
+                [
+                  1792882845.7025776,
+                  4010.2,
+                  4524835871
+                ],
+                [
+                  1792882845.8030515,
+                  4002.3,
+                  4524835871
+                ],
+                [
+                  1792882845.9036932,
+                  3999.5,
+                  4524835871
+                ],
+                [
+                  1792882846.0042617,
+                  4000.2,
+                  4524835871
+                ],
+                [
+                  1792882846.105272,
+                  4002.0,
+                  4524835871
+                ],
+                [
+                  1792882846.2054138,
+                  4005.4,
+                  4524835871
+                ],
+                [
+                  1792882846.306517,
+                  4002.8,
+                  4524835871
+                ],
+                [
+                  1792882846.4067404,
+                  4005.0,
+                  4524835871
+                ],
+                [
+                  1792882846.5070016,
+                  4002.9,
+                  4524835871
+                ],
+                [
+                  1792882846.6075487,
+                  4001.1,
+                  4524835871
+                ],
+                [
+                  1792882846.7083535,
+                  3999.1,
+                  4524835871
+                ],
+                [
+                  1792882846.8085604,
+                  3996.7,
+                  4524835871
+                ],
+                [
+                  1792882846.9085662,
+                  3995.1,
+                  4524835871
+                ],
+                [
+                  1792882847.0086813,
+                  3995.3,
+                  4524835871
+                ],
+                [
+                  1792882847.1091366,
+                  3991.1,
+                  4524835871
+                ],
+                [
+                  1792882847.2097785,
+                  3991.6,
+                  4524835871
+                ],
+                [
+                  1792882847.309932,
+                  3991.7,
+                  4524835871
+                ],
+                [
+                  1792882847.4105918,
+                  3991.5,
+                  4524835871
+                ],
+                [
+                  1792882847.511036,
+                  3986.5,
+                  4524835871
+                ],
+                [
+                  1792882847.6117642,
+                  4227.8,
+                  4524835871
+                ],
+                [
+                  1792882847.7126534,
+                  4261.2,
+                  4524835871
+                ],
+                [
+                  1792882847.8128104,
+                  4250.1,
+                  4524835871
+                ],
+                [
+                  1792882847.913973,
+                  4250.5,
+                  4524835871
+                ],
+                [
+                  1792882848.0140626,
+                  4252.2,
+                  4524835871
+                ],
+                [
+                  1792882848.1140766,
+                  4253.1,
+                  4524835871
+                ],
+                [
+                  1792882848.2149472,
+                  4254.0,
+                  4524835871
+                ],
+                [
+                  1792882848.315615,
+                  4254.9,
+                  4524835871
+                ],
+                [
+                  1792882848.4166813,
+                  4254.9,
+                  4524835871
+                ]
+              ]
+            },
+            "prefill_s": 5.378435546,
+            "prompt_tokens_reported": 14491,
+            "system_after": {
+              "available_mb": 4252.66796875,
+              "percent": 73.4,
+              "rss_mb": 4799.21875,
+              "used_mb": 11723.5078125
+            },
+            "ttft_ns": 5378435546,
+            "ttft_source": "perf_metrics",
+            "turn": 13,
+            "wall_s": 5.379214900000079
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 2163.6,
+              "dxgi": {
+                "budget_change_events": 15,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4642529280
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4793524224
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 5078933504,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 4524835871,
+              "gpu_stat_total_last_bytes": 4675831075,
+              "gpu_stat_total_peak_bytes": 6829868063,
+              "hz": 10.0,
+              "n": 58,
+              "trace": [
+                [
+                  1792882848.4388566,
+                  4256.0,
+                  4524835871
+                ],
+                [
+                  1792882848.553222,
+                  3945.5,
+                  4844979231
+                ],
+                [
+                  1792882848.6569786,
+                  3578.5,
+                  5229151263
+                ],
+                [
+                  1792882848.7664566,
+                  3324.6,
+                  5549294623
+                ],
+                [
+                  1792882848.890863,
+                  3166.8,
+                  5741380639
+                ],
+                [
+                  1792882849.0070763,
+                  3067.5,
+                  5869437983
+                ],
+                [
+                  1792882849.1072183,
+                  2976.5,
+                  5997495327
+                ],
+                [
+                  1792882849.2205622,
+                  2852.9,
+                  6061523999
+                ],
+                [
+                  1792882849.3335423,
+                  2766.3,
+                  6189581343
+                ],
+                [
+                  1792882849.4446049,
+                  2647.0,
+                  6317638687
+                ],
+                [
+                  1792882849.5595143,
+                  2550.7,
+                  6381667359
+                ],
+                [
+                  1792882849.6728523,
+                  2433.3,
+                  6509724703
+                ],
+                [
+                  1792882849.7851534,
+                  2366.4,
+                  6573753375
+                ],
+                [
+                  1792882849.8884544,
+                  2300.3,
+                  6637782047
+                ],
+                [
+                  1792882849.9938455,
+                  2239.9,
+                  6765839391
+                ],
+                [
+                  1792882850.1066868,
+                  2163.6,
+                  6829868063
+                ],
+                [
+                  1792882850.2098033,
+                  2461.3,
+                  5693015331
+                ],
+                [
+                  1792882850.3208938,
+                  3489.3,
+                  4675831075
+                ],
+                [
+                  1792882850.4317095,
+                  3747.6,
+                  4675831075
+                ],
+                [
+                  1792882850.5331626,
+                  3746.8,
+                  4675831075
+                ],
+                [
+                  1792882850.6336117,
+                  3745.1,
+                  4675831075
+                ],
+                [
+                  1792882850.7346532,
+                  3751.1,
+                  4675831075
+                ],
+                [
+                  1792882850.8353045,
+                  3751.3,
+                  4675831075
+                ],
+                [
+                  1792882850.9357386,
+                  3751.3,
+                  4675831075
+                ],
+                [
+                  1792882851.0357792,
+                  3751.3,
+                  4675831075
+                ],
+                [
+                  1792882851.1359715,
+                  3751.2,
+                  4675831075
+                ],
+                [
+                  1792882851.236559,
+                  3751.4,
+                  4675831075
+                ],
+                [
+                  1792882851.3366632,
+                  3752.0,
+                  4675831075
+                ],
+                [
+                  1792882851.4376996,
+                  3751.7,
+                  4675831075
+                ],
+                [
+                  1792882851.5378208,
+                  3746.0,
+                  4675831075
+                ],
+                [
+                  1792882851.6387854,
+                  3746.0,
+                  4675831075
+                ],
+                [
+                  1792882851.7390666,
+                  3746.5,
+                  4675831075
+                ],
+                [
+                  1792882851.8397586,
+                  3746.5,
+                  4675831075
+                ],
+                [
+                  1792882851.9404776,
+                  3746.6,
+                  4675831075
+                ],
+                [
+                  1792882852.0405834,
+                  3746.3,
+                  4675831075
+                ],
+                [
+                  1792882852.1408021,
+                  3746.2,
+                  4675831075
+                ],
+                [
+                  1792882852.2412825,
+                  3746.3,
+                  4675831075
+                ],
+                [
+                  1792882852.3413222,
+                  3746.3,
+                  4675831075
+                ],
+                [
+                  1792882852.442255,
+                  3746.4,
+                  4675831075
+                ],
+                [
+                  1792882852.5426037,
+                  3745.9,
+                  4675831075
+                ],
+                [
+                  1792882852.6428056,
+                  3746.0,
+                  4675831075
+                ],
+                [
+                  1792882852.7437854,
+                  3746.4,
+                  4675831075
+                ],
+                [
+                  1792882852.8448157,
+                  3746.4,
+                  4675831075
+                ],
+                [
+                  1792882852.9454832,
+                  3746.4,
+                  4675831075
+                ],
+                [
+                  1792882853.0463455,
+                  3746.1,
+                  4675831075
+                ],
+                [
+                  1792882853.146471,
+                  3746.1,
+                  4675831075
+                ],
+                [
+                  1792882853.2470968,
+                  3974.5,
+                  4675831075
+                ],
+                [
+                  1792882853.3478281,
+                  3974.5,
+                  4675831075
+                ],
+                [
+                  1792882853.4481878,
+                  3974.6,
+                  4675831075
+                ],
+                [
+                  1792882853.5487208,
+                  3974.5,
+                  4675831075
+                ],
+                [
+                  1792882853.6487885,
+                  3974.5,
+                  4675831075
+                ],
+                [
+                  1792882853.7488146,
+                  3974.7,
+                  4675831075
+                ],
+                [
+                  1792882853.849903,
+                  3974.7,
+                  4675831075
+                ],
+                [
+                  1792882853.950758,
+                  3974.6,
+                  4675831075
+                ],
+                [
+                  1792882854.0513577,
+                  3974.6,
+                  4675831075
+                ],
+                [
+                  1792882854.1521997,
+                  3974.6,
+                  4675831075
+                ],
+                [
+                  1792882854.252962,
+                  3974.6,
+                  4675831075
+                ],
+                [
+                  1792882854.3533304,
+                  3974.6,
+                  4675831075
+                ]
+              ]
+            },
+            "prefill_s": 5.960595214,
+            "prompt_tokens_reported": 15526,
+            "system_after": {
+              "available_mb": 3974.65625,
+              "percent": 75.1,
+              "rss_mb": 5090.47265625,
+              "used_mb": 12001.51953125
+            },
+            "ttft_ns": 5960595214,
+            "ttft_source": "perf_metrics",
+            "turn": 14,
+            "wall_s": 5.961317099999633
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 1828.7,
+              "dxgi": {
+                "budget_change_events": 18,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4793524224
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4944519168
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 5134966784,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 4675831075,
+              "gpu_stat_total_last_bytes": 4826826279,
+              "gpu_stat_total_peak_bytes": 7131858211,
+              "hz": 10.0,
+              "n": 64,
+              "trace": [
+                [
+                  1792882854.4112184,
+                  3974.6,
+                  4675831075
+                ],
+                [
+                  1792882854.5305443,
+                  3647.1,
+                  5016945955
+                ],
+                [
+                  1792882854.632682,
+                  3287.2,
+                  5426283811
+                ],
+                [
+                  1792882854.7390661,
+                  3290.5,
+                  5630952739
+                ],
+                [
+                  1792882854.8423505,
+                  3172.8,
+                  5767398691
+                ],
+                [
+                  1792882854.9554079,
+                  3075.5,
+                  5835621667
+                ],
+                [
+                  1792882855.0580666,
+                  2976.7,
+                  5972067619
+                ],
+                [
+                  1792882855.1603088,
+                  2878.3,
+                  6040290595
+                ],
+                [
+                  1792882855.2647164,
+                  2779.2,
+                  6176736547
+                ],
+                [
+                  1792882855.3701713,
+                  2681.0,
+                  6244959523
+                ],
+                [
+                  1792882855.4738715,
+                  2582.9,
+                  6381405475
+                ],
+                [
+                  1792882855.5748255,
+                  2484.2,
+                  6449628451
+                ],
+                [
+                  1792882855.676138,
+                  2386.3,
+                  6586074403
+                ],
+                [
+                  1792882855.779689,
+                  2289.1,
+                  6654297379
+                ],
+                [
+                  1792882855.8829987,
+                  2191.6,
+                  6790743331
+                ],
+                [
+                  1792882855.9866862,
+                  2100.8,
+                  6858966307
+                ],
+                [
+                  1792882856.1000943,
+                  2020.3,
+                  6927189283
+                ],
+                [
+                  1792882856.2020004,
+                  1955.9,
+                  6995412259
+                ],
+                [
+                  1792882856.3082893,
+                  1891.7,
+                  7063635235
+                ],
+                [
+                  1792882856.4139113,
+                  1828.7,
+                  7131858211
+                ],
+                [
+                  1792882856.527884,
+                  3074.0,
+                  5178983975
+                ],
+                [
+                  1792882856.6409087,
+                  3652.9,
+                  4826826279
+                ],
+                [
+                  1792882856.7421608,
+                  3653.4,
+                  4826826279
+                ],
+                [
+                  1792882856.8568244,
+                  3653.1,
+                  4826826279
+                ],
+                [
+                  1792882856.9577115,
+                  3653.1,
+                  4826826279
+                ],
+                [
+                  1792882857.0585868,
+                  3653.2,
+                  4826826279
+                ],
+                [
+                  1792882857.1596324,
+                  3653.3,
+                  4826826279
+                ],
+                [
+                  1792882857.2602751,
+                  3653.3,
+                  4826826279
+                ],
+                [
+                  1792882857.3604157,
+                  3653.4,
+                  4826826279
+                ],
+                [
+                  1792882857.461336,
+                  3652.6,
+                  4826826279
+                ],
+                [
+                  1792882857.5616863,
+                  3653.2,
+                  4826826279
+                ],
+                [
+                  1792882857.6626058,
+                  3653.2,
+                  4826826279
+                ],
+                [
+                  1792882857.7629085,
+                  3653.7,
+                  4826826279
+                ],
+                [
+                  1792882857.8632662,
+                  3653.7,
+                  4826826279
+                ],
+                [
+                  1792882857.9636242,
+                  3653.7,
+                  4826826279
+                ],
+                [
+                  1792882858.0644717,
+                  3654.0,
+                  4826826279
+                ],
+                [
+                  1792882858.164783,
+                  3654.0,
+                  4826826279
+                ],
+                [
+                  1792882858.2648206,
+                  3654.0,
+                  4826826279
+                ],
+                [
+                  1792882858.3657703,
+                  3654.0,
+                  4826826279
+                ],
+                [
+                  1792882858.465991,
+                  3652.7,
+                  4826826279
+                ],
+                [
+                  1792882858.5666223,
+                  3654.5,
+                  4826826279
+                ],
+                [
+                  1792882858.667007,
+                  3654.5,
+                  4826826279
+                ],
+                [
+                  1792882858.7678044,
+                  3654.6,
+                  4826826279
+                ],
+                [
+                  1792882858.8687272,
+                  3654.6,
+                  4826826279
+                ],
+                [
+                  1792882858.9697936,
+                  3654.6,
+                  4826826279
+                ],
+                [
+                  1792882859.0708354,
+                  3654.6,
+                  4826826279
+                ],
+                [
+                  1792882859.1714988,
+                  3654.7,
+                  4826826279
+                ],
+                [
+                  1792882859.2716606,
+                  3654.7,
+                  4826826279
+                ],
+                [
+                  1792882859.3724487,
+                  3654.6,
+                  4826826279
+                ],
+                [
+                  1792882859.472664,
+                  3898.6,
+                  4826826279
+                ],
+                [
+                  1792882859.5726857,
+                  3896.2,
+                  4826826279
+                ],
+                [
+                  1792882859.6731908,
+                  3897.7,
+                  4826826279
+                ],
+                [
+                  1792882859.7739644,
+                  3897.6,
+                  4826826279
+                ],
+                [
+                  1792882859.874194,
+                  3896.5,
+                  4826826279
+                ],
+                [
+                  1792882859.975022,
+                  3896.4,
+                  4826826279
+                ],
+                [
+                  1792882860.0755184,
+                  3891.9,
+                  4826826279
+                ],
+                [
+                  1792882860.17606,
+                  3892.5,
+                  4826826279
+                ],
+                [
+                  1792882860.2760665,
+                  3893.1,
+                  4826826279
+                ],
+                [
+                  1792882860.3765981,
+                  3893.1,
+                  4826826279
+                ],
+                [
+                  1792882860.476842,
+                  3888.9,
+                  4826826279
+                ],
+                [
+                  1792882860.5773911,
+                  3871.6,
+                  4826826279
+                ],
+                [
+                  1792882860.677415,
+                  3863.1,
+                  4826826279
+                ],
+                [
+                  1792882860.77745,
+                  3866.5,
+                  4826826279
+                ],
+                [
+                  1792882860.878103,
+                  3871.8,
+                  4826826279
+                ]
+              ]
+            },
+            "prefill_s": 6.534661132,
+            "prompt_tokens_reported": 16561,
+            "system_after": {
+              "available_mb": 3871.90234375,
+              "percent": 75.8,
+              "rss_mb": 5156.76953125,
+              "used_mb": 12104.2734375
+            },
+            "ttft_ns": 6534661132,
+            "ttft_source": "perf_metrics",
+            "turn": 15,
+            "wall_s": 6.535339400000339
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 1498.4,
+              "dxgi": {
+                "budget_change_events": 20,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4944519168
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    5095845888
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 5096103936,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 4826826279,
+              "gpu_stat_total_last_bytes": 4977821479,
+              "gpu_stat_total_peak_bytes": 7433848359,
+              "hz": 10.0,
+              "n": 70,
+              "trace": [
+                [
+                  1792882860.9691775,
+                  3871.8,
+                  4826826279
+                ],
+                [
+                  1792882861.0828114,
+                  3528.5,
+                  5188912679
+                ],
+                [
+                  1792882861.1960564,
+                  3330.6,
+                  5550999079
+                ],
+                [
+                  1792882861.3004258,
+                  3191.0,
+                  5695833639
+                ],
+                [
+                  1792882861.410912,
+                  3047.7,
+                  5840668199
+                ],
+                [
+                  1792882861.5218956,
+                  2953.8,
+                  5985502759
+                ],
+                [
+                  1792882861.634299,
+                  2815.3,
+                  6057920039
+                ],
+                [
+                  1792882861.7447834,
+                  2712.3,
+                  6202754599
+                ],
+                [
+                  1792882861.8449423,
+                  2629.1,
+                  6275171879
+                ],
+                [
+                  1792882861.955454,
+                  2524.6,
+                  6420006439
+                ],
+                [
+                  1792882862.0663674,
+                  2419.4,
+                  6492423719
+                ],
+                [
+                  1792882862.1754658,
+                  2314.8,
+                  6637258279
+                ],
+                [
+                  1792882862.2848365,
+                  2204.5,
+                  6709675559
+                ],
+                [
+                  1792882862.394758,
+                  2102.9,
+                  6854510119
+                ],
+                [
+                  1792882862.5038857,
+                  1989.5,
+                  6926927399
+                ],
+                [
+                  1792882862.6155934,
+                  1865.2,
+                  7071761959
+                ],
+                [
+                  1792882862.7297194,
+                  1792.1,
+                  7144179239
+                ],
+                [
+                  1792882862.843623,
+                  1730.4,
+                  7216596519
+                ],
+                [
+                  1792882862.9583557,
+                  1665.2,
+                  7289013799
+                ],
+                [
+                  1792882863.068698,
+                  1564.8,
+                  7361431079
+                ],
+                [
+                  1792882863.1815598,
+                  1498.4,
+                  7433848359
+                ],
+                [
+                  1792882863.2849722,
+                  2151.5,
+                  5864720167
+                ],
+                [
+                  1792882863.3904803,
+                  3076.9,
+                  4977821479
+                ],
+                [
+                  1792882863.502055,
+                  3421.7,
+                  4977821479
+                ],
+                [
+                  1792882863.6149974,
+                  3430.5,
+                  4977821479
+                ],
+                [
+                  1792882863.7296512,
+                  3435.9,
+                  4977821479
+                ],
+                [
+                  1792882863.8302112,
+                  3440.7,
+                  4977821479
+                ],
+                [
+                  1792882863.9310777,
+                  3440.6,
+                  4977821479
+                ],
+                [
+                  1792882864.0315366,
+                  3440.6,
+                  4977821479
+                ],
+                [
+                  1792882864.1325355,
+                  3440.9,
+                  4977821479
+                ],
+                [
+                  1792882864.2333407,
+                  3441.1,
+                  4977821479
+                ],
+                [
+                  1792882864.3336155,
+                  3441.1,
+                  4977821479
+                ],
+                [
+                  1792882864.434528,
+                  3477.4,
+                  4977821479
+                ],
+                [
+                  1792882864.5351713,
+                  3464.8,
+                  4977821479
+                ],
+                [
+                  1792882864.635891,
+                  3465.9,
+                  4977821479
+                ],
+                [
+                  1792882864.736892,
+                  3467.8,
+                  4977821479
+                ],
+                [
+                  1792882864.83789,
+                  3468.5,
+                  4977821479
+                ],
+                [
+                  1792882864.9385953,
+                  3468.6,
+                  4977821479
+                ],
+                [
+                  1792882865.03883,
+                  3468.6,
+                  4977821479
+                ],
+                [
+                  1792882865.1398916,
+                  3468.6,
+                  4977821479
+                ],
+                [
+                  1792882865.2404573,
+                  3468.6,
+                  4977821479
+                ],
+                [
+                  1792882865.3404906,
+                  3468.7,
+                  4977821479
+                ],
+                [
+                  1792882865.4411752,
+                  3468.8,
+                  4977821479
+                ],
+                [
+                  1792882865.5418196,
+                  3468.6,
+                  4977821479
+                ],
+                [
+                  1792882865.642567,
+                  3468.8,
+                  4977821479
+                ],
+                [
+                  1792882865.7426782,
+                  3468.8,
+                  4977821479
+                ],
+                [
+                  1792882865.8428895,
+                  3468.3,
+                  4977821479
+                ],
+                [
+                  1792882865.943445,
+                  3468.4,
+                  4977821479
+                ],
+                [
+                  1792882866.043477,
+                  3468.4,
+                  4977821479
+                ],
+                [
+                  1792882866.1439495,
+                  3468.4,
+                  4977821479
+                ],
+                [
+                  1792882866.244843,
+                  3468.2,
+                  4977821479
+                ],
+                [
+                  1792882866.34496,
+                  3695.8,
+                  4977821479
+                ],
+                [
+                  1792882866.4452405,
+                  3695.8,
+                  4977821479
+                ],
+                [
+                  1792882866.545632,
+                  3695.8,
+                  4977821479
+                ],
+                [
+                  1792882866.645674,
+                  3695.8,
+                  4977821479
+                ],
+                [
+                  1792882866.746689,
+                  3696.1,
+                  4977821479
+                ],
+                [
+                  1792882866.8478246,
+                  3698.5,
+                  4977821479
+                ],
+                [
+                  1792882866.9484007,
+                  3698.5,
+                  4977821479
+                ],
+                [
+                  1792882867.0490332,
+                  3698.4,
+                  4977821479
+                ],
+                [
+                  1792882867.149921,
+                  3698.4,
+                  4977821479
+                ],
+                [
+                  1792882867.2503011,
+                  3698.5,
+                  4977821479
+                ],
+                [
+                  1792882867.3513076,
+                  3698.5,
+                  4977821479
+                ],
+                [
+                  1792882867.4518218,
+                  3698.5,
+                  4977821479
+                ],
+                [
+                  1792882867.5525393,
+                  3696.6,
+                  4977821479
+                ],
+                [
+                  1792882867.6530898,
+                  3696.8,
+                  4977821479
+                ],
+                [
+                  1792882867.7533138,
+                  3696.9,
+                  4977821479
+                ],
+                [
+                  1792882867.8533492,
+                  3697.6,
+                  4977821479
+                ],
+                [
+                  1792882867.953415,
+                  3697.6,
+                  4977821479
+                ],
+                [
+                  1792882868.054801,
+                  3697.6,
+                  4977821479
+                ],
+                [
+                  1792882868.1553397,
+                  3697.6,
+                  4977821479
+                ]
+              ]
+            },
+            "prefill_s": 7.23345166,
+            "prompt_tokens_reported": 17596,
+            "system_after": {
+              "available_mb": 3697.640625,
+              "percent": 76.9,
+              "rss_mb": 5342.01171875,
+              "used_mb": 12278.53515625
+            },
+            "ttft_ns": 7233451660,
+            "ttft_source": "perf_metrics",
+            "turn": 16,
+            "wall_s": 7.234138300000268
+          },
+          {
+            "completion_chars": 3,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 1216.4,
+              "dxgi": {
+                "budget_change_events": 23,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    5095845888
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4480069632
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 5246840832,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 4977821479,
+              "gpu_stat_total_last_bytes": 5128816683,
+              "gpu_stat_total_peak_bytes": 7735838503,
+              "hz": 10.0,
+              "n": 76,
+              "trace": [
+                [
+                  1792882868.204951,
+                  3697.7,
+                  4977821479
+                ],
+                [
+                  1792882868.3248475,
+                  3367.2,
+                  5360879399
+                ],
+                [
+                  1792882868.4249892,
+                  3317.7,
+                  5590714151
+                ],
+                [
+                  1792882868.533422,
+                  3162.0,
+                  5743937319
+                ],
+                [
+                  1792882868.6341789,
+                  3052.3,
+                  5820548903
+                ],
+                [
+                  1792882868.7347405,
+                  2942.5,
+                  5973772071
+                ],
+                [
+                  1792882868.8479054,
+                  2832.7,
+                  6126995239
+                ],
+                [
+                  1792882868.9587402,
+                  2687.1,
+                  6203606823
+                ],
+                [
+                  1792882869.0630057,
+                  2622.1,
+                  6356829991
+                ],
+                [
+                  1792882869.1650634,
+                  2521.8,
+                  6433441575
+                ],
+                [
+                  1792882869.2675562,
+                  2425.8,
+                  6510053159
+                ],
+                [
+                  1792882869.382999,
+                  2320.5,
+                  6663276327
+                ],
+                [
+                  1792882869.4965143,
+                  2211.7,
+                  6739887911
+                ],
+                [
+                  1792882869.61118,
+                  2103.6,
+                  6893111079
+                ],
+                [
+                  1792882869.725717,
+                  1992.9,
+                  6969722663
+                ],
+                [
+                  1792882869.8378067,
+                  1875.9,
+                  7122945831
+                ],
+                [
+                  1792882869.9422712,
+                  1765.1,
+                  7199557415
+                ],
+                [
+                  1792882870.0522614,
+                  1649.7,
+                  7352780583
+                ],
+                [
+                  1792882870.1657217,
+                  1542.3,
+                  7429392167
+                ],
+                [
+                  1792882870.2743402,
+                  1439.0,
+                  7582615335
+                ],
+                [
+                  1792882870.376089,
+                  1345.1,
+                  7659226919
+                ],
+                [
+                  1792882870.480505,
+                  1284.7,
+                  7735838503
+                ],
+                [
+                  1792882870.583174,
+                  1216.4,
+                  7735838503
+                ],
+                [
+                  1792882870.691723,
+                  2395.3,
+                  5599529003
+                ],
+                [
+                  1792882870.7919,
+                  3074.5,
+                  5128816683
+                ],
+                [
+                  1792882870.9010465,
+                  3357.8,
+                  5128816683
+                ],
+                [
+                  1792882871.0030315,
+                  3350.4,
+                  5128816683
+                ],
+                [
+                  1792882871.1126034,
+                  3350.4,
+                  5128816683
+                ],
+                [
+                  1792882871.2135108,
+                  3342.9,
+                  5128816683
+                ],
+                [
+                  1792882871.3135295,
+                  3330.4,
+                  5128816683
+                ],
+                [
+                  1792882871.414218,
+                  3336.1,
+                  5128816683
+                ],
+                [
+                  1792882871.5151882,
+                  3336.8,
+                  5128816683
+                ],
+                [
+                  1792882871.6162448,
+                  3336.8,
+                  5128816683
+                ],
+                [
+                  1792882871.7166884,
+                  3332.4,
+                  5128816683
+                ],
+                [
+                  1792882871.8174255,
+                  3332.2,
+                  5128816683
+                ],
+                [
+                  1792882871.918032,
+                  3332.1,
+                  5128816683
+                ],
+                [
+                  1792882872.0183434,
+                  3334.8,
+                  5128816683
+                ],
+                [
+                  1792882872.1188357,
+                  3329.7,
+                  5128816683
+                ],
+                [
+                  1792882872.21891,
+                  3329.4,
+                  5128816683
+                ],
+                [
+                  1792882872.3190215,
+                  3329.7,
+                  5128816683
+                ],
+                [
+                  1792882872.4195266,
+                  3331.0,
+                  5128816683
+                ],
+                [
+                  1792882872.519825,
+                  3327.2,
+                  5128816683
+                ],
+                [
+                  1792882872.6201031,
+                  3327.0,
+                  5128816683
+                ],
+                [
+                  1792882872.7206073,
+                  3327.0,
+                  5128816683
+                ],
+                [
+                  1792882872.8212974,
+                  3326.8,
+                  5128816683
+                ],
+                [
+                  1792882872.9220564,
+                  3327.9,
+                  5128816683
+                ],
+                [
+                  1792882873.0228603,
+                  3327.9,
+                  5128816683
+                ],
+                [
+                  1792882873.1230671,
+                  3351.1,
+                  5128816683
+                ],
+                [
+                  1792882873.2241693,
+                  3353.9,
+                  5128816683
+                ],
+                [
+                  1792882873.3244038,
+                  3353.9,
+                  5128816683
+                ],
+                [
+                  1792882873.4244287,
+                  3355.0,
+                  5128816683
+                ],
+                [
+                  1792882873.5245795,
+                  3354.8,
+                  5128816683
+                ],
+                [
+                  1792882873.625418,
+                  3355.7,
+                  5128816683
+                ],
+                [
+                  1792882873.7265048,
+                  3355.7,
+                  5128816683
+                ],
+                [
+                  1792882873.8269172,
+                  3405.2,
+                  5128816683
+                ],
+                [
+                  1792882873.9276037,
+                  3598.4,
+                  5128816683
+                ],
+                [
+                  1792882874.0279505,
+                  3598.6,
+                  5128816683
+                ],
+                [
+                  1792882874.128151,
+                  3598.6,
+                  5128816683
+                ],
+                [
+                  1792882874.229124,
+                  3598.6,
+                  5128816683
+                ],
+                [
+                  1792882874.3301766,
+                  3598.6,
+                  5128816683
+                ],
+                [
+                  1792882874.4303696,
+                  3598.6,
+                  5128816683
+                ],
+                [
+                  1792882874.53145,
+                  3598.8,
+                  5128816683
+                ],
+                [
+                  1792882874.6317205,
+                  3598.8,
+                  5128816683
+                ],
+                [
+                  1792882874.7323642,
+                  3598.8,
+                  5128816683
+                ],
+                [
+                  1792882874.832743,
+                  3598.9,
+                  5128816683
+                ],
+                [
+                  1792882874.933158,
+                  3599.6,
+                  5128816683
+                ],
+                [
+                  1792882875.034211,
+                  3599.6,
+                  5128816683
+                ],
+                [
+                  1792882875.1345646,
+                  3599.6,
+                  5128816683
+                ],
+                [
+                  1792882875.2347682,
+                  3599.6,
+                  5128816683
+                ],
+                [
+                  1792882875.3348203,
+                  3599.6,
+                  5128816683
+                ],
+                [
+                  1792882875.4350164,
+                  3599.7,
+                  5128816683
+                ],
+                [
+                  1792882875.5356503,
+                  3599.0,
+                  5128816683
+                ],
+                [
+                  1792882875.6364434,
+                  3599.2,
+                  5128816683
+                ],
+                [
+                  1792882875.7366445,
+                  3599.2,
+                  5128816683
+                ],
+                [
+                  1792882875.8367074,
+                  3599.3,
+                  5128816683
+                ],
+                [
+                  1792882875.9374416,
+                  3599.3,
+                  5128816683
+                ]
+              ]
+            },
+            "prefill_s": 7.785780761,
+            "prompt_tokens_reported": 18631,
+            "system_after": {
+              "available_mb": 3599.30078125,
+              "percent": 77.5,
+              "rss_mb": 5426.85546875,
+              "used_mb": 12376.875
+            },
+            "ttft_ns": 7785780761,
+            "ttft_source": "perf_metrics",
+            "turn": 17,
+            "wall_s": 7.786454599999615
+          },
+          {
+            "completion_chars": 3,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 960.0,
+              "dxgi": {
+                "budget_change_events": 25,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4480069632
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4346507264
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 5397835776,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 5128816683,
+              "gpu_stat_total_last_bytes": 5279811887,
+              "gpu_stat_total_peak_bytes": 8037828651,
+              "hz": 10.0,
+              "n": 82,
+              "trace": [
+                [
+                  1792882876.0022497,
+                  3599.3,
+                  5128816683
+                ],
+                [
+                  1792882876.117534,
+                  3289.3,
+                  5452040235
+                ],
+                [
+                  1792882876.2296333,
+                  3238.4,
+                  5613652011
+                ],
+                [
+                  1792882876.3344123,
+                  3123.1,
+                  5775263787
+                ],
+                [
+                  1792882876.447807,
+                  3006.4,
+                  5856069675
+                ],
+                [
+                  1792882876.5511098,
+                  2890.2,
+                  6017681451
+                ],
+                [
+                  1792882876.6578767,
+                  2774.4,
+                  6098487339
+                ],
+                [
+                  1792882876.7656438,
+                  2658.3,
+                  6260099115
+                ],
+                [
+                  1792882876.871289,
+                  2542.7,
+                  6340905003
+                ],
+                [
+                  1792882876.9768274,
+                  2427.6,
+                  6502516779
+                ],
+                [
+                  1792882877.0797427,
+                  2311.8,
+                  6583322667
+                ],
+                [
+                  1792882877.1877584,
+                  2211.9,
+                  6744934443
+                ],
+                [
+                  1792882877.307966,
+                  2107.7,
+                  6825740331
+                ],
+                [
+                  1792882877.4203532,
+                  2020.2,
+                  6987352107
+                ],
+                [
+                  1792882877.530824,
+                  1904.0,
+                  7068157995
+                ],
+                [
+                  1792882877.6369505,
+                  1799.1,
+                  7148963883
+                ],
+                [
+                  1792882877.761813,
+                  1682.3,
+                  7310575659
+                ],
+                [
+                  1792882877.88613,
+                  1566.2,
+                  7391381547
+                ],
+                [
+                  1792882878.0100393,
+                  1449.5,
+                  7552993323
+                ],
+                [
+                  1792882878.1339607,
+                  1333.9,
+                  7633799211
+                ],
+                [
+                  1792882878.255382,
+                  1220.0,
+                  7795410987
+                ],
+                [
+                  1792882878.3635523,
+                  1148.7,
+                  7876216875
+                ],
+                [
+                  1792882878.490738,
+                  1073.4,
+                  7957022763
+                ],
+                [
+                  1792882878.6008933,
+                  1006.9,
+                  8037828651
+                ],
+                [
+                  1792882878.7025099,
+                  960.0,
+                  8037828651
+                ],
+                [
+                  1792882878.8143077,
+                  1769.9,
+                  5969316143
+                ],
+                [
+                  1792882878.9172509,
+                  2401.5,
+                  5279811887
+                ],
+                [
+                  1792882879.018209,
+                  2945.1,
+                  5279811887
+                ],
+                [
+                  1792882879.130364,
+                  3232.3,
+                  5279811887
+                ],
+                [
+                  1792882879.2327409,
+                  3230.9,
+                  5279811887
+                ],
+                [
+                  1792882879.3420944,
+                  3230.8,
+                  5279811887
+                ],
+                [
+                  1792882879.4421449,
+                  3230.8,
+                  5279811887
+                ],
+                [
+                  1792882879.5424683,
+                  3230.8,
+                  5279811887
+                ],
+                [
+                  1792882879.6434362,
+                  3231.1,
+                  5279811887
+                ],
+                [
+                  1792882879.7439485,
+                  3238.1,
+                  5279811887
+                ],
+                [
+                  1792882879.844665,
+                  3240.9,
+                  5279811887
+                ],
+                [
+                  1792882879.9456615,
+                  3240.9,
+                  5279811887
+                ],
+                [
+                  1792882880.0460718,
+                  3243.0,
+                  5279811887
+                ],
+                [
+                  1792882880.146608,
+                  3243.0,
+                  5279811887
+                ],
+                [
+                  1792882880.2475219,
+                  3243.0,
+                  5279811887
+                ],
+                [
+                  1792882880.3479638,
+                  3242.7,
+                  5279811887
+                ],
+                [
+                  1792882880.4487245,
+                  3242.5,
+                  5279811887
+                ],
+                [
+                  1792882880.549447,
+                  3242.5,
+                  5279811887
+                ],
+                [
+                  1792882880.6504045,
+                  3232.6,
+                  5279811887
+                ],
+                [
+                  1792882880.750638,
+                  3232.5,
+                  5279811887
+                ],
+                [
+                  1792882880.8516657,
+                  3232.5,
+                  5279811887
+                ],
+                [
+                  1792882880.9518712,
+                  3232.5,
+                  5279811887
+                ],
+                [
+                  1792882881.0522938,
+                  3232.5,
+                  5279811887
+                ],
+                [
+                  1792882881.1527133,
+                  3232.5,
+                  5279811887
+                ],
+                [
+                  1792882881.253243,
+                  3232.5,
+                  5279811887
+                ],
+                [
+                  1792882881.3539798,
+                  3232.6,
+                  5279811887
+                ],
+                [
+                  1792882881.4542558,
+                  3232.6,
+                  5279811887
+                ],
+                [
+                  1792882881.5542734,
+                  3232.6,
+                  5279811887
+                ],
+                [
+                  1792882881.6548529,
+                  3232.9,
+                  5279811887
+                ],
+                [
+                  1792882881.7551503,
+                  3232.9,
+                  5279811887
+                ],
+                [
+                  1792882881.85558,
+                  3233.0,
+                  5279811887
+                ],
+                [
+                  1792882881.9563172,
+                  3489.1,
+                  5279811887
+                ],
+                [
+                  1792882882.0571377,
+                  3489.3,
+                  5279811887
+                ],
+                [
+                  1792882882.158148,
+                  3489.4,
+                  5279811887
+                ],
+                [
+                  1792882882.2583256,
+                  3489.1,
+                  5279811887
+                ],
+                [
+                  1792882882.3585784,
+                  3489.1,
+                  5279811887
+                ],
+                [
+                  1792882882.459488,
+                  3489.1,
+                  5279811887
+                ],
+                [
+                  1792882882.5596213,
+                  3489.2,
+                  5279811887
+                ],
+                [
+                  1792882882.660269,
+                  3489.1,
+                  5279811887
+                ],
+                [
+                  1792882882.761099,
+                  3489.2,
+                  5279811887
+                ],
+                [
+                  1792882882.861627,
+                  3489.2,
+                  5279811887
+                ],
+                [
+                  1792882882.9622838,
+                  3492.6,
+                  5279811887
+                ],
+                [
+                  1792882883.0632617,
+                  3495.6,
+                  5279811887
+                ],
+                [
+                  1792882883.1636882,
+                  3495.7,
+                  5279811887
+                ],
+                [
+                  1792882883.264277,
+                  3495.4,
+                  5279811887
+                ],
+                [
+                  1792882883.3646162,
+                  3495.4,
+                  5279811887
+                ],
+                [
+                  1792882883.4650455,
+                  3495.4,
+                  5279811887
+                ],
+                [
+                  1792882883.5652032,
+                  3492.9,
+                  5279811887
+                ],
+                [
+                  1792882883.6658964,
+                  3492.9,
+                  5279811887
+                ],
+                [
+                  1792882883.766632,
+                  3493.0,
+                  5279811887
+                ],
+                [
+                  1792882883.867191,
+                  3493.1,
+                  5279811887
+                ],
+                [
+                  1792882883.9672444,
+                  3493.1,
+                  5279811887
+                ],
+                [
+                  1792882884.0678725,
+                  3493.3,
+                  5279811887
+                ],
+                [
+                  1792882884.168079,
+                  3493.3,
+                  5279811887
+                ],
+                [
+                  1792882884.2690303,
+                  3493.0,
+                  5279811887
+                ],
+                [
+                  1792882884.3696847,
+                  3493.1,
+                  5279811887
+                ],
+                [
+                  1792882884.4705708,
+                  3493.1,
+                  5279811887
+                ]
+              ]
+            },
+            "prefill_s": 8.515267578,
+            "prompt_tokens_reported": 19666,
+            "system_after": {
+              "available_mb": 3493.11328125,
+              "percent": 78.1,
+              "rss_mb": 5540.484375,
+              "used_mb": 12483.0625
+            },
+            "ttft_ns": 8515267578,
+            "ttft_source": "perf_metrics",
+            "turn": 18,
+            "wall_s": 8.516215399999965
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 636.0,
+              "dxgi": {
+                "budget_change_events": 25,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4346507264
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4187779072
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 5463764992,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 5279811887,
+              "gpu_stat_total_last_bytes": 5430807087,
+              "gpu_stat_total_peak_bytes": 8339818799,
+              "hz": 10.0,
+              "n": 87,
+              "trace": [
+                [
+                  1792882884.5302305,
+                  3493.1,
+                  5279811887
+                ],
+                [
+                  1792882884.652441,
+                  3289.6,
+                  5534812463
+                ],
+                [
+                  1792882884.7646964,
+                  3044.6,
+                  5789813039
+                ],
+                [
+                  1792882884.8796618,
+                  2920.8,
+                  5959813423
+                ],
+                [
+                  1792882884.9820304,
+                  2832.5,
+                  6129813807
+                ],
+                [
+                  1792882885.0914805,
+                  2711.2,
+                  6214813999
+                ],
+                [
+                  1792882885.1963646,
+                  2589.2,
+                  6384814383
+                ],
+                [
+                  1792882885.311526,
+                  2467.3,
+                  6469814575
+                ],
+                [
+                  1792882885.4216332,
+                  2344.9,
+                  6639814959
+                ],
+                [
+                  1792882885.5279725,
+                  2222.7,
+                  6724815151
+                ],
+                [
+                  1792882885.6287653,
+                  2113.1,
+                  6809815343
+                ],
+                [
+                  1792882885.729827,
+                  2031.1,
+                  6894815535
+                ],
+                [
+                  1792882885.841936,
+                  1925.9,
+                  7064815919
+                ],
+                [
+                  1792882885.9438338,
+                  1829.4,
+                  7149816111
+                ],
+                [
+                  1792882886.0571392,
+                  1724.2,
+                  7234816303
+                ],
+                [
+                  1792882886.1593833,
+                  1626.6,
+                  7319816495
+                ],
+                [
+                  1792882886.263674,
+                  1545.1,
+                  7489816879
+                ],
+                [
+                  1792882886.3733652,
+                  1421.8,
+                  7574817071
+                ],
+                [
+                  1792882886.4866896,
+                  1317.4,
+                  7659817263
+                ],
+                [
+                  1792882886.5889232,
+                  1219.0,
+                  7744817455
+                ],
+                [
+                  1792882886.7018175,
+                  1113.9,
+                  7914817839
+                ],
+                [
+                  1792882886.8034458,
+                  1014.6,
+                  7999818031
+                ],
+                [
+                  1792882886.9244132,
+                  915.6,
+                  8084818223
+                ],
+                [
+                  1792882887.034872,
+                  847.6,
+                  8169818415
+                ],
+                [
+                  1792882887.135281,
+                  780.2,
+                  8254818607
+                ],
+                [
+                  1792882887.2509124,
+                  712.5,
+                  8339818799
+                ],
+                [
+                  1792882887.364748,
+                  636.0,
+                  8339818799
+                ],
+                [
+                  1792882887.4779563,
+                  1984.6,
+                  5430807087
+                ],
+                [
+                  1792882887.593452,
+                  2640.2,
+                  5430807087
+                ],
+                [
+                  1792882887.706932,
+                  3067.1,
+                  5430807087
+                ],
+                [
+                  1792882887.8177516,
+                  3086.2,
+                  5430807087
+                ],
+                [
+                  1792882887.9194863,
+                  3433.7,
+                  5430807087
+                ],
+                [
+                  1792882888.0201147,
+                  3430.7,
+                  5430807087
+                ],
+                [
+                  1792882888.1207612,
+                  3444.8,
+                  5430807087
+                ],
+                [
+                  1792882888.2216833,
+                  3444.8,
+                  5430807087
+                ],
+                [
+                  1792882888.321765,
+                  3444.9,
+                  5430807087
+                ],
+                [
+                  1792882888.4222667,
+                  3444.9,
+                  5430807087
+                ],
+                [
+                  1792882888.5223615,
+                  3447.5,
+                  5430807087
+                ],
+                [
+                  1792882888.62315,
+                  3447.2,
+                  5430807087
+                ],
+                [
+                  1792882888.72415,
+                  3449.4,
+                  5430807087
+                ],
+                [
+                  1792882888.824415,
+                  3449.5,
+                  5430807087
+                ],
+                [
+                  1792882888.924486,
+                  3449.5,
+                  5430807087
+                ],
+                [
+                  1792882889.0249417,
+                  3449.6,
+                  5430807087
+                ],
+                [
+                  1792882889.125889,
+                  3449.9,
+                  5430807087
+                ],
+                [
+                  1792882889.2261896,
+                  3449.9,
+                  5430807087
+                ],
+                [
+                  1792882889.326954,
+                  3449.9,
+                  5430807087
+                ],
+                [
+                  1792882889.427118,
+                  3450.0,
+                  5430807087
+                ],
+                [
+                  1792882889.527483,
+                  3449.9,
+                  5430807087
+                ],
+                [
+                  1792882889.6279979,
+                  3449.6,
+                  5430807087
+                ],
+                [
+                  1792882889.7286732,
+                  3449.8,
+                  5430807087
+                ],
+                [
+                  1792882889.8289125,
+                  3449.8,
+                  5430807087
+                ],
+                [
+                  1792882889.929648,
+                  3449.9,
+                  5430807087
+                ],
+                [
+                  1792882890.0300634,
+                  3450.0,
+                  5430807087
+                ],
+                [
+                  1792882890.1308599,
+                  3450.7,
+                  5430807087
+                ],
+                [
+                  1792882890.231766,
+                  3450.9,
+                  5430807087
+                ],
+                [
+                  1792882890.3320518,
+                  3450.7,
+                  5430807087
+                ],
+                [
+                  1792882890.4320729,
+                  3450.7,
+                  5430807087
+                ],
+                [
+                  1792882890.5331008,
+                  3451.5,
+                  5430807087
+                ],
+                [
+                  1792882890.6333454,
+                  3451.1,
+                  5430807087
+                ],
+                [
+                  1792882890.7337627,
+                  3451.1,
+                  5430807087
+                ],
+                [
+                  1792882890.833947,
+                  3451.1,
+                  5430807087
+                ],
+                [
+                  1792882890.9345093,
+                  3451.0,
+                  5430807087
+                ],
+                [
+                  1792882891.0352826,
+                  3450.5,
+                  5430807087
+                ],
+                [
+                  1792882891.1355002,
+                  3450.6,
+                  5430807087
+                ],
+                [
+                  1792882891.236262,
+                  3450.6,
+                  5430807087
+                ],
+                [
+                  1792882891.3363721,
+                  3450.7,
+                  5430807087
+                ],
+                [
+                  1792882891.4370232,
+                  3451.9,
+                  5430807087
+                ],
+                [
+                  1792882891.5374234,
+                  3451.9,
+                  5430807087
+                ],
+                [
+                  1792882891.6378984,
+                  3428.9,
+                  5430807087
+                ],
+                [
+                  1792882891.738448,
+                  3425.2,
+                  5430807087
+                ],
+                [
+                  1792882891.8390853,
+                  3451.4,
+                  5430807087
+                ],
+                [
+                  1792882891.9398332,
+                  3459.5,
+                  5430807087
+                ],
+                [
+                  1792882892.0399692,
+                  3459.5,
+                  5430807087
+                ],
+                [
+                  1792882892.1408656,
+                  3459.6,
+                  5430807087
+                ],
+                [
+                  1792882892.2414694,
+                  3459.6,
+                  5430807087
+                ],
+                [
+                  1792882892.341921,
+                  3462.7,
+                  5430807087
+                ],
+                [
+                  1792882892.4420033,
+                  3462.8,
+                  5430807087
+                ],
+                [
+                  1792882892.54305,
+                  3463.2,
+                  5430807087
+                ],
+                [
+                  1792882892.643496,
+                  3447.5,
+                  5430807087
+                ],
+                [
+                  1792882892.7436578,
+                  3448.9,
+                  5430807087
+                ],
+                [
+                  1792882892.8445055,
+                  3449.1,
+                  5430807087
+                ],
+                [
+                  1792882892.9449108,
+                  3449.2,
+                  5430807087
+                ],
+                [
+                  1792882893.0459304,
+                  3449.7,
+                  5430807087
+                ],
+                [
+                  1792882893.1464224,
+                  3450.2,
+                  5430807087
+                ],
+                [
+                  1792882893.247037,
+                  3450.3,
+                  5430807087
+                ],
+                [
+                  1792882893.3475826,
+                  3450.3,
+                  5430807087
+                ],
+                [
+                  1792882893.4480767,
+                  3450.3,
+                  5430807087
+                ]
+              ]
+            },
+            "prefill_s": 8.910211914,
+            "prompt_tokens_reported": 20701,
+            "system_after": {
+              "available_mb": 3450.34765625,
+              "percent": 78.4,
+              "rss_mb": 5611.80078125,
+              "used_mb": 12525.828125
+            },
+            "ttft_ns": 8910211914,
+            "ttft_source": "perf_metrics",
+            "turn": 19,
+            "wall_s": 8.91093600000022
+          },
+          {
+            "completion_chars": 2,
+            "completion_tokens_reported": 1,
+            "mem_trace": {
+              "available_min_mb": 434.1,
+              "dxgi": {
+                "budget_change_events": 34,
+                "error": null,
+                "first_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    4187779072
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "last_budget_usage": {
+                  "LOCAL": [
+                    8802899523,
+                    3914625024
+                  ],
+                  "NON_LOCAL": [
+                    0,
+                    0
+                  ]
+                },
+                "peak_current_usage": {
+                  "LOCAL": 5610565632,
+                  "NON_LOCAL": 0
+                }
+              },
+              "errors": 0,
+              "gpu_stat_total_first_bytes": 5430807087,
+              "gpu_stat_total_last_bytes": 5581802291,
+              "gpu_stat_total_peak_bytes": 8641808943,
+              "hz": 10.0,
+              "n": 92,
+              "trace": [
+                [
+                  1792882893.4550047,
+                  3450.5,
+                  5430807087
+                ],
+                [
+                  1792882893.575138,
+                  3303.2,
+                  5609196079
+                ],
+                [
+                  1792882893.6918397,
+                  3180.4,
+                  5787585071
+                ],
+                [
+                  1792882893.802605,
+                  3060.3,
+                  5876779567
+                ],
+                [
+                  1792882893.9090846,
+                  2937.3,
+                  6055168559
+                ],
+                [
+                  1792882894.0118377,
+                  2809.3,
+                  6144363055
+                ],
+                [
+                  1792882894.1256802,
+                  2688.8,
+                  6233557551
+                ],
+                [
+                  1792882894.2329147,
+                  2576.9,
+                  6411946543
+                ],
+                [
+                  1792882894.333952,
+                  2468.4,
+                  6501141039
+                ],
+                [
+                  1792882894.4345043,
+                  2362.7,
+                  6590335535
+                ],
+                [
+                  1792882894.544753,
+                  2243.7,
+                  6768724527
+                ],
+                [
+                  1792882894.65081,
+                  2125.8,
+                  6857919023
+                ],
+                [
+                  1792882894.7554882,
+                  1997.7,
+                  6947113519
+                ],
+                [
+                  1792882894.8620331,
+                  1910.6,
+                  7125502511
+                ],
+                [
+                  1792882894.9693737,
+                  1779.1,
+                  7214697007
+                ],
+                [
+                  1792882895.0741103,
+                  1707.3,
+                  7303891503
+                ],
+                [
+                  1792882895.1779335,
+                  1602.9,
+                  7393085999
+                ],
+                [
+                  1792882895.2847185,
+                  1504.3,
+                  7571474991
+                ],
+                [
+                  1792882895.3857088,
+                  1420.4,
+                  7660669487
+                ],
+                [
+                  1792882895.496338,
+                  1303.2,
+                  7749863983
+                ],
+                [
+                  1792882895.6026514,
+                  1208.9,
+                  7839058479
+                ],
+                [
+                  1792882895.7095647,
+                  1123.0,
+                  7928252975
+                ],
+                [
+                  1792882895.8176348,
+                  1017.9,
+                  8017447471
+                ],
+                [
+                  1792882895.9232962,
+                  951.5,
+                  8106641967
+                ],
+                [
+                  1792882896.0302594,
+                  825.1,
+                  8195836463
+                ],
+                [
+                  1792882896.1458056,
+                  737.8,
+                  8374225455
+                ],
+                [
+                  1792882896.2573543,
+                  630.8,
+                  8463419951
+                ],
+                [
+                  1792882896.363082,
+                  560.5,
+                  8552614447
+                ],
+                [
+                  1792882896.464563,
+                  487.0,
+                  8552614447
+                ],
+                [
+                  1792882896.5682056,
+                  434.1,
+                  8641808943
+                ],
+                [
+                  1792882896.6695623,
+                  1078.8,
+                  6771804979
+                ],
+                [
+                  1792882896.7803004,
+                  2218.2,
+                  5581802291
+                ],
+                [
+                  1792882896.89611,
+                  2785.9,
+                  5581802291
+                ],
+                [
+                  1792882897.0097868,
+                  3069.8,
+                  5581802291
+                ],
+                [
+                  1792882897.1219275,
+                  3065.6,
+                  5581802291
+                ],
+                [
+                  1792882897.233265,
+                  3392.3,
+                  5581802291
+                ],
+                [
+                  1792882897.3463287,
+                  3391.9,
+                  5581802291
+                ],
+                [
+                  1792882897.4513452,
+                  3391.9,
+                  5581802291
+                ],
+                [
+                  1792882897.5516114,
+                  3398.5,
+                  5581802291
+                ],
+                [
+                  1792882897.6528468,
+                  3395.0,
+                  5581802291
+                ],
+                [
+                  1792882897.7540612,
+                  3395.0,
+                  5581802291
+                ],
+                [
+                  1792882897.85419,
+                  3395.0,
+                  5581802291
+                ],
+                [
+                  1792882897.954275,
+                  3395.0,
+                  5581802291
+                ],
+                [
+                  1792882898.055446,
+                  3395.0,
+                  5581802291
+                ],
+                [
+                  1792882898.1674533,
+                  3395.1,
+                  5581802291
+                ],
+                [
+                  1792882898.2678068,
+                  3396.3,
+                  5581802291
+                ],
+                [
+                  1792882898.3684413,
+                  3396.3,
+                  5581802291
+                ],
+                [
+                  1792882898.4693744,
+                  3396.3,
+                  5581802291
+                ],
+                [
+                  1792882898.5697093,
+                  3396.3,
+                  5581802291
+                ],
+                [
+                  1792882898.6702487,
+                  3395.9,
+                  5581802291
+                ],
+                [
+                  1792882898.7706478,
+                  3395.9,
+                  5581802291
+                ],
+                [
+                  1792882898.8711593,
+                  3395.9,
+                  5581802291
+                ],
+                [
+                  1792882898.9721572,
+                  3395.9,
+                  5581802291
+                ],
+                [
+                  1792882899.0730107,
+                  3395.9,
+                  5581802291
+                ],
+                [
+                  1792882899.1736257,
+                  3395.9,
+                  5581802291
+                ],
+                [
+                  1792882899.2737443,
+                  3395.9,
+                  5581802291
+                ],
+                [
+                  1792882899.374631,
+                  3395.9,
+                  5581802291
+                ],
+                [
+                  1792882899.4801087,
+                  3395.9,
+                  5581802291
+                ],
+                [
+                  1792882899.5802739,
+                  3396.0,
+                  5581802291
+                ],
+                [
+                  1792882899.6804895,
+                  3396.1,
+                  5581802291
+                ],
+                [
+                  1792882899.7815883,
+                  3396.1,
+                  5581802291
+                ],
+                [
+                  1792882899.8821747,
+                  3396.1,
+                  5581802291
+                ],
+                [
+                  1792882899.992801,
+                  3396.1,
+                  5581802291
+                ],
+                [
+                  1792882900.0934632,
+                  3396.1,
+                  5581802291
+                ],
+                [
+                  1792882900.1946054,
+                  3396.1,
+                  5581802291
+                ],
+                [
+                  1792882900.2951584,
+                  3396.3,
+                  5581802291
+                ],
+                [
+                  1792882900.3953252,
+                  3396.3,
+                  5581802291
+                ],
+                [
+                  1792882900.4955049,
+                  3396.3,
+                  5581802291
+                ],
+                [
+                  1792882900.596778,
+                  3396.2,
+                  5581802291
+                ],
+                [
+                  1792882900.6977324,
+                  3396.2,
+                  5581802291
+                ],
+                [
+                  1792882900.7984273,
+                  3396.3,
+                  5581802291
+                ],
+                [
+                  1792882900.8994625,
+                  3396.4,
+                  5581802291
+                ],
+                [
+                  1792882901.000232,
+                  3396.4,
+                  5581802291
+                ],
+                [
+                  1792882901.1008215,
+                  3396.5,
+                  5581802291
+                ],
+                [
+                  1792882901.2018669,
+                  3396.5,
+                  5581802291
+                ],
+                [
+                  1792882901.3029177,
+                  3396.6,
+                  5581802291
+                ],
+                [
+                  1792882901.404358,
+                  3396.6,
+                  5581802291
+                ],
+                [
+                  1792882901.5049293,
+                  3396.6,
+                  5581802291
+                ],
+                [
+                  1792882901.612629,
+                  3396.5,
+                  5581802291
+                ],
+                [
+                  1792882901.713542,
+                  3396.5,
+                  5581802291
+                ],
+                [
+                  1792882901.813994,
+                  3396.7,
+                  5581802291
+                ],
+                [
+                  1792882901.9146829,
+                  3396.7,
+                  5581802291
+                ],
+                [
+                  1792882902.015958,
+                  3396.4,
+                  5581802291
+                ],
+                [
+                  1792882902.125608,
+                  3396.6,
+                  5581802291
+                ],
+                [
+                  1792882902.2258694,
+                  3396.6,
+                  5581802291
+                ],
+                [
+                  1792882902.3261008,
+                  3396.6,
+                  5581802291
+                ],
+                [
+                  1792882902.4261537,
+                  3396.7,
+                  5581802291
+                ],
+                [
+                  1792882902.5265105,
+                  3396.8,
+                  5581802291
+                ],
+                [
+                  1792882902.6273475,
+                  3396.7,
+                  5581802291
+                ],
+                [
+                  1792882902.7275963,
+                  3396.7,
+                  5581802291
+                ],
+                [
+                  1792882902.8276474,
+                  3396.7,
+                  5581802291
+                ],
+                [
+                  1792882902.9288733,
+                  3396.7,
+                  5581802291
+                ]
+              ]
+            },
+            "prefill_s": 9.484973632,
+            "prompt_tokens_reported": 21736,
+            "system_after": {
+              "available_mb": 3396.83984375,
+              "percent": 78.7,
+              "rss_mb": 5756.26953125,
+              "used_mb": 12579.3359375
+            },
+            "ttft_ns": 9484973632,
+            "ttft_source": "perf_metrics",
+            "turn": 20,
+            "wall_s": 9.485639300000003
+          }
+        ]
+      },
+      "holds": false,
+      "hung_after_result": false,
+      "loads": [
+        {
+          "available_delta_mb": 2470.57421875,
+          "compile_s": 3.7017973000001803,
+          "compiled": {
+            "backend": "PA",
+            "captured_chars": 2812,
+            "key_cache_quant_mode": null,
+            "kv_cache_precision": "f16",
+            "n_pa_properties": 25,
+            "pa_property_dump_seen": true,
+            "sdpa_fallback_warning": false,
+            "value_cache_quant_mode": null
+          },
+          "device": "GPU",
+          "device_mem_props": {
+            "GPU_DEVICE_MAX_ALLOC_MEM_SIZE": 8503984128,
+            "GPU_DEVICE_TOTAL_MEM_SIZE": 8503984128
+          },
+          "kv_cache_precision": {
+            "enforced": true,
+            "failure_mode": null,
+            "match": true,
+            "readback": {
+              "device": "GPU",
+              "error": null,
+              "normalized": "f16",
+              "ok": true,
+              "property": "KV_CACHE_PRECISION",
+              "raw": "<Type: 'float16'>",
+              "to_string": "f16"
+            },
+            "requested": "f16"
+          },
+          "memory_after": {
+            "available_mb": 6624.41796875,
+            "percent": 58.5,
+            "rss_mb": 2549.3671875,
+            "used_mb": 9351.7578125
+          },
+          "memory_before": {
+            "available_mb": 9094.9921875,
+            "percent": 43.1,
+            "rss_mb": 54.015625,
+            "used_mb": 6881.18359375
+          },
+          "properties": {
+            "KV_CACHE_PRECISION": "<Type: 'float16'>"
+          },
+          "properties_requested": {
+            "KV_CACHE_PRECISION": "f16"
+          },
+          "rss_delta_mb": 2495.3515625,
+          "versions": {
+            "openvino": "2026.2.1-21919-ede283a88e3-releases/2026/2",
+            "openvino_genai": "2026.2.1.0-3123-7dea0459b2a"
+          }
+        }
+      ],
+      "outcome": "fail",
+      "step": 0
+    }
+  ],
+  "sealed_dir": "C:\\Users\\<user>\\Projects\\gnn-hls-accel\\derived\\delta_prefill\\sealed_e99bb2ad-c636-4edd-8a39-1d39a0ad6027",
+  "session_id": "e99bb2ad-c636-4edd-8a39-1d39a0ad6027",
+  "status": "complete"
+}

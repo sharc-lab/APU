@@ -1,0 +1,205 @@
+{
+  "id": "BR_STAT1_PREDICTIONS",
+  "registration": "docs/registrations/BR_STAT_2026-10-26.md",
+  "generator": "tools/br_predict.py",
+  "runner_must_not_read_this_file": true,
+  "design": {
+    "rule": "biased-coin up-and-down targeting hold 0.9 (b = 1/9), fresh child per trial, step 250, >= 30 trials per anchor over >= 3 sessions (one session = one boot), anchor blocks in seeded random order each session",
+    "estimator": "centered isotonic regression (tools/stat_cir.py) for L90 and L50; 90% CI by a two-stage bootstrap (sessions, then trials within session), 2,000 draws, seed 20261026; reversal count reported",
+    "covariates": "session as a random effect (secondary: logistic GLMM with pre-trial Available MB); exclusion only for a logged perturbing event"
+  },
+  "anchors": {
+    "f16_unl": {
+      "arm": "f16",
+      "cap": "none",
+      "bisection_max": [
+        "aa914c4c",
+        14000
+      ],
+      "law_L50": 13904,
+      "law_band": [
+        11818,
+        15990
+      ]
+    },
+    "u4_unl": {
+      "arm": "u4",
+      "cap": "none",
+      "bisection_max": [
+        "5943c992",
+        25000
+      ],
+      "law_L50": 24245,
+      "law_band": [
+        20608,
+        27882
+      ]
+    },
+    "f16_c256": {
+      "arm": "f16",
+      "cap": 256,
+      "bisection_max": [
+        "d782cf80",
+        22000
+      ],
+      "law_L50": 22004,
+      "law_band": [
+        18704,
+        25305
+      ]
+    }
+  },
+  "u4_c256_binomial": {
+    "level": 63000,
+    "level_rule": "0.9 x 70,000 (f8df3847, the bisection max; 0/4 at 70,000 in 0580176a so L50 < 70,000)",
+    "trials": 20,
+    "law_limit": 68697,
+    "prediction": ">= 19 of 20 hold (20/20 gives reliability >= 0.861 at 95% one-sided)"
+  },
+  "predictions": {
+    "P-STAT-1": "each anchor's L50 lies inside its law band (B_BR, compiled k)",
+    "P-STAT-2": "each anchor's bisection max is >= its L50 (selection bias of one-draw bisection)",
+    "P-STAT-3": "L90 < L50 for each anchor with a CI width (90%) <= 10% of L50",
+    "P-STAT-4": "u4 cap256 at 63,000: >= 19 of 20 hold"
+  },
+  "budget_rule": {
+    "rule": "B_i = P + k_compiled*L + a*min(L, cap); B_BR = median(B_i); band [min, max]",
+    "cells": [
+      {
+        "run_id": "5943c992",
+        "cell": "mech_u4_unlx",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 25000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3368800000
+      },
+      {
+        "run_id": "d6616dfd",
+        "cell": "bal_g0_u4",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 25000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3368800000
+      },
+      {
+        "run_id": "3cd03df7",
+        "cell": "a33_u4_cache0",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 24250,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3267736000
+      },
+      {
+        "run_id": "aa914c4c",
+        "cell": "mech_f16_unlx",
+        "arm": "f16",
+        "cap": "none",
+        "largest_held": 14000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3289664000
+      },
+      {
+        "run_id": "ba7a1e89",
+        "cell": "bal_g0_f16",
+        "arm": "f16",
+        "cap": "none",
+        "largest_held": 13250,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3113432000
+      },
+      {
+        "run_id": "fd074be1",
+        "cell": "mech_8_unlx",
+        "arm": "i8",
+        "cap": "none",
+        "largest_held": 18000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3089088000
+      },
+      {
+        "run_id": "b038e362",
+        "cell": "a21_8bit_rep",
+        "arm": "i8",
+        "cap": "none",
+        "largest_held": 19750,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3389416000
+      },
+      {
+        "run_id": "f8df3847",
+        "cell": "mech_u4_c256",
+        "arm": "u4",
+        "cap": 256,
+        "largest_held": 70000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3328645120
+      },
+      {
+        "run_id": "d782cf80",
+        "cell": "mech_f16_c256",
+        "arm": "f16",
+        "cap": 256,
+        "largest_held": 22000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3266437120
+      },
+      {
+        "run_id": "1e9671a0",
+        "cell": "mech_8_c256",
+        "arm": "i8",
+        "cap": 256,
+        "largest_held": 38000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3218053120
+      },
+      {
+        "run_id": "f7542f68",
+        "cell": "mech_u4_c1024",
+        "arm": "u4",
+        "cap": 1024,
+        "largest_held": 67000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3254164480
+      },
+      {
+        "run_id": "b48e4cfe",
+        "cell": "mech_f16_c1024",
+        "arm": "f16",
+        "cap": 1024,
+        "largest_held": 21000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3186196480
+      },
+      {
+        "run_id": "3e45f554",
+        "cell": "mech_8_c1024",
+        "arm": "i8",
+        "cap": 1024,
+        "largest_held": 36000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3117076480
+      },
+      {
+        "run_id": "aaadf214",
+        "cell": "a33_u4_cache2",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 13000,
+        "pool_bytes": 2147483648,
+        "implied_B_bytes": 3285243648
+      }
+    ],
+    "B_BR_bytes": 3267086560,
+    "B_BR_GB": 3.267,
+    "B_BR_GiB": 3.043,
+    "band_bytes": [
+      3089088000,
+      3389416000
+    ],
+    "spread_pct": 4.6,
+    "label": "IN-SAMPLE (57% override, windows 20261023_140349_cc_v3 and 20261024_175932_cc_v3b)"
+  }
+}

@@ -1,0 +1,10 @@
+{
+ "figure": "fig3_cliff_ttft",
+ "script": "analysis/meeting_20261027/make_figs.py",
+ "inputs_sha256": {
+  "analysis/cc_20261026/measured.json": "75e7596d1150ac55579f86dd2485ce2ede38399fda033515618f449e543aae5e"
+ },
+ "notes": [
+  "cliff_f16 83a3c422: 12,000 held, 13,500-22,500 all failed loudly in turn 1; cliff_u4 36e0ec24 NOT RUN (quiescence)"
+ ]
+}

@@ -74,7 +74,7 @@ def _template_accepts_thinking(tokenizer: Any) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class OpenVinoRuntimeInfo:
-    """Versions recorded into every manifest's ``drivers`` block (spec §5.2)."""
+    """Versions recorded into every manifest's ``drivers`` block (spec 5.2)."""
 
     openvino: str
     genai: str
@@ -120,7 +120,7 @@ class LocalOpenVinoBackend:
         # manifest. It is applied identically to both targets, so it never differs between arms
         # of the silicon contrast.
         self._enable_thinking = enable_thinking
-        # Process-affinity fallback (spec §4). Used only when SCHEDULING_CORE_TYPE is shown NOT to
+        # Process-affinity fallback (spec 4). Used only when SCHEDULING_CORE_TYPE is shown NOT to
         # confine work to the M1-committed cluster; applied before compilation so the pipeline's
         # worker threads inherit the mask.
         self._affinity_cpus = list(affinity_cpus) if affinity_cpus else None
@@ -243,7 +243,7 @@ class LocalOpenVinoBackend:
         if not self._model_dir.exists():
             raise BackendError(
                 f"OpenVINO IR not found at {self._model_dir}. Export it with "
-                f"seam/tools/export_model.py - models are never hand-converted (spec §5.3)."
+                f"seam/tools/export_model.py - models are never hand-converted (spec 5.3)."
             )
 
         self._process_affinity_before_load = capture_process_affinity()
@@ -396,7 +396,7 @@ class LocalOpenVinoBackend:
                 # OpenVINO GenAI's LLMPipeline.generate() takes a fully rendered prompt and reports
                 # no cache-reuse counters, so `cache_read_input_tokens` is structurally 0 here. That
                 # is NOT the same claim as "no reuse occurred", and the E-FILTER caching fork turns
-                # on the difference - see docs/EXPERIMENT_escalation_filter.md §6.
+                # on the difference - see docs/EXPERIMENT_escalation_filter.md section 6.
                 "cache_instrumented": False,
                 "cache_instrumentation_note": (
                     "openvino_genai LLMPipeline exposes no cache_read/cache_creation counters; "
@@ -430,18 +430,40 @@ def _text_from_generate_result(result: Any) -> str:
     return str(result)
 
 
-def _make_ttft_streamer(ov_genai: Any) -> Any:
-    """Build a ``StreamerBase`` that records wall time to the first generated token."""
+def _make_ttft_streamer(ov_genai: Any, on_token: Any = None) -> Any:
+    """Build a ``StreamerBase`` that records wall time to the first generated token.
+
+    ``on_token`` (Task BB, default None) is called with "token" on every write.
+    """
 
     class _TtftStreamer(ov_genai.StreamerBase):
         def __init__(self) -> None:
             super().__init__()
             self.t0_ns: int | None = None
             self.ttft_ns: int | None = None
+            self.first_token_ns: int | None = None
+            self.last_token_ns: int | None = None
+            self.tokens_written: int = 0
+            # Ids as received (an int, or a list of ints on newer GenAI builds).
+            self.token_ids: list[int] = []
 
-        def write(self, _token: Any) -> Any:
-            if self.ttft_ns is None and self.t0_ns is not None:
-                self.ttft_ns = time.perf_counter_ns() - self.t0_ns
+        def write(self, token: Any) -> Any:
+            now = time.perf_counter_ns()
+            self.tokens_written += 1
+            try:
+                if isinstance(token, (list, tuple)):
+                    self.token_ids.extend(int(item) for item in token)
+                else:
+                    self.token_ids.append(int(token))
+            except (TypeError, ValueError):
+                pass
+            if self.first_token_ns is None:
+                self.first_token_ns = now
+                if self.ttft_ns is None and self.t0_ns is not None:
+                    self.ttft_ns = now - self.t0_ns
+            self.last_token_ns = now
+            if on_token is not None:
+                on_token("token")
             return ov_genai.StreamingStatus.RUNNING
 
         def end(self) -> None:

@@ -17,7 +17,7 @@ publisher_quantization:
 note: int4 sibling is INT4_SYM + AWQ + scale estimation on wikitext2; this build is
   naive INT8_ASYM. An int4-vs-int8 contrast varies bit width, SYM/ASYM and calibration
   together, and the confound favours int4 on quality.
-ir_dir: C:\Users\zjohn\Projects\gnn-hls-accel\models\Qwen3-4B-int8-ov
+ir_dir: C:\Users\<user>\Projects\gnn-hls-accel\models\Qwen3-4B-int8-ov
 ir_sha256: f7d323d0eb94a6bc9a1bf807416877cbb988cfbd95e7f9ef12403951b90886ae
 ir_files:
   .gitattributes: 34448b82c17d60fec9b65b1f093c115ddbaadc04beb1b0140b6bfed2e012a930

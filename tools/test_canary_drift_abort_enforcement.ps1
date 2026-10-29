@@ -15,7 +15,7 @@
 
 $ErrorActionPreference = "Stop"
 $failed = 0
-$root = "C:\Users\zjohn\Projects\gnn-hls-accel"
+$root = "C:\Users\<user>\Projects\gnn-hls-accel"
 . (Join-Path $root "tools\SeamPsCommon.ps1")
 
 function Assert-True {

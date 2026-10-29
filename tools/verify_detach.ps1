@@ -5,9 +5,9 @@
 .DESCRIPTION
   Two invocations, from the Mac:
 
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/verify_detach.ps1 -Start"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/verify_detach.ps1 -Start"
     <the SSH session ends here -- this is the event under test>
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/verify_detach.ps1 -Check"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/verify_detach.ps1 -Check"
 
   -Start spawns a heartbeat writer through tools/spawn_detached.ps1 and returns immediately.
   -Check reads the heartbeat twice, eight seconds apart, and reports whether the tick advanced.
@@ -27,7 +27,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$root = "C:\Users\zjohn\Projects\gnn-hls-accel"
+$root = "C:\Users\<user>\Projects\gnn-hls-accel"
 $outDir = Join-Path $root "derived\detach_check"
 $statePath = Join-Path $outDir "current.json"
 

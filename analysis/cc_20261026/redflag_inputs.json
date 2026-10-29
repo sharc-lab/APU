@@ -1,0 +1,250 @@
+{
+ "_note": "Task BK closeout inputs; values from the sealed records (analysis/cc_20261026/*.json). Generated inline; see the report.",
+ "R1": {
+  "value": 19750,
+  "run_ids": [
+   "de5f641f",
+   "b038e362"
+  ],
+  "note": "compiled-k reading (DERIVED, not a rescore): law 19,037 with B_BR; measured +3.7%"
+ },
+ "R2": {
+  "ratios": [
+   1.94,
+   0.0
+  ],
+  "slider_r2": 1.0,
+  "run_ids": [
+   "a2a7c763",
+   "f4abaf6e",
+   "9e31d4cb",
+   "769c5a03",
+   "c461f165",
+   "39d38c85",
+   "598e882d",
+   "f9953743",
+   "0014465c",
+   "62d59ab8"
+  ],
+  "note": "slider slopes are NEGATIVE: u4 -208/pt (50-74%), f16 -107/pt (50-57%) vs predicted +1,204 / +681; GPU balloon slopes u4 ~0 (25,000/25,000/24,750) and f16 +1,000/GiB (13,250 -> 14,250), ratio entered as 0.0; decided by Zach 2026-10-25 (ok on all, INV-1)"
+ },
+ "R3": {
+  "a_kb": {
+   "f16": 87.52,
+   "u4": 93.28
+  },
+  "run_ids": [
+   "e4e797e7",
+   "ae16fcd5",
+   "50d5a3a4",
+   "460ec188"
+  ]
+ },
+ "R4": {
+  "cap256_vs_uncapped": {
+   "f16": {
+    "capped": 22000,
+    "uncapped": 14000
+   },
+   "u4": {
+    "capped": 70000,
+    "uncapped": 25000
+   },
+   "i8": {
+    "capped": 38000,
+    "uncapped": 18000
+   }
+  },
+  "headline_failure_classes": [
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "device_alloc",
+   "other",
+   "other",
+   "other",
+   "other",
+   "other",
+   "other",
+   "other",
+   "other",
+   "other",
+   "other",
+   "other",
+   "other",
+   "other",
+   "other"
+  ],
+  "run_ids": [
+   "d782cf80",
+   "aa914c4c",
+   "f8df3847",
+   "5943c992",
+   "1e9671a0",
+   "fd074be1"
+  ]
+ },
+ "R5": {
+  "kv": [
+   {
+    "headline": true,
+    "requested": "all 378 loads",
+    "applied": "all 378 loads"
+   }
+  ],
+  "ollama": [],
+  "run_ids": [
+   "analysis/cc_20261026/provenance.json"
+  ],
+  "note": "378/378 loads compiled the requested KV type with backend PA; A35 (Rithwik) not measured"
+ },
+ "R6": {
+  "xps": {
+   "shared_mib": 9106.42,
+   "total_phys_mib": 15976.2,
+   "override_pct": 57
+  },
+  "xps_50": {
+   "shared_mib": 7988.1,
+   "total_phys_mib": 15976.2,
+   "override_pct": 50
+  },
+  "xps_74": {
+   "shared_mib": 11822.4,
+   "total_phys_mib": 15976.2,
+   "override_pct": 74
+  },
+  "t2s": {
+   "shared_mib": 48634,
+   "total_phys_mib": 65018
+  },
+  "run_ids": [
+   "a19 window_20261025_*",
+   "a19 t2s window_20261023_130443"
+  ]
+ },
+ "R7": {
+  "u4_c256_median": 70000,
+  "run_ids": [
+   "f8df3847",
+   "0580176a"
+  ],
+  "note": "registered L* 70,000; repeats 0/4 at 70,000 and 0/4 at 71,000; bisection also held 61,000 and 67,000 once each"
+ }
+}

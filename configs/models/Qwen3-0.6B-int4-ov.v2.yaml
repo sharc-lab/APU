@@ -16,7 +16,7 @@ publisher_quantization:
   dataset: null
 note: 'v2 recipe: mode/ratio/group_size from v1 (readme); awq/scale_estimation/dataset
   null where the card does not state them.'
-ir_dir: C:\Users\zjohn\Projects\gnn-hls-accel\models\Qwen3-0.6B-int4-ov
+ir_dir: C:\Users\<user>\Projects\gnn-hls-accel\models\Qwen3-0.6B-int4-ov
 ir_sha256: 55662b10ef6fced1a39249335130afdb6f8f35a88e7c4ba36cc8c6cde42b8131
 ir_files:
   .gitattributes: 34448b82c17d60fec9b65b1f093c115ddbaadc04beb1b0140b6bfed2e012a930

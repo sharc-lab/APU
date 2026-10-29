@@ -1,0 +1,4890 @@
+{
+  "arm": "gpu_only_f16",
+  "canaries": [
+    {
+      "after_probe_count": -1,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 57643.0,
+      "canary_index": 0,
+      "classification": "OK",
+      "counts_toward_calibration": false,
+      "delta": 400,
+      "discarded_from_calibration": true,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": false,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": false,
+        "battery_status_values": null,
+        "estimated_charge_remaining_pct": null,
+        "note": "no_battery_mains_only_assume_ac",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_no_battery",
+        "current_on_ac": true,
+        "note": "no_battery_mains_only_assume_ac",
+        "ok": true,
+        "previous_on_ac": null
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": null,
+      "rel_drift_t2": null,
+      "threshold_t1": null,
+      "threshold_t2": null,
+      "trip_detail": null,
+      "turn1_prefill_s": 1.036201171,
+      "turn2_prefill_s": 0.51603424,
+      "utc": "2026-10-24T20:27:11.726854+00:00",
+      "warmup": true,
+      "workloads_session_host": {
+        "CPU_s": [],
+        "WS_MB": [],
+        "instance_count": 0,
+        "pids": [],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": -1,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 57194.0,
+      "canary_index": 1,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": false,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": false,
+        "battery_status_values": null,
+        "estimated_charge_remaining_pct": null,
+        "note": "no_battery_mains_only_assume_ac",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_no_battery",
+        "current_on_ac": true,
+        "note": "no_battery_mains_only_assume_ac",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": null,
+      "rel_drift_t2": null,
+      "threshold_t1": null,
+      "threshold_t2": null,
+      "trip_detail": null,
+      "turn1_prefill_s": 1.015453796,
+      "turn2_prefill_s": 0.48617749,
+      "utc": "2026-10-24T20:27:23.656042+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [],
+        "WS_MB": [],
+        "instance_count": 0,
+        "pids": [],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": -1,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 57158.0,
+      "canary_index": 2,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": false,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": false,
+        "battery_status_values": null,
+        "estimated_charge_remaining_pct": null,
+        "note": "no_battery_mains_only_assume_ac",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_no_battery",
+        "current_on_ac": true,
+        "note": "no_battery_mains_only_assume_ac",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": null,
+      "rel_drift_t2": null,
+      "threshold_t1": null,
+      "threshold_t2": null,
+      "trip_detail": null,
+      "turn1_prefill_s": 1.01601062,
+      "turn2_prefill_s": 0.464082824,
+      "utc": "2026-10-24T20:27:35.617420+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [],
+        "WS_MB": [],
+        "instance_count": 0,
+        "pids": [],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": -1,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 57164.0,
+      "canary_index": 3,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": true,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": false,
+        "battery_status_values": null,
+        "estimated_charge_remaining_pct": null,
+        "note": "no_battery_mains_only_assume_ac",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_no_battery",
+        "current_on_ac": true,
+        "note": "no_battery_mains_only_assume_ac",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": null,
+      "rel_drift_t2": null,
+      "threshold_t1": 0.07709453214145699,
+      "threshold_t2": 0.1642942216508742,
+      "trip_detail": null,
+      "turn1_prefill_s": 0.991538024,
+      "turn2_prefill_s": 0.482678588,
+      "utc": "2026-10-24T20:27:47.473468+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [],
+        "WS_MB": [],
+        "instance_count": 0,
+        "pids": [],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": 0,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 57498.0,
+      "canary_index": 4,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": true,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": false,
+        "battery_status_values": null,
+        "estimated_charge_remaining_pct": null,
+        "note": "no_battery_mains_only_assume_ac",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_no_battery",
+        "current_on_ac": true,
+        "note": "no_battery_mains_only_assume_ac",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": 0.0021338932490434373,
+      "rel_drift_t2": 0.0180076229111701,
+      "threshold_t1": 0.07709453214145699,
+      "threshold_t2": 0.1642942216508742,
+      "trip_detail": null,
+      "turn1_prefill_s": 1.017620666,
+      "turn2_prefill_s": 0.473986694,
+      "utc": "2026-10-24T20:30:00.062602+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [],
+        "WS_MB": [],
+        "instance_count": 0,
+        "pids": [],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    },
+    {
+      "after_probe_count": 1,
+      "arm_id": "gpu_only_f16",
+      "available_mb_start": 57484.0,
+      "canary_index": 5,
+      "classification": "OK",
+      "delta": 400,
+      "discarded_from_calibration": false,
+      "drift_tripped": false,
+      "execute_error": null,
+      "execute_ok": true,
+      "gate_armed": true,
+      "is_canary": true,
+      "mode": "RESIDENT",
+      "n_cached": 4000,
+      "power": {
+        "battery_present": false,
+        "battery_status_values": null,
+        "estimated_charge_remaining_pct": null,
+        "note": "no_battery_mains_only_assume_ac",
+        "on_ac": true,
+        "probe_error": null
+      },
+      "power_transition": {
+        "action": "pass_no_battery",
+        "current_on_ac": true,
+        "note": "no_battery_mains_only_assume_ac",
+        "ok": true,
+        "previous_on_ac": true
+      },
+      "raw_classification": "OK",
+      "rel_drift_t1": 0.024729288618465153,
+      "rel_drift_t2": 0.026832128712533654,
+      "threshold_t1": 0.07709453214145699,
+      "threshold_t2": 0.1642942216508742,
+      "trip_detail": null,
+      "turn1_prefill_s": 0.990342346,
+      "turn2_prefill_s": 0.469727294,
+      "utc": "2026-10-24T20:31:54.990509+00:00",
+      "warmup": false,
+      "workloads_session_host": {
+        "CPU_s": [],
+        "WS_MB": [],
+        "instance_count": 0,
+        "pids": [],
+        "process": "WorkloadsSessionHost",
+        "read_errors": []
+      }
+    }
+  ],
+  "canary": {
+    "abort_on_trip": "FAIL_CANARY_DRIFT",
+    "allow_unguarded": false,
+    "budget_preflight": {
+      "budget_rule": "calibrated_before_probes: C canaries up front + 1 armed check",
+      "calibration_c": 3,
+      "min_canaries_required": 4,
+      "n_budget": 1,
+      "ok": true,
+      "planned_probe_count": 6
+    },
+    "budget_rule": "up_front (CC fix 2026-10-23e)",
+    "calibration_c": 3,
+    "canary_every_n": 1,
+    "canary_gate": {
+      "armed": true,
+      "calibration_c": 3,
+      "calibration_complete": true,
+      "calibration_turn1_prefill_s": [
+        1.015453796,
+        1.01601062,
+        0.991538024
+      ],
+      "calibration_turn2_prefill_s": [
+        0.48617749,
+        0.464082824,
+        0.482678588
+      ],
+      "derivation_applied": "calib_n=3; ref_t1=1.015454 ref_t2=0.482679; early_max_rel_t1=0.023552 early_max_rel_t2=0.038526; threshold_t1=max(2*early_max_t1,healthy_floor_t1=0.07709453214145699)=0.077095; threshold_t2=max(2*early_max_t2,healthy_floor_t2=0.1642942216508742)=0.164294",
+      "early_max_rel_t1": 0.02355180717646365,
+      "early_max_rel_t2": 0.038526183804946434,
+      "fixed_cell": {
+        "arm": "gpu_only_f16",
+        "delta": 400,
+        "mode": "RESIDENT",
+        "n_cached": 4000
+      },
+      "onset_s": 657.0,
+      "protocol": "docs/CANARY_PROTOCOL.md",
+      "ref_turn1_prefill_s": 1.015453796,
+      "ref_turn2_prefill_s": 0.482678588,
+      "rel_drift_floor_t1": 0.07709453214145699,
+      "rel_drift_floor_t2": 0.1642942216508742,
+      "threshold_derivation": {
+        "analysis": "derived/c2_ttft/analysis/canary_threshold_pool.json",
+        "cell": "gpu_only_f16 RESIDENT n_cached=4000 delta=400",
+        "formula": "threshold = max(2 * early_max_rel, healthy_floor)",
+        "healthy_floor_t1": 0.07709453214145699,
+        "healthy_floor_t2": 0.1642942216508742,
+        "host": "<platform:aipc_c1>",
+        "n_canaries_current_rule": 31,
+        "p95_method": "statistics.quantiles(data, n=100, method=inclusive)[94]",
+        "platform_id": "aipc-c1",
+        "pool_rule": "Current calibration discards one warm-up canary, then calibrates on the next three. Sessions before WARM_KV_AMEND_2 had no warm-up discard, so each of those sessions contributes every canary except its first. The current-rule pool is the derivation.",
+        "pooled_max_rel_t1": 0.07709453214145699,
+        "pooled_max_rel_t2": 0.1642942216508742,
+        "pooled_p95_rel_t1": 0.062365838022024195,
+        "pooled_p95_rel_t2": 0.10864235515205196,
+        "previous_healthy_floor_t1": 0.07709453214145699,
+        "previous_healthy_floor_t2": 0.5655217613849336,
+        "rationale": "healthy_floor is the largest relative drift, abs(t - session_ref) / session_ref, in the current-rule pool: sealed guarded XPS sessions on this cell that finished without a trip, excluding each pre-WARM_KV_AMEND_2 session's first canary. No accepted session exceeded it, so a larger relative drift is evidence of degradation. The pool rule is not chosen by whether a later check would trip.",
+        "replaced_floor": 0.05,
+        "sessions": [
+          "322b2f86-9571-46ae-be6a-ba1cec44e018",
+          "69234ed5-a716-4274-b851-33509bdb9972",
+          "7f232f86-2525-481b-a000-c6b8491bc224",
+          "a427233b-df1c-4c4a-87b9-c368bb270b31",
+          "c2246b1f-c588-4998-838a-5507da87e9ee",
+          "d3dcbd3b-5107-4b5e-a0dd-402f99f6f90c",
+          "fea55e0c-b9f8-4ba9-b5ea-558401910d74",
+          "e9264a0a-d2f0-46dd-99af-8e4d9e36ad44"
+        ]
+      },
+      "threshold_t1": 0.07709453214145699,
+      "threshold_t2": 0.1642942216508742
+    },
+    "criterion_path": "ttft_slo",
+    "enabled": true,
+    "enforcement": "CanaryDriftAbort exception; session status FAIL_CANARY_DRIFT. Does not return a soft bool that a caller can ignore (Invoke-DriftCanary Write-Output bug class). INF-1b: refuse start if budget < C+1 canaries; refuse seal with armed==false unless AllowUnguarded writes UNGUARDED.",
+    "fixed_cell": {
+      "arm": "gpu_only_f16",
+      "delta": 400,
+      "mode": "RESIDENT",
+      "n_cached": 4000
+    },
+    "model_spec": "C:\\Users\\<user>\\Projects\\gnn-hls-accel\\configs\\models\\Qwen3-4B-int4-ov.yaml",
+    "n_canaries": 6,
+    "n_derivation": {
+      "binding_bound": "budget",
+      "calibration_c": 3,
+      "derivable": true,
+      "derivation": "N=min(floor(onset_s/mean_probe_wall_s), floor(planned/(C+1)))=min(8,1)=1 (binding=budget); onset_s=657.0; mean_probe_wall_s=80.8126 from THIS run (2 probes); planned_probe_count=6; C=3.",
+      "mean_probe_wall_s": 80.81256435,
+      "n": 1,
+      "n_budget": 1,
+      "n_onset": 8,
+      "n_probes_in_mean": 2,
+      "onset_s": 657.0,
+      "planned_probe_count": 6,
+      "refuse": false
+    },
+    "onset_s": 657.0,
+    "planned_probe_count": 6,
+    "power_transition_refuse": "INF-6: capture Win32_Battery BatteryStatus + EstimatedChargeRemaining at every canary; refuse on AC on_ac transition. No-battery hosts pass trivially.",
+    "rel_drift_floor_t1": 0.07709453214145699,
+    "rel_drift_floor_t2": 0.1642942216508742,
+    "schedule": "arm_before_probes",
+    "threshold_derivation": {
+      "analysis": "derived/c2_ttft/analysis/canary_threshold_pool.json",
+      "cell": "gpu_only_f16 RESIDENT n_cached=4000 delta=400",
+      "formula": "threshold = max(2 * early_max_rel, healthy_floor)",
+      "healthy_floor_t1": 0.07709453214145699,
+      "healthy_floor_t2": 0.1642942216508742,
+      "host": "<platform:aipc_c1>",
+      "n_canaries_current_rule": 31,
+      "p95_method": "statistics.quantiles(data, n=100, method=inclusive)[94]",
+      "platform_id": "aipc-c1",
+      "pool_rule": "Current calibration discards one warm-up canary, then calibrates on the next three. Sessions before WARM_KV_AMEND_2 had no warm-up discard, so each of those sessions contributes every canary except its first. The current-rule pool is the derivation.",
+      "pooled_max_rel_t1": 0.07709453214145699,
+      "pooled_max_rel_t2": 0.1642942216508742,
+      "pooled_p95_rel_t1": 0.062365838022024195,
+      "pooled_p95_rel_t2": 0.10864235515205196,
+      "previous_healthy_floor_t1": 0.07709453214145699,
+      "previous_healthy_floor_t2": 0.5655217613849336,
+      "rationale": "healthy_floor is the largest relative drift, abs(t - session_ref) / session_ref, in the current-rule pool: sealed guarded XPS sessions on this cell that finished without a trip, excluding each pre-WARM_KV_AMEND_2 session's first canary. No accepted session exceeded it, so a larger relative drift is evidence of degradation. The pool rule is not chosen by whether a later check would trip.",
+      "replaced_floor": 0.05,
+      "sessions": [
+        "322b2f86-9571-46ae-be6a-ba1cec44e018",
+        "69234ed5-a716-4274-b851-33509bdb9972",
+        "7f232f86-2525-481b-a000-c6b8491bc224",
+        "a427233b-df1c-4c4a-87b9-c368bb270b31",
+        "c2246b1f-c588-4998-838a-5507da87e9ee",
+        "d3dcbd3b-5107-4b5e-a0dd-402f99f6f90c",
+        "fea55e0c-b9f8-4ba9-b5ea-558401910d74",
+        "e9264a0a-d2f0-46dd-99af-8e4d9e36ad44"
+      ]
+    },
+    "workloads_session_host_at_canaries": [
+      {
+        "canary_index": 0,
+        "workloads_session_host": {
+          "CPU_s": [],
+          "WS_MB": [],
+          "instance_count": 0,
+          "pids": [],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 1,
+        "workloads_session_host": {
+          "CPU_s": [],
+          "WS_MB": [],
+          "instance_count": 0,
+          "pids": [],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 2,
+        "workloads_session_host": {
+          "CPU_s": [],
+          "WS_MB": [],
+          "instance_count": 0,
+          "pids": [],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 3,
+        "workloads_session_host": {
+          "CPU_s": [],
+          "WS_MB": [],
+          "instance_count": 0,
+          "pids": [],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 4,
+        "workloads_session_host": {
+          "CPU_s": [],
+          "WS_MB": [],
+          "instance_count": 0,
+          "pids": [],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      },
+      {
+        "canary_index": 5,
+        "workloads_session_host": {
+          "CPU_s": [],
+          "WS_MB": [],
+          "instance_count": 0,
+          "pids": [],
+          "process": "WorkloadsSessionHost",
+          "read_errors": []
+        }
+      }
+    ],
+    "workloads_session_host_policy": "Kill WorkloadsSessionHost and refuse if it remains. Kill again in every cell preamble; it respawns about 4 min after a kill. Record instance_count, pids, WS_MB, and CPU_s at every gate and every canary. A failed kill records the exception text in the refusal. Record-only would break parity with sealed runs measured with the host cleared."
+  },
+  "canary_finalize": {
+    "UNGUARDED": false,
+    "armed": true,
+    "ok": true
+  },
+  "ended_utc": "2026-10-24T20:31:55.016055Z",
+  "first_failing_step": 4,
+  "kind": "cc_conc",
+  "largest_holding_step": 3,
+  "model_name": "Qwen3-4B-int4-ov",
+  "points": [
+    {
+      "arm": "gpu_only_f16",
+      "exception": null,
+      "failure_kind": null,
+      "failure_mode": null,
+      "generation": {
+        "cc_conc": true,
+        "mem_trace": {
+          "available_min_mb": 33764.7,
+          "dxgi": {
+            "budget_change_events": 1,
+            "error": null,
+            "first_budget_usage": {
+              "LOCAL": [
+                50191138816,
+                2369572864
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "last_budget_usage": {
+              "LOCAL": [
+                50191138816,
+                17836797952
+              ],
+              "NON_LOCAL": [
+                0,
+                0
+              ]
+            },
+            "peak_current_usage": {
+              "LOCAL": 25504591872,
+              "NON_LOCAL": 0
+            }
+          },
+          "errors": 0,
+          "gpu_stat_total_first_bytes": 2268781195,
+          "gpu_stat_total_last_bytes": 16781567591,
+          "gpu_stat_total_peak_bytes": 25374345399,
+          "hz": 10.0,
+          "n": 833,
+          "trace": [
+            [
+              1792873701.7301493,
+              56251.9,
+              2268781195
+            ],
+            [
+              1792873701.8421829,
+              55155.7,
+              17778424503
+            ],
+            [
+              1792873701.9446242,
+              54516.6,
+              19238238903
+            ],
+            [
+              1792873702.0548131,
+              53734.4,
+              19238238903
+            ],
+            [
+              1792873702.1565533,
+              52920.9,
+              20081294007
+            ],
+            [
+              1792873702.2578442,
+              52041.2,
+              21087926967
+            ],
+            [
+              1792873702.3701644,
+              51549.7,
+              21289425591
+            ],
+            [
+              1792873702.481184,
+              50912.2,
+              23453883063
+            ],
+            [
+              1792873702.591774,
+              49334.3,
+              23453883063
+            ],
+            [
+              1792873702.7031415,
+              49262.6,
+              23453883063
+            ],
+            [
+              1792873702.8124282,
+              48105.6,
+              25366485687
+            ],
+            [
+              1792873702.9241195,
+              47412.2,
+              25366485687
+            ],
+            [
+              1792873703.0342243,
+              47192.9,
+              25366829751
+            ],
+            [
+              1792873703.1409738,
+              46417.3,
+              25372522167
+            ],
+            [
+              1792873703.2518456,
+              45647.9,
+              25372522167
+            ],
+            [
+              1792873703.3623416,
+              44874.4,
+              25372522167
+            ],
+            [
+              1792873703.4734843,
+              44097.7,
+              25372522167
+            ],
+            [
+              1792873703.584922,
+              43324.8,
+              25372522167
+            ],
+            [
+              1792873703.6957872,
+              42543.3,
+              25372522167
+            ],
+            [
+              1792873703.8061547,
+              41730.6,
+              25372522167
+            ],
+            [
+              1792873703.9176135,
+              40909.1,
+              25372522167
+            ],
+            [
+              1792873704.0287302,
+              40118.5,
+              25372522167
+            ],
+            [
+              1792873704.1403604,
+              39303.0,
+              25372522167
+            ],
+            [
+              1792873704.2512197,
+              38499.9,
+              25372522167
+            ],
+            [
+              1792873704.3623219,
+              37694.9,
+              25372522167
+            ],
+            [
+              1792873704.4730134,
+              36916.8,
+              25372522167
+            ],
+            [
+              1792873704.584548,
+              36199.6,
+              25372522167
+            ],
+            [
+              1792873704.6951053,
+              35540.6,
+              25372522167
+            ],
+            [
+              1792873704.8051093,
+              34780.7,
+              25372522167
+            ],
+            [
+              1792873704.9166002,
+              34032.4,
+              25372522167
+            ],
+            [
+              1792873705.0261645,
+              33802.9,
+              25374345399
+            ],
+            [
+              1792873705.1358423,
+              33805.7,
+              25374345399
+            ],
+            [
+              1792873705.236496,
+              33805.7,
+              25374345399
+            ],
+            [
+              1792873705.3369944,
+              33805.0,
+              25374345399
+            ],
+            [
+              1792873705.450727,
+              33805.0,
+              25374345399
+            ],
+            [
+              1792873705.551153,
+              33805.0,
+              25374345399
+            ],
+            [
+              1792873705.652055,
+              33805.0,
+              25374345399
+            ],
+            [
+              1792873705.753245,
+              33804.9,
+              25374345399
+            ],
+            [
+              1792873705.8541667,
+              33804.9,
+              25374345399
+            ],
+            [
+              1792873705.9551668,
+              33805.8,
+              25374345399
+            ],
+            [
+              1792873706.0612106,
+              33805.8,
+              25374345399
+            ],
+            [
+              1792873706.172204,
+              33805.8,
+              25374345399
+            ],
+            [
+              1792873706.2724662,
+              33805.8,
+              25374345399
+            ],
+            [
+              1792873706.3733418,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873706.4743204,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873706.5755367,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873706.6759682,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873706.77703,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873706.8780744,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873706.978706,
+              33805.3,
+              25374345399
+            ],
+            [
+              1792873707.080846,
+              33805.9,
+              25374345399
+            ],
+            [
+              1792873707.1809492,
+              33805.9,
+              25374345399
+            ],
+            [
+              1792873707.2824066,
+              33805.9,
+              25374345399
+            ],
+            [
+              1792873707.3826962,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873707.4838152,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873707.5839412,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873707.6850152,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873707.7862062,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873707.886608,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873707.9874246,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873708.087676,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873708.1880896,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873708.2893212,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873708.389681,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873708.490909,
+              33806.1,
+              25374345399
+            ],
+            [
+              1792873708.5918183,
+              33806.9,
+              25374345399
+            ],
+            [
+              1792873708.6922805,
+              33806.9,
+              25374345399
+            ],
+            [
+              1792873708.7923515,
+              33806.9,
+              25374345399
+            ],
+            [
+              1792873708.8927717,
+              33806.9,
+              25374345399
+            ],
+            [
+              1792873708.9932022,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873709.093419,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873709.1945455,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873709.2958007,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873709.3964484,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873709.497409,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873709.5981884,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873709.6989381,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873709.799191,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873709.8995953,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873709.9998085,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873710.1002333,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873710.201045,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873710.3022225,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873710.4032018,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873710.5035017,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873710.604587,
+              33806.4,
+              25374345399
+            ],
+            [
+              1792873710.70532,
+              33806.4,
+              25374345399
+            ],
+            [
+              1792873710.806018,
+              33806.6,
+              25374345399
+            ],
+            [
+              1792873710.906102,
+              33806.6,
+              25374345399
+            ],
+            [
+              1792873711.0063565,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873711.1074517,
+              33806.4,
+              25374345399
+            ],
+            [
+              1792873711.2082956,
+              33806.4,
+              25374345399
+            ],
+            [
+              1792873711.309342,
+              33806.4,
+              25374345399
+            ],
+            [
+              1792873711.4103904,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873711.5113366,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873711.6125178,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873711.7137513,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873711.8137531,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873711.9139905,
+              33806.3,
+              25374345399
+            ],
+            [
+              1792873712.0145311,
+              33806.7,
+              25374345399
+            ],
+            [
+              1792873712.1150854,
+              33806.7,
+              25374345399
+            ],
+            [
+              1792873712.21617,
+              33806.7,
+              25374345399
+            ],
+            [
+              1792873712.316795,
+              33806.7,
+              25374345399
+            ],
+            [
+              1792873712.4168162,
+              33806.7,
+              25374345399
+            ],
+            [
+              1792873712.517615,
+              33803.7,
+              25374345399
+            ],
+            [
+              1792873712.6320822,
+              33803.5,
+              25374345399
+            ],
+            [
+              1792873712.7322147,
+              33803.2,
+              25374345399
+            ],
+            [
+              1792873712.832721,
+              33790.5,
+              25374345399
+            ],
+            [
+              1792873712.933457,
+              33775.8,
+              25374345399
+            ],
+            [
+              1792873713.0339875,
+              33764.7,
+              25374345399
+            ],
+            [
+              1792873713.1349156,
+              33796.2,
+              25374345399
+            ],
+            [
+              1792873713.2349434,
+              33796.2,
+              25374345399
+            ],
+            [
+              1792873713.335032,
+              33798.3,
+              25374345399
+            ],
+            [
+              1792873713.4360805,
+              33798.3,
+              25374345399
+            ],
+            [
+              1792873713.5370736,
+              33798.5,
+              25374345399
+            ],
+            [
+              1792873713.6377296,
+              33802.0,
+              25374345399
+            ],
+            [
+              1792873713.7380633,
+              33802.1,
+              25374345399
+            ],
+            [
+              1792873713.8383968,
+              33802.1,
+              25374345399
+            ],
+            [
+              1792873713.938701,
+              33786.7,
+              25374345399
+            ],
+            [
+              1792873714.039074,
+              33787.2,
+              25374345399
+            ],
+            [
+              1792873714.1396253,
+              33787.2,
+              25374345399
+            ],
+            [
+              1792873714.2398767,
+              33787.4,
+              25374345399
+            ],
+            [
+              1792873714.3407347,
+              33787.4,
+              25374345399
+            ],
+            [
+              1792873714.440782,
+              33787.4,
+              25374345399
+            ],
+            [
+              1792873714.542146,
+              33787.4,
+              25374345399
+            ],
+            [
+              1792873714.6427195,
+              33787.5,
+              25374345399
+            ],
+            [
+              1792873714.744139,
+              33787.5,
+              25374345399
+            ],
+            [
+              1792873714.8451533,
+              33787.7,
+              25374345399
+            ],
+            [
+              1792873714.9465399,
+              33786.7,
+              25374345399
+            ],
+            [
+              1792873715.0467515,
+              33786.7,
+              25374345399
+            ],
+            [
+              1792873715.1476405,
+              33786.7,
+              25374345399
+            ],
+            [
+              1792873715.2479854,
+              33786.7,
+              25374345399
+            ],
+            [
+              1792873715.3480618,
+              33787.5,
+              25374345399
+            ],
+            [
+              1792873715.4494872,
+              33788.4,
+              25374345399
+            ],
+            [
+              1792873715.5506077,
+              33788.4,
+              25374345399
+            ],
+            [
+              1792873715.651553,
+              33788.8,
+              25374345399
+            ],
+            [
+              1792873715.7523665,
+              33788.8,
+              25374345399
+            ],
+            [
+              1792873715.8526056,
+              33789.0,
+              25374345399
+            ],
+            [
+              1792873715.952858,
+              33786.9,
+              25374345399
+            ],
+            [
+              1792873716.0554817,
+              33786.9,
+              25374345399
+            ],
+            [
+              1792873716.156477,
+              33786.9,
+              25374345399
+            ],
+            [
+              1792873716.2572753,
+              33786.9,
+              25374345399
+            ],
+            [
+              1792873716.3582604,
+              33786.9,
+              25374345399
+            ],
+            [
+              1792873716.45946,
+              33786.9,
+              25374345399
+            ],
+            [
+              1792873716.5601628,
+              33786.9,
+              25374345399
+            ],
+            [
+              1792873716.660531,
+              33788.7,
+              25374345399
+            ],
+            [
+              1792873716.760777,
+              33788.7,
+              25374345399
+            ],
+            [
+              1792873716.8618293,
+              33788.9,
+              25374345399
+            ],
+            [
+              1792873716.9675498,
+              33788.4,
+              25374345399
+            ],
+            [
+              1792873717.0689907,
+              33789.1,
+              25374345399
+            ],
+            [
+              1792873717.1691868,
+              33789.1,
+              25374345399
+            ],
+            [
+              1792873717.270103,
+              33790.6,
+              25374345399
+            ],
+            [
+              1792873717.3703275,
+              33790.5,
+              25374345399
+            ],
+            [
+              1792873717.4715712,
+              33792.4,
+              25374345399
+            ],
+            [
+              1792873717.571665,
+              33792.5,
+              25374345399
+            ],
+            [
+              1792873717.6727152,
+              33794.0,
+              25374345399
+            ],
+            [
+              1792873717.773787,
+              33796.9,
+              25374345399
+            ],
+            [
+              1792873717.8742485,
+              33799.8,
+              25374345399
+            ],
+            [
+              1792873717.975354,
+              33797.9,
+              25374345399
+            ],
+            [
+              1792873718.0758047,
+              33803.7,
+              25374345399
+            ],
+            [
+              1792873718.1765778,
+              33803.7,
+              25374345399
+            ],
+            [
+              1792873718.2767305,
+              33813.3,
+              25374345399
+            ],
+            [
+              1792873718.3770876,
+              33813.3,
+              25374345399
+            ],
+            [
+              1792873718.4817443,
+              33813.3,
+              25374345399
+            ],
+            [
+              1792873718.5821626,
+              33813.3,
+              25374345399
+            ],
+            [
+              1792873718.6832952,
+              33813.4,
+              25374345399
+            ],
+            [
+              1792873718.7957375,
+              33813.4,
+              25374345399
+            ],
+            [
+              1792873718.8970053,
+              33813.3,
+              25374345399
+            ],
+            [
+              1792873718.9970853,
+              33815.2,
+              25374345399
+            ],
+            [
+              1792873719.0977244,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873719.1988645,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873719.3001285,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873719.4002619,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873719.5008986,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873719.6014204,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873719.702102,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873719.8029404,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873719.9031963,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873720.004416,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873720.104643,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873720.205284,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873720.3064907,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873720.4074838,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873720.5081844,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873720.608574,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873720.7096548,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873720.8098347,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873720.9105268,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873721.0179973,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873721.1186798,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873721.2196138,
+              33814.4,
+              25374345399
+            ],
+            [
+              1792873721.3202665,
+              33814.4,
+              25374345399
+            ],
+            [
+              1792873721.4203973,
+              33814.4,
+              25374345399
+            ],
+            [
+              1792873721.5207384,
+              33814.4,
+              25374345399
+            ],
+            [
+              1792873721.6213784,
+              33814.5,
+              25374345399
+            ],
+            [
+              1792873721.721439,
+              33814.5,
+              25374345399
+            ],
+            [
+              1792873721.821826,
+              33814.5,
+              25374345399
+            ],
+            [
+              1792873721.9230447,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873722.0242934,
+              33813.8,
+              25374345399
+            ],
+            [
+              1792873722.1245954,
+              33813.9,
+              25374345399
+            ],
+            [
+              1792873722.2247128,
+              33813.9,
+              25374345399
+            ],
+            [
+              1792873722.3259609,
+              33813.9,
+              25374345399
+            ],
+            [
+              1792873722.425972,
+              33815.5,
+              25374345399
+            ],
+            [
+              1792873722.5259845,
+              33815.5,
+              25374345399
+            ],
+            [
+              1792873722.6267579,
+              33815.5,
+              25374345399
+            ],
+            [
+              1792873722.7272186,
+              33815.6,
+              25374345399
+            ],
+            [
+              1792873722.8281662,
+              33815.6,
+              25374345399
+            ],
+            [
+              1792873722.9283586,
+              33813.9,
+              25374345399
+            ],
+            [
+              1792873723.0285487,
+              33813.9,
+              25374345399
+            ],
+            [
+              1792873723.1290488,
+              33813.9,
+              25374345399
+            ],
+            [
+              1792873723.229564,
+              33813.9,
+              25374345399
+            ],
+            [
+              1792873723.3296459,
+              33814.1,
+              25374345399
+            ],
+            [
+              1792873723.429841,
+              33813.9,
+              25374345399
+            ],
+            [
+              1792873723.5305226,
+              33814.0,
+              25374345399
+            ],
+            [
+              1792873723.6306775,
+              33814.0,
+              25374345399
+            ],
+            [
+              1792873723.731501,
+              33814.0,
+              25374345399
+            ],
+            [
+              1792873723.832563,
+              33814.0,
+              25374345399
+            ],
+            [
+              1792873723.9329882,
+              33814.1,
+              25374345399
+            ],
+            [
+              1792873724.033828,
+              33814.2,
+              25374345399
+            ],
+            [
+              1792873724.1344075,
+              33817.6,
+              25374345399
+            ],
+            [
+              1792873724.2344842,
+              33817.6,
+              25374345399
+            ],
+            [
+              1792873724.3347068,
+              33817.6,
+              25374345399
+            ],
+            [
+              1792873724.435419,
+              33817.6,
+              25374345399
+            ],
+            [
+              1792873724.5358784,
+              33817.6,
+              25374345399
+            ],
+            [
+              1792873724.6370468,
+              33817.6,
+              25374345399
+            ],
+            [
+              1792873724.7379887,
+              33817.6,
+              25374345399
+            ],
+            [
+              1792873724.8387747,
+              33817.6,
+              25374345399
+            ],
+            [
+              1792873724.9387894,
+              33814.1,
+              25374345399
+            ],
+            [
+              1792873725.0392869,
+              33814.4,
+              25374345399
+            ],
+            [
+              1792873725.139762,
+              33814.5,
+              25374345399
+            ],
+            [
+              1792873725.2401414,
+              33816.8,
+              25374345399
+            ],
+            [
+              1792873725.3403807,
+              33816.8,
+              25374345399
+            ],
+            [
+              1792873725.4410367,
+              33816.8,
+              25374345399
+            ],
+            [
+              1792873725.5415814,
+              33816.8,
+              25374345399
+            ],
+            [
+              1792873725.6418233,
+              33816.9,
+              25374345399
+            ],
+            [
+              1792873725.7423182,
+              33816.9,
+              25374345399
+            ],
+            [
+              1792873725.8434696,
+              33817.0,
+              25374345399
+            ],
+            [
+              1792873725.94432,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873726.0452576,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873726.1453102,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873726.2454863,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873726.3457844,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873726.4458494,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873726.5461519,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873726.6461856,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873726.747353,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873726.847432,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873726.9475358,
+              33815.5,
+              25374345399
+            ],
+            [
+              1792873727.0480604,
+              33815.5,
+              25374345399
+            ],
+            [
+              1792873727.1486552,
+              33815.5,
+              25374345399
+            ],
+            [
+              1792873727.2496226,
+              33815.6,
+              25374345399
+            ],
+            [
+              1792873727.3505743,
+              33815.6,
+              25374345399
+            ],
+            [
+              1792873727.4511468,
+              33816.2,
+              25374345399
+            ],
+            [
+              1792873727.5515857,
+              33816.2,
+              25374345399
+            ],
+            [
+              1792873727.652618,
+              33816.2,
+              25374345399
+            ],
+            [
+              1792873727.7529209,
+              33816.2,
+              25374345399
+            ],
+            [
+              1792873727.8540294,
+              33816.1,
+              25374345399
+            ],
+            [
+              1792873727.9547358,
+              33814.8,
+              25374345399
+            ],
+            [
+              1792873728.0554729,
+              33814.8,
+              25374345399
+            ],
+            [
+              1792873728.1554909,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873728.2556317,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873728.3559074,
+              33814.9,
+              25374345399
+            ],
+            [
+              1792873728.4569535,
+              33818.3,
+              25374345399
+            ],
+            [
+              1792873728.557199,
+              33818.3,
+              25374345399
+            ],
+            [
+              1792873728.658521,
+              33818.4,
+              25374345399
+            ],
+            [
+              1792873728.7585616,
+              33818.4,
+              25374345399
+            ],
+            [
+              1792873728.8601446,
+              33818.8,
+              25374345399
+            ],
+            [
+              1792873728.9604704,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873729.0609155,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873729.1619043,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873729.2628675,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873729.363086,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873729.477729,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873729.5781066,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873729.6798058,
+              33815.9,
+              25374345399
+            ],
+            [
+              1792873729.7802348,
+              33815.9,
+              25374345399
+            ],
+            [
+              1792873729.880297,
+              33815.9,
+              25374345399
+            ],
+            [
+              1792873729.9808192,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873730.081742,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873730.1819243,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873730.2830422,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873730.383101,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873730.4833093,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873730.583839,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873730.684999,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873730.7861464,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873730.8868244,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873730.988009,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873731.0888388,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873731.1959648,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873731.2962172,
+              33815.5,
+              25374345399
+            ],
+            [
+              1792873731.3964772,
+              33815.5,
+              25374345399
+            ],
+            [
+              1792873731.496816,
+              33815.5,
+              25374345399
+            ],
+            [
+              1792873731.5974033,
+              33815.5,
+              25374345399
+            ],
+            [
+              1792873731.6974356,
+              33815.5,
+              25374345399
+            ],
+            [
+              1792873731.7981443,
+              33815.5,
+              25374345399
+            ],
+            [
+              1792873731.9062037,
+              33816.3,
+              25374345399
+            ],
+            [
+              1792873732.007073,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873732.1081922,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873732.2094386,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873732.31042,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873732.4111218,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873732.5117977,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873732.6128263,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873732.7135043,
+              33815.3,
+              25374345399
+            ],
+            [
+              1792873732.8140244,
+              33815.4,
+              25374345399
+            ],
+            [
+              1792873732.9146712,
+              33813.3,
+              25374345399
+            ],
+            [
+              1792873733.015274,
+              33813.3,
+              25374345399
+            ],
+            [
+              1792873733.1160066,
+              33816.3,
+              25374345399
+            ],
+            [
+              1792873733.2169669,
+              33814.5,
+              25374345399
+            ],
+            [
+              1792873733.317775,
+              33814.4,
+              25374345399
+            ],
+            [
+              1792873733.4180403,
+              33812.5,
+              25374345399
+            ],
+            [
+              1792873733.5186238,
+              33799.3,
+              25374345399
+            ],
+            [
+              1792873733.6193912,
+              33808.5,
+              25374345399
+            ],
+            [
+              1792873733.7195923,
+              33834.9,
+              25374345399
+            ],
+            [
+              1792873733.8204439,
+              33840.8,
+              25374345399
+            ],
+            [
+              1792873733.9214811,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873734.0225744,
+              33825.2,
+              25374345399
+            ],
+            [
+              1792873734.1228979,
+              33828.7,
+              25374345399
+            ],
+            [
+              1792873734.2237349,
+              33832.4,
+              25374345399
+            ],
+            [
+              1792873734.3239706,
+              33832.4,
+              25374345399
+            ],
+            [
+              1792873734.424152,
+              33832.4,
+              25374345399
+            ],
+            [
+              1792873734.5249646,
+              33832.5,
+              25374345399
+            ],
+            [
+              1792873734.6250262,
+              33832.9,
+              25374345399
+            ],
+            [
+              1792873734.7254896,
+              33832.9,
+              25374345399
+            ],
+            [
+              1792873734.8256648,
+              33832.9,
+              25374345399
+            ],
+            [
+              1792873734.9259493,
+              33831.3,
+              25374345399
+            ],
+            [
+              1792873735.0263028,
+              33831.3,
+              25374345399
+            ],
+            [
+              1792873735.126868,
+              33831.4,
+              25374345399
+            ],
+            [
+              1792873735.2270732,
+              33831.7,
+              25374345399
+            ],
+            [
+              1792873735.327158,
+              33831.7,
+              25374345399
+            ],
+            [
+              1792873735.4273114,
+              33831.8,
+              25374345399
+            ],
+            [
+              1792873735.5279818,
+              33831.8,
+              25374345399
+            ],
+            [
+              1792873735.6291368,
+              33832.2,
+              25374345399
+            ],
+            [
+              1792873735.7298708,
+              33832.2,
+              25374345399
+            ],
+            [
+              1792873735.8308792,
+              33832.2,
+              25374345399
+            ],
+            [
+              1792873735.9310849,
+              33831.3,
+              25374345399
+            ],
+            [
+              1792873736.032495,
+              33831.3,
+              25374345399
+            ],
+            [
+              1792873736.1332774,
+              33831.3,
+              25374345399
+            ],
+            [
+              1792873736.233586,
+              33831.4,
+              25374345399
+            ],
+            [
+              1792873736.347903,
+              33831.4,
+              25374345399
+            ],
+            [
+              1792873736.4490213,
+              33831.5,
+              25374345399
+            ],
+            [
+              1792873736.5490785,
+              33831.5,
+              25374345399
+            ],
+            [
+              1792873736.6499536,
+              33831.5,
+              25374345399
+            ],
+            [
+              1792873736.750952,
+              33831.5,
+              25374345399
+            ],
+            [
+              1792873736.8510988,
+              33831.5,
+              25374345399
+            ],
+            [
+              1792873736.9518845,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873737.0525587,
+              33831.4,
+              25374345399
+            ],
+            [
+              1792873737.1529503,
+              33831.5,
+              25374345399
+            ],
+            [
+              1792873737.254111,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873737.3542259,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873737.4543734,
+              33833.5,
+              25374345399
+            ],
+            [
+              1792873737.5544593,
+              33833.5,
+              25374345399
+            ],
+            [
+              1792873737.6547499,
+              33833.5,
+              25374345399
+            ],
+            [
+              1792873737.7549498,
+              33833.7,
+              25374345399
+            ],
+            [
+              1792873737.8553722,
+              33833.7,
+              25374345399
+            ],
+            [
+              1792873737.9676929,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873738.0774546,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873738.177995,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873738.2785344,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873738.378956,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873738.4795644,
+              33832.4,
+              25374345399
+            ],
+            [
+              1792873738.5799704,
+              33832.5,
+              25374345399
+            ],
+            [
+              1792873738.6807344,
+              33832.5,
+              25374345399
+            ],
+            [
+              1792873738.7808077,
+              33832.5,
+              25374345399
+            ],
+            [
+              1792873738.88247,
+              33832.5,
+              25374345399
+            ],
+            [
+              1792873738.99668,
+              33831.5,
+              25374345399
+            ],
+            [
+              1792873739.0974255,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873739.1975422,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873739.2978852,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873739.3979626,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873739.4986477,
+              33831.7,
+              25374345399
+            ],
+            [
+              1792873739.6001222,
+              33832.3,
+              25374345399
+            ],
+            [
+              1792873739.7013338,
+              33832.3,
+              25374345399
+            ],
+            [
+              1792873739.8025603,
+              33832.4,
+              25374345399
+            ],
+            [
+              1792873739.9036043,
+              33832.4,
+              25374345399
+            ],
+            [
+              1792873740.0041335,
+              33831.7,
+              25374345399
+            ],
+            [
+              1792873740.10492,
+              33831.0,
+              25374345399
+            ],
+            [
+              1792873740.204944,
+              33831.0,
+              25374345399
+            ],
+            [
+              1792873740.3052342,
+              33831.0,
+              25374345399
+            ],
+            [
+              1792873740.4061759,
+              33831.0,
+              25374345399
+            ],
+            [
+              1792873740.5072706,
+              33831.0,
+              25374345399
+            ],
+            [
+              1792873740.6073973,
+              33831.0,
+              25374345399
+            ],
+            [
+              1792873740.7076192,
+              33834.2,
+              25374345399
+            ],
+            [
+              1792873740.8078554,
+              33834.2,
+              25374345399
+            ],
+            [
+              1792873740.9091115,
+              33834.2,
+              25374345399
+            ],
+            [
+              1792873741.0093467,
+              33831.9,
+              25374345399
+            ],
+            [
+              1792873741.1105456,
+              33832.7,
+              25374345399
+            ],
+            [
+              1792873741.210842,
+              33832.7,
+              25374345399
+            ],
+            [
+              1792873741.311075,
+              33832.7,
+              25374345399
+            ],
+            [
+              1792873741.4235094,
+              33832.7,
+              25374345399
+            ],
+            [
+              1792873741.524491,
+              33832.7,
+              25374345399
+            ],
+            [
+              1792873741.6255662,
+              33832.7,
+              25374345399
+            ],
+            [
+              1792873741.7262943,
+              33832.7,
+              25374345399
+            ],
+            [
+              1792873741.8270767,
+              33832.8,
+              25374345399
+            ],
+            [
+              1792873741.927108,
+              33832.2,
+              25374345399
+            ],
+            [
+              1792873742.0281837,
+              33832.2,
+              25374345399
+            ],
+            [
+              1792873742.1294801,
+              33832.2,
+              25374345399
+            ],
+            [
+              1792873742.2309008,
+              33832.2,
+              25374345399
+            ],
+            [
+              1792873742.3313594,
+              33832.2,
+              25374345399
+            ],
+            [
+              1792873742.4315848,
+              33832.2,
+              25374345399
+            ],
+            [
+              1792873742.5325856,
+              33832.2,
+              25374345399
+            ],
+            [
+              1792873742.636078,
+              33832.2,
+              25374345399
+            ],
+            [
+              1792873742.7371876,
+              33834.9,
+              25374345399
+            ],
+            [
+              1792873742.8373196,
+              33833.0,
+              25374345399
+            ],
+            [
+              1792873742.9379468,
+              33821.0,
+              25374345399
+            ],
+            [
+              1792873743.0385387,
+              33819.6,
+              25374345399
+            ],
+            [
+              1792873743.138783,
+              33828.8,
+              25374345399
+            ],
+            [
+              1792873743.2391708,
+              33825.2,
+              25374345399
+            ],
+            [
+              1792873743.3393173,
+              33824.8,
+              25374345399
+            ],
+            [
+              1792873743.4397411,
+              33823.5,
+              25374345399
+            ],
+            [
+              1792873743.5399706,
+              33824.0,
+              25374345399
+            ],
+            [
+              1792873743.640764,
+              33830.6,
+              25374345399
+            ],
+            [
+              1792873743.7409868,
+              33831.1,
+              25374345399
+            ],
+            [
+              1792873743.8413663,
+              33831.1,
+              25374345399
+            ],
+            [
+              1792873743.9419885,
+              33818.6,
+              25374345399
+            ],
+            [
+              1792873744.0427551,
+              33818.6,
+              25374345399
+            ],
+            [
+              1792873744.1435237,
+              33821.1,
+              25374345399
+            ],
+            [
+              1792873744.2440174,
+              33821.1,
+              25374345399
+            ],
+            [
+              1792873744.344918,
+              33821.1,
+              25374345399
+            ],
+            [
+              1792873744.445515,
+              33821.7,
+              25374345399
+            ],
+            [
+              1792873744.5458379,
+              33821.7,
+              25374345399
+            ],
+            [
+              1792873744.646043,
+              33821.7,
+              25374345399
+            ],
+            [
+              1792873744.746895,
+              33821.7,
+              25374345399
+            ],
+            [
+              1792873744.8471081,
+              33821.7,
+              25374345399
+            ],
+            [
+              1792873744.9479563,
+              33819.7,
+              25374345399
+            ],
+            [
+              1792873745.0492868,
+              33819.7,
+              25374345399
+            ],
+            [
+              1792873745.1498065,
+              33820.3,
+              25374345399
+            ],
+            [
+              1792873745.249938,
+              33820.3,
+              25374345399
+            ],
+            [
+              1792873745.3501525,
+              33820.3,
+              25374345399
+            ],
+            [
+              1792873745.4527726,
+              33820.3,
+              25374345399
+            ],
+            [
+              1792873745.55302,
+              33820.3,
+              25374345399
+            ],
+            [
+              1792873745.6537476,
+              33820.4,
+              25374345399
+            ],
+            [
+              1792873745.7548807,
+              33820.4,
+              25374345399
+            ],
+            [
+              1792873745.855812,
+              33820.4,
+              25374345399
+            ],
+            [
+              1792873745.9573705,
+              33820.2,
+              25374345399
+            ],
+            [
+              1792873746.0590465,
+              33820.2,
+              25374345399
+            ],
+            [
+              1792873746.1591587,
+              33820.2,
+              25374345399
+            ],
+            [
+              1792873746.259448,
+              33820.2,
+              25374345399
+            ],
+            [
+              1792873746.3598707,
+              33824.6,
+              25374345399
+            ],
+            [
+              1792873746.460429,
+              33824.6,
+              25374345399
+            ],
+            [
+              1792873746.560712,
+              33824.6,
+              25374345399
+            ],
+            [
+              1792873746.661732,
+              33824.6,
+              25374345399
+            ],
+            [
+              1792873746.762985,
+              33824.6,
+              25374345399
+            ],
+            [
+              1792873746.8642523,
+              33824.6,
+              25374345399
+            ],
+            [
+              1792873746.9653864,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873747.0655296,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873747.166287,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873747.2669256,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873747.3680656,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873747.4689744,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873747.5701046,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873747.670599,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873747.7716403,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873747.8716471,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873747.9725375,
+              33822.7,
+              25374345399
+            ],
+            [
+              1792873748.073235,
+              33822.7,
+              25374345399
+            ],
+            [
+              1792873748.1742754,
+              33822.8,
+              25374345399
+            ],
+            [
+              1792873748.2744558,
+              33822.8,
+              25374345399
+            ],
+            [
+              1792873748.3748472,
+              33823.8,
+              25374345399
+            ],
+            [
+              1792873748.4757903,
+              33823.8,
+              25374345399
+            ],
+            [
+              1792873748.5766807,
+              33823.8,
+              25374345399
+            ],
+            [
+              1792873748.6770308,
+              33823.8,
+              25374345399
+            ],
+            [
+              1792873748.777323,
+              33823.8,
+              25374345399
+            ],
+            [
+              1792873748.8785005,
+              33823.8,
+              25374345399
+            ],
+            [
+              1792873748.9795291,
+              33822.7,
+              25374345399
+            ],
+            [
+              1792873749.0798447,
+              33822.7,
+              25374345399
+            ],
+            [
+              1792873749.1809208,
+              33822.8,
+              25374345399
+            ],
+            [
+              1792873749.2811801,
+              33822.8,
+              25374345399
+            ],
+            [
+              1792873749.382286,
+              33822.8,
+              25374345399
+            ],
+            [
+              1792873749.4833403,
+              33822.8,
+              25374345399
+            ],
+            [
+              1792873749.5839396,
+              33824.7,
+              25374345399
+            ],
+            [
+              1792873749.6841576,
+              33824.7,
+              25374345399
+            ],
+            [
+              1792873749.784575,
+              33824.7,
+              25374345399
+            ],
+            [
+              1792873749.8852646,
+              33824.7,
+              25374345399
+            ],
+            [
+              1792873749.9861984,
+              33823.2,
+              25374345399
+            ],
+            [
+              1792873750.086242,
+              33823.2,
+              25374345399
+            ],
+            [
+              1792873750.1868267,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873750.2877295,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873750.3881369,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873750.4908712,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873750.5920243,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873750.6929672,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873750.805834,
+              33823.9,
+              25374345399
+            ],
+            [
+              1792873750.907117,
+              33823.9,
+              25374345399
+            ],
+            [
+              1792873751.0078435,
+              33823.2,
+              25374345399
+            ],
+            [
+              1792873751.1089175,
+              33823.2,
+              25374345399
+            ],
+            [
+              1792873751.2089732,
+              33823.2,
+              25374345399
+            ],
+            [
+              1792873751.309953,
+              33823.2,
+              25374345399
+            ],
+            [
+              1792873751.4110029,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873751.5115676,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873751.6123543,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873751.7133627,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873751.814185,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873751.9146032,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873752.0146456,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873752.1147196,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873752.2159188,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873752.316006,
+              33823.3,
+              25374345399
+            ],
+            [
+              1792873752.4171636,
+              33823.4,
+              25374345399
+            ],
+            [
+              1792873752.517573,
+              33823.4,
+              25374345399
+            ],
+            [
+              1792873752.618717,
+              33823.4,
+              25374345399
+            ],
+            [
+              1792873752.719636,
+              33823.4,
+              25374345399
+            ],
+            [
+              1792873752.820586,
+              33823.4,
+              25374345399
+            ],
+            [
+              1792873752.9216895,
+              33826.0,
+              25374345399
+            ],
+            [
+              1792873753.0218532,
+              33826.0,
+              25374345399
+            ],
+            [
+              1792873753.1219072,
+              33826.1,
+              25374345399
+            ],
+            [
+              1792873753.2223275,
+              33826.1,
+              25374345399
+            ],
+            [
+              1792873753.3235354,
+              33826.1,
+              25374345399
+            ],
+            [
+              1792873753.4243712,
+              33826.2,
+              25374345399
+            ],
+            [
+              1792873753.5244746,
+              33826.2,
+              25374345399
+            ],
+            [
+              1792873753.6244953,
+              33826.2,
+              25374345399
+            ],
+            [
+              1792873753.7256987,
+              33826.1,
+              25374345399
+            ],
+            [
+              1792873753.8258789,
+              33826.2,
+              25374345399
+            ],
+            [
+              1792873753.9282851,
+              33821.3,
+              25374345399
+            ],
+            [
+              1792873754.0284402,
+              33824.5,
+              25374345399
+            ],
+            [
+              1792873754.1286175,
+              33820.7,
+              25374345399
+            ],
+            [
+              1792873754.2291584,
+              33808.8,
+              25374345399
+            ],
+            [
+              1792873754.3295543,
+              33807.0,
+              25374345399
+            ],
+            [
+              1792873754.4295852,
+              33830.4,
+              25374345399
+            ],
+            [
+              1792873754.5302615,
+              33830.4,
+              25374345399
+            ],
+            [
+              1792873754.6304798,
+              33830.4,
+              25374345399
+            ],
+            [
+              1792873754.730486,
+              33830.4,
+              25374345399
+            ],
+            [
+              1792873754.8309517,
+              33830.4,
+              25374345399
+            ],
+            [
+              1792873754.931944,
+              33815.1,
+              25374345399
+            ],
+            [
+              1792873755.0329905,
+              33816.9,
+              25374345399
+            ],
+            [
+              1792873755.1340709,
+              33817.0,
+              25374345399
+            ],
+            [
+              1792873755.2345006,
+              33817.0,
+              25374345399
+            ],
+            [
+              1792873755.3355703,
+              33817.4,
+              25374345399
+            ],
+            [
+              1792873755.4357214,
+              33821.5,
+              25374345399
+            ],
+            [
+              1792873755.5362885,
+              33821.5,
+              25374345399
+            ],
+            [
+              1792873755.6363263,
+              33821.9,
+              25374345399
+            ],
+            [
+              1792873755.736361,
+              33821.9,
+              25374345399
+            ],
+            [
+              1792873755.8368962,
+              33822.0,
+              25374345399
+            ],
+            [
+              1792873755.9374971,
+              33820.1,
+              25374345399
+            ],
+            [
+              1792873756.0382266,
+              33820.1,
+              25374345399
+            ],
+            [
+              1792873756.1383998,
+              33820.1,
+              25374345399
+            ],
+            [
+              1792873756.2385566,
+              33822.3,
+              25374345399
+            ],
+            [
+              1792873756.3396597,
+              33822.3,
+              25374345399
+            ],
+            [
+              1792873756.4406488,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873756.541477,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873756.6522691,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873756.7523909,
+              33822.6,
+              25374345399
+            ],
+            [
+              1792873756.8540406,
+              33822.7,
+              25374345399
+            ],
+            [
+              1792873756.955041,
+              33820.6,
+              25374345399
+            ],
+            [
+              1792873757.0554965,
+              33820.6,
+              25374345399
+            ],
+            [
+              1792873757.1558201,
+              33820.6,
+              25374345399
+            ],
+            [
+              1792873757.256149,
+              33820.6,
+              25374345399
+            ],
+            [
+              1792873757.3572607,
+              33821.2,
+              25374345399
+            ],
+            [
+              1792873757.4577644,
+              33821.2,
+              25374345399
+            ],
+            [
+              1792873757.5584285,
+              33821.2,
+              25374345399
+            ],
+            [
+              1792873757.6587029,
+              33821.2,
+              25374345399
+            ],
+            [
+              1792873757.7592692,
+              33821.2,
+              25374345399
+            ],
+            [
+              1792873757.859575,
+              33821.2,
+              25374345399
+            ],
+            [
+              1792873757.9597957,
+              33821.1,
+              25374345399
+            ],
+            [
+              1792873758.060633,
+              33821.1,
+              25374345399
+            ],
+            [
+              1792873758.1617298,
+              33821.1,
+              25374345399
+            ],
+            [
+              1792873758.261803,
+              33821.0,
+              25374345399
+            ],
+            [
+              1792873758.3626602,
+              33821.1,
+              25374345399
+            ],
+            [
+              1792873758.4639306,
+              33822.0,
+              25374345399
+            ],
+            [
+              1792873758.5647113,
+              33822.0,
+              25374345399
+            ],
+            [
+              1792873758.664744,
+              33822.0,
+              25374345399
+            ],
+            [
+              1792873758.7654178,
+              33822.0,
+              25374345399
+            ],
+            [
+              1792873758.865734,
+              33822.0,
+              25374345399
+            ],
+            [
+              1792873758.965785,
+              33822.2,
+              25374345399
+            ],
+            [
+              1792873759.0661726,
+              33822.2,
+              25374345399
+            ],
+            [
+              1792873759.166852,
+              33822.2,
+              25374345399
+            ],
+            [
+              1792873759.2673602,
+              33822.2,
+              25374345399
+            ],
+            [
+              1792873759.3679926,
+              33822.2,
+              25374345399
+            ],
+            [
+              1792873759.4683092,
+              33822.2,
+              25374345399
+            ],
+            [
+              1792873759.5686295,
+              33822.2,
+              25374345399
+            ],
+            [
+              1792873759.6697161,
+              33822.2,
+              25374345399
+            ],
+            [
+              1792873759.7706308,
+              33822.0,
+              25374345399
+            ],
+            [
+              1792873759.8710368,
+              33822.1,
+              25374345399
+            ],
+            [
+              1792873759.9721932,
+              33822.1,
+              25374345399
+            ],
+            [
+              1792873760.0781791,
+              33822.1,
+              25374345399
+            ],
+            [
+              1792873760.1785414,
+              33822.1,
+              25374345399
+            ],
+            [
+              1792873760.279747,
+              33822.1,
+              25374345399
+            ],
+            [
+              1792873760.3799376,
+              33822.1,
+              25374345399
+            ],
+            [
+              1792873760.48794,
+              33822.2,
+              25374345399
+            ],
+            [
+              1792873760.5891702,
+              33822.2,
+              25374345399
+            ],
+            [
+              1792873760.6903284,
+              33822.2,
+              25374345399
+            ],
+            [
+              1792873760.7912211,
+              33825.2,
+              25374345399
+            ],
+            [
+              1792873760.8913028,
+              33825.2,
+              25374345399
+            ],
+            [
+              1792873760.9924433,
+              33823.4,
+              25374345399
+            ],
+            [
+              1792873761.1004407,
+              33823.4,
+              25374345399
+            ],
+            [
+              1792873761.2005186,
+              33823.5,
+              25374345399
+            ],
+            [
+              1792873761.301637,
+              33823.5,
+              25374345399
+            ],
+            [
+              1792873761.4018285,
+              33823.5,
+              25374345399
+            ],
+            [
+              1792873761.5019166,
+              33823.5,
+              25374345399
+            ],
+            [
+              1792873761.6031668,
+              33823.5,
+              25374345399
+            ],
+            [
+              1792873761.7033112,
+              33823.5,
+              25374345399
+            ],
+            [
+              1792873761.8047314,
+              33823.6,
+              25374345399
+            ],
+            [
+              1792873761.905757,
+              33823.6,
+              25374345399
+            ],
+            [
+              1792873762.0061438,
+              33826.2,
+              25374345399
+            ],
+            [
+              1792873762.108712,
+              33826.4,
+              25374345399
+            ],
+            [
+              1792873762.2096345,
+              33826.6,
+              25374345399
+            ],
+            [
+              1792873762.310087,
+              33826.6,
+              25374345399
+            ],
+            [
+              1792873762.4111037,
+              33826.6,
+              25374345399
+            ],
+            [
+              1792873762.5123212,
+              33826.7,
+              25374345399
+            ],
+            [
+              1792873762.612908,
+              33826.7,
+              25374345399
+            ],
+            [
+              1792873762.7133183,
+              33826.7,
+              25374345399
+            ],
+            [
+              1792873762.8138316,
+              33826.7,
+              25374345399
+            ],
+            [
+              1792873762.9140604,
+              33826.8,
+              25374345399
+            ],
+            [
+              1792873763.0147257,
+              33823.7,
+              25374345399
+            ],
+            [
+              1792873763.115873,
+              33825.8,
+              25374345399
+            ],
+            [
+              1792873763.216099,
+              33825.9,
+              25374345399
+            ],
+            [
+              1792873763.317231,
+              33825.9,
+              25374345399
+            ],
+            [
+              1792873763.4175096,
+              33825.9,
+              25374345399
+            ],
+            [
+              1792873763.5328817,
+              33826.2,
+              25374345399
+            ],
+            [
+              1792873763.6331983,
+              33826.2,
+              25374345399
+            ],
+            [
+              1792873763.734164,
+              33826.2,
+              25374345399
+            ],
+            [
+              1792873763.8353994,
+              33826.2,
+              25374345399
+            ],
+            [
+              1792873763.9356887,
+              33823.6,
+              25374345399
+            ],
+            [
+              1792873764.0366058,
+              33823.6,
+              25374345399
+            ],
+            [
+              1792873764.137027,
+              33823.7,
+              25374345399
+            ],
+            [
+              1792873764.237382,
+              33827.0,
+              25374345399
+            ],
+            [
+              1792873764.338574,
+              33827.0,
+              25374345399
+            ],
+            [
+              1792873764.4388459,
+              33827.0,
+              25374345399
+            ],
+            [
+              1792873764.5411656,
+              33827.0,
+              25374345399
+            ],
+            [
+              1792873764.6521842,
+              33827.0,
+              25374345399
+            ],
+            [
+              1792873764.7531352,
+              33827.0,
+              25374345399
+            ],
+            [
+              1792873764.8542225,
+              33827.0,
+              25374345399
+            ],
+            [
+              1792873764.9669259,
+              33823.7,
+              25374345399
+            ],
+            [
+              1792873765.0675426,
+              33823.8,
+              25374345399
+            ],
+            [
+              1792873765.1687984,
+              33823.8,
+              25374345399
+            ],
+            [
+              1792873765.269493,
+              33824.4,
+              25374345399
+            ],
+            [
+              1792873765.369951,
+              33824.4,
+              25374345399
+            ],
+            [
+              1792873765.4711633,
+              33824.4,
+              25374345399
+            ],
+            [
+              1792873765.5714464,
+              33824.4,
+              25374345399
+            ],
+            [
+              1792873765.6718605,
+              33824.4,
+              25374345399
+            ],
+            [
+              1792873765.7726188,
+              33824.4,
+              25374345399
+            ],
+            [
+              1792873765.8733025,
+              33824.4,
+              25374345399
+            ],
+            [
+              1792873765.9734538,
+              33823.9,
+              25374345399
+            ],
+            [
+              1792873766.0741184,
+              33823.9,
+              25374345399
+            ],
+            [
+              1792873766.1745234,
+              33823.9,
+              25374345399
+            ],
+            [
+              1792873766.2750702,
+              33823.9,
+              25374345399
+            ],
+            [
+              1792873766.37512,
+              33823.9,
+              25374345399
+            ],
+            [
+              1792873766.4762592,
+              33824.9,
+              25374345399
+            ],
+            [
+              1792873766.577314,
+              33824.9,
+              25374345399
+            ],
+            [
+              1792873766.6775064,
+              33824.9,
+              25374345399
+            ],
+            [
+              1792873766.77758,
+              33825.0,
+              25374345399
+            ],
+            [
+              1792873766.8787842,
+              33825.0,
+              25374345399
+            ],
+            [
+              1792873766.9797003,
+              33824.3,
+              25374345399
+            ],
+            [
+              1792873767.0945344,
+              33824.3,
+              25374345399
+            ],
+            [
+              1792873767.1955688,
+              33824.3,
+              25374345399
+            ],
+            [
+              1792873767.2965078,
+              33824.3,
+              25374345399
+            ],
+            [
+              1792873767.3971858,
+              33827.0,
+              25374345399
+            ],
+            [
+              1792873767.4979403,
+              33827.1,
+              25374345399
+            ],
+            [
+              1792873767.5990067,
+              33827.1,
+              25374345399
+            ],
+            [
+              1792873767.6994276,
+              33827.1,
+              25374345399
+            ],
+            [
+              1792873767.801068,
+              33827.1,
+              25374345399
+            ],
+            [
+              1792873767.9017725,
+              33827.1,
+              25374345399
+            ],
+            [
+              1792873768.002455,
+              33824.9,
+              25374345399
+            ],
+            [
+              1792873768.1026554,
+              33824.9,
+              25374345399
+            ],
+            [
+              1792873768.2037728,
+              33824.9,
+              25374345399
+            ],
+            [
+              1792873768.3038003,
+              33824.9,
+              25374345399
+            ],
+            [
+              1792873768.4040155,
+              33824.9,
+              25374345399
+            ],
+            [
+              1792873768.5041797,
+              33824.9,
+              25374345399
+            ],
+            [
+              1792873768.6048388,
+              33824.9,
+              25374345399
+            ],
+            [
+              1792873768.7051914,
+              33825.0,
+              25374345399
+            ],
+            [
+              1792873768.8061063,
+              33825.0,
+              25374345399
+            ],
+            [
+              1792873768.9067883,
+              33824.9,
+              25374345399
+            ],
+            [
+              1792873769.0078297,
+              33825.0,
+              25374345399
+            ],
+            [
+              1792873769.1088233,
+              33825.0,
+              25374345399
+            ],
+            [
+              1792873769.209821,
+              33825.0,
+              25374345399
+            ],
+            [
+              1792873769.3195121,
+              33825.0,
+              25374345399
+            ],
+            [
+              1792873769.419723,
+              33825.0,
+              25374345399
+            ],
+            [
+              1792873769.5208175,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873769.6218166,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873769.7292292,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873769.8293772,
+              33826.9,
+              25374345399
+            ],
+            [
+              1792873769.930523,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873770.045099,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873770.1461914,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873770.2469828,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873770.3471053,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873770.4525683,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873770.5530484,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873770.6537745,
+              33825.2,
+              25374345399
+            ],
+            [
+              1792873770.7543054,
+              33825.2,
+              25374345399
+            ],
+            [
+              1792873770.8549519,
+              33825.2,
+              25374345399
+            ],
+            [
+              1792873770.9702623,
+              33825.2,
+              25374345399
+            ],
+            [
+              1792873771.0706246,
+              33826.0,
+              25374345399
+            ],
+            [
+              1792873771.1711,
+              33826.0,
+              25374345399
+            ],
+            [
+              1792873771.2713742,
+              33826.0,
+              25374345399
+            ],
+            [
+              1792873771.3721693,
+              33826.0,
+              25374345399
+            ],
+            [
+              1792873771.4729483,
+              33826.0,
+              25374345399
+            ],
+            [
+              1792873771.5738358,
+              33826.0,
+              25374345399
+            ],
+            [
+              1792873771.674301,
+              33826.0,
+              25374345399
+            ],
+            [
+              1792873771.7745245,
+              33826.0,
+              25374345399
+            ],
+            [
+              1792873771.875425,
+              33826.1,
+              25374345399
+            ],
+            [
+              1792873771.9755175,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873772.0758915,
+              33826.6,
+              25374345399
+            ],
+            [
+              1792873772.1760917,
+              33826.6,
+              25374345399
+            ],
+            [
+              1792873772.2766566,
+              33826.6,
+              25374345399
+            ],
+            [
+              1792873772.3768568,
+              33826.6,
+              25374345399
+            ],
+            [
+              1792873772.4777539,
+              33826.6,
+              25374345399
+            ],
+            [
+              1792873772.5778353,
+              33826.6,
+              25374345399
+            ],
+            [
+              1792873772.678554,
+              33826.6,
+              25374345399
+            ],
+            [
+              1792873772.7789128,
+              33826.6,
+              25374345399
+            ],
+            [
+              1792873772.8814378,
+              33826.6,
+              25374345399
+            ],
+            [
+              1792873772.9831295,
+              33825.1,
+              25374345399
+            ],
+            [
+              1792873773.0831547,
+              33825.2,
+              25374345399
+            ],
+            [
+              1792873773.1835341,
+              33825.2,
+              25374345399
+            ],
+            [
+              1792873773.2849252,
+              33832.6,
+              25374345399
+            ],
+            [
+              1792873773.3856013,
+              33832.5,
+              25374345399
+            ],
+            [
+              1792873773.4867675,
+              33832.6,
+              25374345399
+            ],
+            [
+              1792873773.5876732,
+              33832.9,
+              25374345399
+            ],
+            [
+              1792873773.700385,
+              33832.9,
+              25374345399
+            ],
+            [
+              1792873773.8011947,
+              33832.9,
+              25374345399
+            ],
+            [
+              1792873773.9012682,
+              33832.9,
+              25374345399
+            ],
+            [
+              1792873774.0028522,
+              33829.3,
+              25374345399
+            ],
+            [
+              1792873774.1036718,
+              33829.3,
+              25374345399
+            ],
+            [
+              1792873774.2039285,
+              33829.4,
+              25374345399
+            ],
+            [
+              1792873774.3051655,
+              33830.2,
+              25374345399
+            ],
+            [
+              1792873774.4054854,
+              33830.4,
+              25374345399
+            ],
+            [
+              1792873774.5055132,
+              33828.6,
+              25374345399
+            ],
+            [
+              1792873774.6059682,
+              33828.5,
+              25374345399
+            ],
+            [
+              1792873774.7061005,
+              33829.9,
+              25374345399
+            ],
+            [
+              1792873774.8063347,
+              33813.3,
+              25374345399
+            ],
+            [
+              1792873774.907439,
+              33811.7,
+              25374345399
+            ],
+            [
+              1792873775.0078664,
+              33829.3,
+              25374345399
+            ],
+            [
+              1792873775.108426,
+              33834.9,
+              25374345399
+            ],
+            [
+              1792873775.209102,
+              33834.9,
+              25374345399
+            ],
+            [
+              1792873775.3097036,
+              33834.9,
+              25374345399
+            ],
+            [
+              1792873775.4097733,
+              33834.9,
+              25374345399
+            ],
+            [
+              1792873775.5103247,
+              33840.6,
+              25374345399
+            ],
+            [
+              1792873775.6103928,
+              33840.6,
+              25374345399
+            ],
+            [
+              1792873775.7107716,
+              33844.0,
+              25374345399
+            ],
+            [
+              1792873775.8113823,
+              33844.0,
+              25374345399
+            ],
+            [
+              1792873775.9124353,
+              33844.0,
+              25374345399
+            ],
+            [
+              1792873776.012871,
+              33829.8,
+              25374345399
+            ],
+            [
+              1792873776.1130078,
+              33829.8,
+              25374345399
+            ],
+            [
+              1792873776.213666,
+              33830.1,
+              25374345399
+            ],
+            [
+              1792873776.3140304,
+              33830.1,
+              25374345399
+            ],
+            [
+              1792873776.4151025,
+              33830.1,
+              25374345399
+            ],
+            [
+              1792873776.5156734,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873776.615964,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873776.7163734,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873776.8168879,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873776.9179888,
+              33831.6,
+              25374345399
+            ],
+            [
+              1792873777.0190308,
+              33829.9,
+              25374345399
+            ],
+            [
+              1792873777.1195014,
+              33829.9,
+              25374345399
+            ],
+            [
+              1792873777.220331,
+              33829.9,
+              25374345399
+            ],
+            [
+              1792873777.321444,
+              33829.9,
+              25374345399
+            ],
+            [
+              1792873777.4222567,
+              33829.9,
+              25374345399
+            ],
+            [
+              1792873777.5231857,
+              33829.9,
+              25374345399
+            ],
+            [
+              1792873777.6242023,
+              33829.9,
+              25374345399
+            ],
+            [
+              1792873777.7250202,
+              33829.9,
+              25374345399
+            ],
+            [
+              1792873777.8257039,
+              33829.9,
+              25374345399
+            ],
+            [
+              1792873777.926639,
+              33829.8,
+              25374345399
+            ],
+            [
+              1792873778.041681,
+              33829.8,
+              25374345399
+            ],
+            [
+              1792873778.1421554,
+              33829.8,
+              25374345399
+            ],
+            [
+              1792873778.2424526,
+              33829.8,
+              25374345399
+            ],
+            [
+              1792873778.3434315,
+              33829.8,
+              25374345399
+            ],
+            [
+              1792873778.4443774,
+              33829.8,
+              25374345399
+            ],
+            [
+              1792873778.5450373,
+              33829.8,
+              25374345399
+            ],
+            [
+              1792873778.6462533,
+              33830.7,
+              25374345399
+            ],
+            [
+              1792873778.7468119,
+              33830.7,
+              25374345399
+            ],
+            [
+              1792873778.8590176,
+              33830.7,
+              25374345399
+            ],
+            [
+              1792873778.9601567,
+              33830.5,
+              25374345399
+            ],
+            [
+              1792873779.06021,
+              33830.5,
+              25374345399
+            ],
+            [
+              1792873779.161147,
+              33830.5,
+              25374345399
+            ],
+            [
+              1792873779.2628539,
+              33830.5,
+              25374345399
+            ],
+            [
+              1792873779.3635583,
+              33830.5,
+              25374345399
+            ],
+            [
+              1792873779.4636872,
+              33830.5,
+              25374345399
+            ],
+            [
+              1792873779.563909,
+              33830.5,
+              25374345399
+            ],
+            [
+              1792873779.6645713,
+              33832.6,
+              25374345399
+            ],
+            [
+              1792873779.7648382,
+              33832.6,
+              25374345399
+            ],
+            [
+              1792873779.8654945,
+              33832.6,
+              25374345399
+            ],
+            [
+              1792873779.9655275,
+              33831.1,
+              25374345399
+            ],
+            [
+              1792873780.0658665,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873780.1670387,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873780.2674785,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873780.3685384,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873780.468889,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873780.5698073,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873780.6710005,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873780.7710073,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873780.871008,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873780.9715185,
+              33831.1,
+              25374345399
+            ],
+            [
+              1792873781.0718539,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873781.1718843,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873781.2719574,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873781.371969,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873781.472219,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873781.5734377,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873781.6740808,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873781.7753496,
+              33831.2,
+              25374345399
+            ],
+            [
+              1792873781.8763921,
+              33833.0,
+              25374345399
+            ],
+            [
+              1792873781.9765627,
+              33831.5,
+              25374345399
+            ],
+            [
+              1792873782.0777054,
+              33831.5,
+              25374345399
+            ],
+            [
+              1792873782.177984,
+              33831.5,
+              25374345399
+            ],
+            [
+              1792873782.2792163,
+              33831.5,
+              25374345399
+            ],
+            [
+              1792873782.3804271,
+              33831.5,
+              25374345399
+            ],
+            [
+              1792873782.4812438,
+              33831.4,
+              25374345399
+            ],
+            [
+              1792873782.5815756,
+              33831.4,
+              25374345399
+            ],
+            [
+              1792873782.6829634,
+              33831.4,
+              25374345399
+            ],
+            [
+              1792873782.7837293,
+              33831.4,
+              25374345399
+            ],
+            [
+              1792873782.8837845,
+              33833.6,
+              25374345399
+            ],
+            [
+              1792873782.9838698,
+              33831.8,
+              25374345399
+            ],
+            [
+              1792873783.0843134,
+              33831.8,
+              25374345399
+            ],
+            [
+              1792873783.18516,
+              33831.8,
+              25374345399
+            ],
+            [
+              1792873783.2854044,
+              33831.8,
+              25374345399
+            ],
+            [
+              1792873783.3858402,
+              34188.5,
+              16781567591
+            ],
+            [
+              1792873783.4865925,
+              35525.1,
+              16781567591
+            ],
+            [
+              1792873783.5866506,
+              37234.6,
+              16781567591
+            ],
+            [
+              1792873783.6973507,
+              39076.1,
+              16781567591
+            ],
+            [
+              1792873783.798134,
+              40826.0,
+              16781567591
+            ],
+            [
+              1792873783.89843,
+              41219.6,
+              16781567591
+            ],
+            [
+              1792873783.9997702,
+              41219.7,
+              16781567591
+            ],
+            [
+              1792873784.1063437,
+              41213.9,
+              16781567591
+            ],
+            [
+              1792873784.2069447,
+              41213.8,
+              16781567591
+            ],
+            [
+              1792873784.3079205,
+              41213.8,
+              16781567591
+            ],
+            [
+              1792873784.4081979,
+              41213.8,
+              16781567591
+            ],
+            [
+              1792873784.509053,
+              41231.9,
+              16781567591
+            ],
+            [
+              1792873784.6095078,
+              41231.9,
+              16781567591
+            ],
+            [
+              1792873784.710702,
+              41231.9,
+              16781567591
+            ],
+            [
+              1792873784.8107338,
+              41231.9,
+              16781567591
+            ],
+            [
+              1792873784.910738,
+              41231.9,
+              16781567591
+            ],
+            [
+              1792873785.0121033,
+              41231.8,
+              16781567591
+            ],
+            [
+              1792873785.1132956,
+              41231.8,
+              16781567591
+            ],
+            [
+              1792873785.214424,
+              41231.8,
+              16781567591
+            ],
+            [
+              1792873785.3147266,
+              41231.8,
+              16781567591
+            ],
+            [
+              1792873785.4150934,
+              41231.8,
+              16781567591
+            ],
+            [
+              1792873785.51599,
+              41231.7,
+              16781567591
+            ],
+            [
+              1792873785.6166675,
+              41232.1,
+              16781567591
+            ],
+            [
+              1792873785.7214622,
+              41232.1,
+              16781567591
+            ],
+            [
+              1792873785.8224607,
+              41232.1,
+              16781567591
+            ],
+            [
+              1792873785.9229453,
+              41231.8,
+              16781567591
+            ],
+            [
+              1792873786.0230525,
+              41231.8,
+              16781567591
+            ],
+            [
+              1792873786.1242642,
+              41231.8,
+              16781567591
+            ]
+          ]
+        },
+        "n_texts": 3,
+        "sessions": 3,
+        "system_after": {
+          "available_mb": 41241.38671875,
+          "percent": 36.6,
+          "rss_mb": 17294.6328125,
+          "used_mb": 23776.61328125
+        },
+        "tokens_per_session": 32768,
+        "wall_s": 84.43145820000001
+      },
+      "holds": true,
+      "hung_after_result": false,
+      "loads": [
+        {
+          "available_delta_mb": 2430.22265625,
+          "compile_s": 3.0880396999999675,
+          "compiled": {
+            "backend": "PA",
+            "captured_chars": 3086,
+            "key_cache_quant_mode": null,
+            "kv_cache_precision": "f16",
+            "n_pa_properties": 25,
+            "pa_property_dump_seen": true,
+            "sdpa_fallback_warning": false,
+            "value_cache_quant_mode": null
+          },
+          "device": "GPU",
+          "device_mem_props": {
+            "GPU_DEVICE_MAX_ALLOC_MEM_SIZE": 36057006080,
+            "GPU_DEVICE_TOTAL_MEM_SIZE": 36057006080
+          },
+          "kv_cache_precision": {
+            "enforced": true,
+            "failure_mode": null,
+            "match": true,
+            "readback": {
+              "device": "GPU",
+              "error": null,
+              "normalized": "f16",
+              "ok": true,
+              "property": "KV_CACHE_PRECISION",
+              "raw": "<Type: 'float16'>",
+              "to_string": "f16"
+            },
+            "requested": "f16"
+          },
+          "memory_after": {
+            "available_mb": 56269.00390625,
+            "percent": 13.5,
+            "rss_mb": 2526.015625,
+            "used_mb": 8748.99609375
+          },
+          "memory_before": {
+            "available_mb": 58699.2265625,
+            "percent": 9.7,
+            "rss_mb": 53.359375,
+            "used_mb": 6318.7734375
+          },
+          "properties": {
+            "KV_CACHE_PRECISION": "<Type: 'float16'>"
+          },
+          "properties_requested": {
+            "KV_CACHE_PRECISION": "f16"
+          },
+          "rss_delta_mb": 2472.65625,
+          "scheduler_config": {
+            "enable_prefix_caching": false,
+            "max_num_batched_tokens": 18446744073709551615
+          },
+          "versions": {
+            "openvino": "2026.2.1-21919-ede283a88e3-releases/2026/2",
+            "openvino_genai": "2026.2.1.0-3123-7dea0459b2a"
+          }
+        }
+      ],
+      "outcome": "pass",
+      "step": 3
+    },
+    {
+      "arm": "gpu_only_f16",
+      "exception": {
+        "message": "Exception from src\\inference\\src\\cpp\\infer_request.cpp:224:\nException from src\\plugins\\intel_gpu\\src\\runtime\\ocl\\ocl_memory.cpp:569:\n[GPU] clWaitForEvents, error code: -14 CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST\n\n",
+        "traceback": "Traceback (most recent call last):\n  File \"C:\\Users\\<user>\\Projects\\gnn-hls-accel\\seam\\tools\\_delta_n_child.py\", line 912, in _cc_conc\n    rec = _traced(spec, run)\n          ^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\<user>\\Projects\\gnn-hls-accel\\seam\\tools\\_delta_n_child.py\", line 192, in _traced\n    rec = fn()\n          ^^^^\n  File \"C:\\Users\\<user>\\Projects\\gnn-hls-accel\\seam\\tools\\_delta_n_child.py\", line 906, in run\n    result = pipe.generate(prompts, cfg)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: Exception from src\\inference\\src\\cpp\\infer_request.cpp:224:\nException from src\\plugins\\intel_gpu\\src\\runtime\\ocl\\ocl_memory.cpp:569:\n[GPU] clWaitForEvents, error code: -14 CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST\n\n\n",
+        "type": "RuntimeError"
+      },
+      "failure_kind": "other",
+      "failure_mode": "conc_n4:RuntimeError",
+      "generation": null,
+      "holds": false,
+      "hung_after_result": false,
+      "loads": [
+        {
+          "available_delta_mb": 2443.32421875,
+          "compile_s": 3.0908165000000167,
+          "compiled": {
+            "backend": "PA",
+            "captured_chars": 3086,
+            "key_cache_quant_mode": null,
+            "kv_cache_precision": "f16",
+            "n_pa_properties": 25,
+            "pa_property_dump_seen": true,
+            "sdpa_fallback_warning": false,
+            "value_cache_quant_mode": null
+          },
+          "device": "GPU",
+          "device_mem_props": {
+            "GPU_DEVICE_MAX_ALLOC_MEM_SIZE": 36057006080,
+            "GPU_DEVICE_TOTAL_MEM_SIZE": 36057006080
+          },
+          "kv_cache_precision": {
+            "enforced": true,
+            "failure_mode": null,
+            "match": true,
+            "readback": {
+              "device": "GPU",
+              "error": null,
+              "normalized": "f16",
+              "ok": true,
+              "property": "KV_CACHE_PRECISION",
+              "raw": "<Type: 'float16'>",
+              "to_string": "f16"
+            },
+            "requested": "f16"
+          },
+          "memory_after": {
+            "available_mb": 56240.0078125,
+            "percent": 13.5,
+            "rss_mb": 2526.91796875,
+            "used_mb": 8777.9921875
+          },
+          "memory_before": {
+            "available_mb": 58683.33203125,
+            "percent": 9.7,
+            "rss_mb": 53.58203125,
+            "used_mb": 6334.66796875
+          },
+          "properties": {
+            "KV_CACHE_PRECISION": "<Type: 'float16'>"
+          },
+          "properties_requested": {
+            "KV_CACHE_PRECISION": "f16"
+          },
+          "rss_delta_mb": 2473.3359375,
+          "scheduler_config": {
+            "enable_prefix_caching": false,
+            "max_num_batched_tokens": 18446744073709551615
+          },
+          "versions": {
+            "openvino": "2026.2.1-21919-ede283a88e3-releases/2026/2",
+            "openvino_genai": "2026.2.1.0-3123-7dea0459b2a"
+          }
+        }
+      ],
+      "outcome": "fail",
+      "step": 4
+    }
+  ],
+  "sealed_dir": "C:\\Users\\<user>\\Projects\\gnn-hls-accel\\derived\\delta_prefill\\sealed_a854b0da-0124-4347-9a0f-2e1fea00e2aa",
+  "session_id": "a854b0da-0124-4347-9a0f-2e1fea00e2aa",
+  "status": "complete"
+}

@@ -1,0 +1,115 @@
+{
+  "id": "CC_BM_PREDICTIONS",
+  "status": "registered with docs/registrations/CC_AMEND_2026-10-23c.md before any CC run; DERIVED; adds to CC_PREDICTIONS.json and CC_BL_PREDICTIONS.json (unchanged)",
+  "generator": "tools/cc_bm_predict.py",
+  "runner_must_not_read_this_file": true,
+  "inputs": {
+    "a_B_per_token": 96768,
+    "budget_GiB": 3.412,
+    "k": {
+      "f16": 147456,
+      "u8": 78336,
+      "u4": 41472
+    }
+  },
+  "A19_shared_system_memory": {
+    "T2S": "SharedSystemMemory = ullTotalPhys - 16,384 MiB (+-256 MiB)",
+    "XPS": "SharedSystemMemory = 0.50 x ullTotalPhys (+-256 MiB), or slider x ullTotalPhys if the Intel override is set",
+    "tolerance_MiB": 256,
+    "t2s_48124_check": "48,124 MiB + 16,384 MiB = 64,508 MiB of OS-visible memory implied"
+  },
+  "A20_allocator_a": {
+    "predict_kB_per_token": [
+      93,
+      98
+    ],
+    "falsified_if_kB": "< 70 or > 130, or f16 vs u4 slopes differ > 10%",
+    "fitted_a_B": 96768
+  },
+  "A21_8bit_rebisect": {
+    "predict": [
+      20921,
+      21486
+    ],
+    "law_fails_outside": [
+      19900,
+      22600
+    ],
+    "note": "8-bit arm requests i8 (the sealed u8 request compiled i8, CONFIG_PROVENANCE)"
+  },
+  "A22_balloon": {
+    "gpu_dL_per_GiB": {
+      "f16": -4397,
+      "u4": -7767
+    },
+    "slope_ratio_u4_over_f16": 1.767,
+    "ratio_band": [
+      1.59,
+      1.95
+    ],
+    "cpu_balloon_abs_dL_max_frac": 0.05
+  },
+  "A23_grow_ttft": {
+    "formula": "turn TTFT = delta x (7.2e9 + 589,824 L) / F_eff",
+    "F_eff_flop_per_s": 10150000000000,
+    "example_L20000_delta2048_s": 3.83,
+    "failure": "device_alloc at L_mem, not TTFT > 10 s, for delta <= 2K"
+  },
+  "A24_ttft_law": {
+    "L_TTFT": {
+      "5s": 5712,
+      "20s": 16729,
+      "30s": 22164
+    },
+    "L_TTFT_20s_tolerance": 0.15,
+    "sealed_10000_point": "c2246b1f: cold single generate, one child per repeat (derived/audit/CONFIG_PROVENANCE.md), i.e. full-prompt prefill"
+  },
+  "A25_A36_slider": {
+    "rule": "slope tokens per point = 0.01 x M / (k + a), M = measured ullTotalPhys; print the KV-only 0.01 x M / k beside it; never a bare 681",
+    "at": {
+      "M_15.5GiB": {
+        "f16_law": 681,
+        "u4_law": 1204,
+        "f16_kv_only": 1129,
+        "u4_kv_only": 4013
+      },
+      "M_16.0GiB": {
+        "f16_law": 703,
+        "u4_law": 1243,
+        "f16_kv_only": 1165,
+        "u4_kv_only": 4143
+      }
+    },
+    "ratio": 1.767,
+    "falsified_if": "R^2 < 0.98, or x-intercepts differ > 5% by precision, or ratio outside 1.77 +- 10%"
+  },
+  "A26_energy": "fit E(N) = a N + b N^2 + c, J per token; no numeric prediction",
+  "A27_residency_power": "DischargeRate delta (~3 GiB KV resident vs none) within meter resolution",
+  "A29_t2s_balloon_conc_ii": {
+    "balloon_0GiB_fails_at_N": 10,
+    "balloon_4.5GiB_fails_at_N": 9,
+    "balloon_9GiB_fails_at_N": 8
+  },
+  "A30_ollama_default": {
+    "XPS": 4096,
+    "T2S": 32768,
+    "basis": "Ollama VRAM tiers; T2S 47.0 GiB < 48 GiB"
+  },
+  "A33_cache_size": {
+    "source_prediction": "u4 uncapped ceilings equal (+-256) with cache_size 0 and cache_size set (activation law)",
+    "cache_size_GiB": 2,
+    "source_read": "openvino.genai 2026.2.1.0: the budget assertion runs only when cache_size > 0; block bytes use the compiled element type's size()",
+    "derived_counted_u4_B_per_token": 82944,
+    "derived_kv_capacity_tokens": 25891,
+    "derived_activation_bound_tokens": 26761,
+    "derived_ceiling": 25891,
+    "derived_note": "the source prediction is expected to MISS by about 600 tokens: a fixed 2 GiB cache holds only about 25,900 u4 tokens under 1-byte accounting"
+  },
+  "A34_cap256": {
+    "bookkeeping": "no ceiling change at max_num_batched_tokens 256",
+    "activation_law": {
+      "f16_c256": 24676,
+      "u4_c256_min": 29000
+    }
+  }
+}

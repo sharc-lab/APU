@@ -18,7 +18,7 @@
        powershell -File tools/smoke_gpu_exec.ps1 -LaunchContext local_console
 
     B  ssh_foreground   over ssh, blocking in the SSH session
-       ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/smoke_gpu_exec.ps1 -LaunchContext ssh_foreground"
+       ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/smoke_gpu_exec.ps1 -LaunchContext ssh_foreground"
 
   Optional:
     -Arm <id>    arm id from configs/delta_n.yaml (default B); resolved against yaml
@@ -67,11 +67,11 @@ param(
 
     [Parameter(ParameterSetName = "Run")]
     [Parameter(ParameterSetName = "Show")]
-    [string]$PythonExe = "C:\Users\zjohn\Projects\gnn-hls-accel\.venv-seam\Scripts\python.exe"
+    [string]$PythonExe = "C:\Users\<user>\Projects\gnn-hls-accel\.venv-seam\Scripts\python.exe"
 )
 
 $ErrorActionPreference = "Stop"
-$root = "C:\Users\zjohn\Projects\gnn-hls-accel"
+$root = "C:\Users\<user>\Projects\gnn-hls-accel"
 $script = Join-Path $root "tools\smoke_gpu_exec.py"
 $outDir = Join-Path $root "derived\gpu_smoke"
 $cfgPath = Join-Path $root "configs\delta_n.yaml"

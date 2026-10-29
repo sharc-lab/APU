@@ -1,0 +1,324 @@
+{
+  "experiment": "ROUTE-1/DUET addendum",
+  "status": "REGISTERED - NO DATA - [private]",
+  "filed_at_ET": "2026-10-29 17:20 EDT",
+  "addendum": "docs/amendments/ROUTE1_ADDENDUM_2026-10-29_DUET.md",
+  "adds_to": {
+    "docs/amendments/HYB1_AMEND_2026-10-29_ROUTE1_SAVINGS.md": "ba269f15e5c846518936491cab2a7ea9f895738c9cc8c45c3dfd02a215dbaf4e",
+    "derived/route1/ROUTE1_PREDICTIONS.json": "9188d7e5b353306ee2598c2da58dad4ab0f03f934eb4013f01601ac50e17fc95",
+    "check_at_filing": "MATCH"
+  },
+  "scope_request": "[private]",
+  "constants": {
+    "B_bytes": 3267086560,
+    "a_B_per_token": {
+      "f16": 87520,
+      "i8": 87520,
+      "u4": 93280
+    },
+    "k_B_per_token": {
+      "f16": 147456,
+      "i8": 84096,
+      "u4": 47232
+    },
+    "W": 40960,
+    "window_headroom": 512,
+    "slo_s": 10,
+    "margin_m": 0.059,
+    "ttft_ext": {
+      "formula": "P*(alpha + beta*n)*(P/16500)^0.15",
+      "alpha_s_per_token": 7.9e-05,
+      "beta_s_per_token2": 3.39e-07,
+      "gamma": 0.15,
+      "P_ref": 16500,
+      "label": "DERIVED, conservative +7..+22% vs six anchors",
+      "anchors": [
+        "183@16,384 1.89-2.20 s (INV-1)",
+        "1K@16,561 5.97 s",
+        "2K@16,473 11.2 s (d7e8b43e)",
+        "4K@16,429 20.4 s",
+        "1K@33,121 13.0 s",
+        "2K@61,771 53.1 s"
+      ]
+    },
+    "ttft_cold": {
+      "formula": "0.28 + 0.276e-3*P + 66.7e-9*P^2",
+      "label": "DERIVED (d42040c1, 69f56f0c, INV-1), max error 3.2%"
+    },
+    "kappa_unit": "microseconds per token^2 (s = kappa * n_new * n_ctx), NOT ns",
+    "kappa_us_per_cell": {
+      "u4": {
+        "0c7ae0a3": 0.462,
+        "d7e8b43e": 0.428,
+        "10cb79e4": 0.407
+      },
+      "f16": {
+        "e99bb2ad": 0.45,
+        "71b7d9d8": 0.335,
+        "9cb921fd": 0.281
+      },
+      "u4_c256": {
+        "08e52da9": 0.578
+      },
+      "f16_c256": {
+        "2bfae783": 0.808
+      }
+    },
+    "i8_resident": "uses the u4 fit (ASSUMED) until D-M2",
+    "prices_per_M": {
+      "sonnet-5.5": {
+        "input": 2,
+        "write_5m": 2.5,
+        "read": 0.1,
+        "output": 10
+      },
+      "haiku-5.5": {
+        "input": 0.1,
+        "write_5m": 0.125,
+        "read": 0.01,
+        "output": 0.5,
+        "x5_above": 100000
+      }
+    }
+  },
+  "slo_classes": {
+    "INTERACTIVE": "TTFT SLO 10 s, chance-constrained",
+    "BACKGROUND": "no TTFT SLO; memory and window bind"
+  },
+  "controls": {
+    "D3": "D1 resident + tool-output filter (keep 0.25) + compaction at handoff (keep 0.25, Haiku 5.5 executor, priced) + Haiku 100K cliff compaction + ski-rental keep-alive + cache hygiene",
+    "D3-bg": "D1 timeout off (i8 session law) + the same tricks",
+    "D1-nb": "D1 non-sticky (sensitivity)"
+  },
+  "policy_DUET": {
+    "rungs": {
+      "H1": "predictive admission by the resident-TTFT law",
+      "H2": "configuration by SLO class",
+      "H3": "delta routing: REPREFILL when cold < extend and memory allows; EXCURSION-STUB (60-token stub)",
+      "H4": "SSD park/restore, live DXGI admission, share-aware runtime",
+      "H5": "observability guard",
+      "H7": "analysis-only counterfactual: extend at cold per-pair efficiency"
+    },
+    "fixed_nonlearned": true,
+    "tier_fixed_per_session": true
+  },
+  "ladder": [
+    "L0",
+    "L0s",
+    "C1",
+    "C2",
+    "C3",
+    "C4=D3",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H7",
+    "Oracle"
+  ],
+  "negative_ablations": [
+    "kappa-blind (assume 3.5 s resident TTFT)",
+    "n_new-blind (kappa*P only)",
+    "KV-only (a=0)",
+    "drift-blind (L50)",
+    "share-blind",
+    "observability-blind",
+    "declared-window trigger"
+  ],
+  "predictions": {
+    "H-R1-Bg": {
+      "statement": "background: unchanged ROUTE-1 branch values",
+      "branch_S_lower_by_ge": 0.25,
+      "branch_R_lower_by_range": [
+        0.03,
+        0.12
+      ]
+    },
+    "H-R1-Iu": {
+      "statement": "interactive uniform: DUET vs D1 resident |delta| <= 2%; vs D1 stateless 5-10% lower",
+      "vs_D1_resident_abs_le": 0.02,
+      "vs_D1_stateless_lower_range": [
+        0.05,
+        0.1
+      ],
+      "DERIVED": [
+        0.0,
+        0.067
+      ]
+    },
+    "H-R1-Ih": {
+      "statement": "interactive, sessions with >= 15% big-delta turns: DUET-HW (H1-H3, no filter, no compaction) >= 25% lower $ than D1",
+      "big_delta_share_ge": 0.15,
+      "lower_by_ge": 0.25,
+      "DERIVED": 0.466,
+      "status": "EXPLORATORY until promoted"
+    },
+    "H-D3-I": {
+      "statement": "D3 -> DUET: bursty interactive >= 20% lower; uniform interactive |delta| <= 2%",
+      "bursty_lower_by_ge": 0.2,
+      "uniform_abs_le": 0.02
+    },
+    "H-D3-B": {
+      "statement": "D3-bg -> DUET-bg >= 8% lower",
+      "lower_by_ge": 0.08,
+      "DERIVED": 0.162
+    },
+    "H-D3-T": {
+      "statement": "tool-heavy: D3 -> DUET <= 12% lower",
+      "lower_by_le": 0.12,
+      "DERIVED_range": [
+        0.066,
+        0.081
+      ]
+    },
+    "H-ABL-1": {
+      "statement": "kappa-blind: >= 10 SLO-violating admitted turns per uniform session",
+      "ge": 10,
+      "DERIVED_range": [
+        14,
+        16
+      ]
+    },
+    "H-ABL-2": {
+      "statement": "n_new-blind: leaves at the first big tool output, same turn as D1",
+      "DERIVED_turn": 4
+    }
+  },
+  "floors_rule": "about half of each DERIVED value, as written in the report; not tuned",
+  "exploratory": [
+    "filter ratio",
+    "compaction ratio and executor",
+    "stub payload",
+    "BOOMERANG",
+    "keep-alive targeting",
+    "anchor breakpoint",
+    "1h-prefix/5m-tail TTL mixing",
+    "H4",
+    "H5",
+    "H6"
+  ],
+  "promotion_rule": {
+    "when": "Sun Nov 15 framing gate only",
+    "condition": "D-M2 confirms the resident-TTFT model within +/-20% at i8 and u4 AND the quality pairs pass one-sided non-inferiority at delta = 5 pp",
+    "else": "stay exploratory"
+  },
+  "matched_quality": [
+    "$ at matched pass rate",
+    "pass rate at matched $",
+    "rework-adjusted $ = dp_fail * task$ * 1.76 / 0.848",
+    "matched-cost random two-model mix",
+    "wait seconds separate, never in $"
+  ],
+  "new_measurements": {
+    "D-M2": {
+      "n_new": [
+        128,
+        512,
+        1500,
+        4000,
+        8000
+      ],
+      "P": [
+        8000,
+        16000,
+        24000,
+        35000
+      ],
+      "prec": [
+        "i8",
+        "u4"
+      ],
+      "r": 3,
+      "plus": [
+        "REPREFILL",
+        "per-kernel GPU timing"
+      ],
+      "xps_h": [
+        2,
+        3
+      ]
+    },
+    "D-M4": {
+      "what": "llama.cpp SYCL resident + slot save/restore",
+      "xps_h": 1.5
+    },
+    "D-M5": {
+      "what": "co-runner balloon",
+      "xps_h": 1
+    },
+    "D-M6": {
+      "what": "turn-2 time-to-fail/ready/KV survival",
+      "xps_h": 0.5
+    },
+    "tranche_A_plus_usd": 2,
+    "priority": "lowest, after locked gates, SESS-1/STAT-1, COST-1 P1, HYB-1 replay"
+  },
+  "spend": {
+    "now_usd": 0,
+    "cap_usd": 30,
+    "hard_stop_usd": 40,
+    "approval": "every tranche needs Zach's written approval logged in PLAN_LOCK before any call"
+  },
+  "schedule_ET": {
+    "file_by": "Sat Oct 31 (hard limit before Fri Nov 6)",
+    "scope_replies": "Tue Nov 3",
+    "code_freeze_and_scope_deadline": "Thu Nov 5 11:59 PM (DR-R7 applies)",
+    "fleet_gate": "Fri Nov 6",
+    "gate_B": "Sun Nov 8 (component 3 in or out)",
+    "xps_cells": "Nov 7-14",
+    "framing_promotion": "Sun Nov 15",
+    "tranches": "Nov 16-21 if approved",
+    "freeze": "Sun Nov 22 (params hashed)"
+  },
+  "synthetic_fixtures_reproduced": {
+    "sonnet": {
+      "U": {
+        "D0": 281.25,
+        "D1-stateless": 262.75,
+        "D1-resident": 245.25,
+        "DUET-HW": 245.25,
+        "D3": 194.85,
+        "config-only-bg": 151.25,
+        "D1-bg": 165.1,
+        "D3-bg": 87.4,
+        "DUET-bg": 73.25
+      },
+      "H": {
+        "D0": 283.17,
+        "D1-resident": 272.76,
+        "DUET-HW": 145.54,
+        "excursion-only": 149.55,
+        "reprefill-only": 252.01,
+        "D3": 121.67,
+        "DUET-full": 65.18
+      },
+      "T": {
+        "D0": 1273.8,
+        "D1-resident": 1264.1,
+        "DUET-HW": 1199.3,
+        "D3": 724.77
+      }
+    },
+    "haiku": {
+      "U D0": 17.69,
+      "H D1-resident": 17.19,
+      "H DUET-HW": 7.85
+    },
+    "kappa_blind_violations_U": 14,
+    "rules": {
+      "sonnet_ping": 0.0417,
+      "haiku_ping": 0.087,
+      "R_star_sonnet_rho_0.25": 8.3
+    },
+    "misses": [],
+    "note": "synthetic shapes; not predictions about data"
+  },
+  "not_claimed": [
+    "learned or difficulty-aware routing",
+    "quality beyond the margin",
+    "savings from cloud-side tricks as hardware savings",
+    "anything on Rithwik's hardware or traces",
+    "wait in $"
+  ]
+}

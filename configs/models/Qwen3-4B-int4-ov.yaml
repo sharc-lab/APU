@@ -11,7 +11,7 @@ publisher_quantization:
   mode: INT4_SYM
   ratio: 1.0
   group_size: 128
-ir_dir: C:\Users\zjohn\Projects\gnn-hls-accel\models\Qwen3-4B-int4-ov
+ir_dir: models/Qwen3-4B-int4-ov
 ir_sha256: c1821f29332faa48871c7f16426a21443fbc701fa4e4c8a581a8c51ab7bf2cb2
 ir_files:
   .gitattributes: 34448b82c17d60fec9b65b1f093c115ddbaadc04beb1b0140b6bfed2e012a930

@@ -11,7 +11,7 @@
 #   LP-E cores (EfficiencyClass=0): 4  logical CPUs 4-7
 #   Total: 8 physical = 8 logical (no SMT on this SKU)
 #
-hostname: computadora
+hostname: <xps-hostname>
 source: "SEAM Platform A probe + M1 topology verify; see zjohnson2005/gnn-hls-accel configs/platforms/aipc-c1.yaml"
 name: aipc_c1
 memory_architecture: unified

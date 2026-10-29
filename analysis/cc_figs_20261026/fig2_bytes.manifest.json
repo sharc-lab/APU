@@ -1,0 +1,15 @@
+{
+ "figure": "fig2_bytes",
+ "outputs": [
+  "analysis/meeting_20261027/figs/fig2_bytes.png",
+  "analysis/meeting_20261027/figs/fig2_bytes.pdf"
+ ],
+ "inputs_sha256": {
+  "derived/cc/CC_PREDICTIONS.json": "8bd98ad4fde84a27944dc781029075cfa7757f1307c074cb1f2917599aa2d5ca",
+  "derived/cc/CC_BL_PREDICTIONS.json": "5a4c4477747b94dc9a0b172497dcb5f35c4fa27adebd386449c140c1df3e9d56",
+  "analysis/cc_20261026/measured.json": "75e7596d1150ac55579f86dd2485ce2ede38399fda033515618f449e543aae5e"
+ },
+ "notes": [
+  "bars are DERIVED; measured points from analysis/cc_20261026/measured.json"
+ ]
+}

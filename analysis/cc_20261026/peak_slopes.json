@@ -1,0 +1,410 @@
+{
+ "t2s:alloc_f16": {
+  "run_id": "50d5a3a4",
+  "arm": "gpu_only_f16",
+  "cap": null,
+  "n_points": 9,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87441
+ },
+ "t2s:alloc_u4": {
+  "run_id": "460ec188",
+  "arm": "gpu_only_u4",
+  "cap": null,
+  "n_points": 9,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87441
+ },
+ "t2s:slope_f16_unl": {
+  "run_id": "b4a96d44",
+  "arm": "gpu_only_f16",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87384
+ },
+ "t2s:slope_u4_unl": {
+  "run_id": "e442a753",
+  "arm": "gpu_only_u4",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87384
+ },
+ "t2s:slope_f16_c256": {
+  "run_id": "910d9273",
+  "arm": "gpu_only_f16",
+  "cap": 256,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": -78
+ },
+ "t2s:slope_u4_c256": {
+  "run_id": "df77409c",
+  "arm": "gpu_only_u4",
+  "cap": 256,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": -78
+ },
+ "t2s:slope_8_unl": {
+  "run_id": "e50468e8",
+  "arm": "gpu_only_i8",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87384
+ },
+ "t2s:slope_8_c256": {
+  "run_id": "99cb55a8",
+  "arm": "gpu_only_i8",
+  "cap": 256,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": -78
+ },
+ "t2s:slope_f16_c1024": {
+  "run_id": "8833b267",
+  "arm": "gpu_only_f16",
+  "cap": 1024,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": -66
+ },
+ "t2s:slope_u4_c1024": {
+  "run_id": "5ecccb7c",
+  "arm": "gpu_only_u4",
+  "cap": 1024,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": -66
+ },
+ "t2s:slope_8_c1024": {
+  "run_id": "3288cedc",
+  "arm": "gpu_only_i8",
+  "cap": 1024,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": -66
+ },
+ "t2s:window_f16": {
+  "run_id": "7e249f7e",
+  "arm": "gpu_only_f16",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": null,
+  "peak_minus_after_turn2_slope": null
+ },
+ "t2s:window_8": {
+  "run_id": "6dfd1a12",
+  "arm": "gpu_only_i8",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": null,
+  "peak_minus_after_turn2_slope": null
+ },
+ "t2s:window_u4": {
+  "run_id": "2d329db2",
+  "arm": "gpu_only_u4",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": null,
+  "peak_minus_after_turn2_slope": null
+ },
+ "xps:alloc_f16": {
+  "run_id": "e4e797e7",
+  "arm": "gpu_only_f16",
+  "cap": null,
+  "n_points": 9,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87441
+ },
+ "xps:alloc_u4": {
+  "run_id": "ae16fcd5",
+  "arm": "gpu_only_u4",
+  "cap": null,
+  "n_points": 9,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87441
+ },
+ "xps:mech_f16_c256": {
+  "run_id": "d782cf80",
+  "arm": "gpu_only_f16",
+  "cap": 256,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 1,
+  "peak_minus_after_turn2_slope": 1
+ },
+ "xps:mech_u4_c256": {
+  "run_id": "f8df3847",
+  "arm": "gpu_only_u4",
+  "cap": 256,
+  "n_points": 4,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 0
+ },
+ "xps:mech_u4_unlx": {
+  "run_id": "5943c992",
+  "arm": "gpu_only_u4",
+  "cap": 18446744073709551615,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87463
+ },
+ "xps:a21_8bit": {
+  "run_id": "de5f641f",
+  "arm": "gpu_only_i8",
+  "cap": null,
+  "n_points": 2,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 86935
+ },
+ "xps:a21_8bit_rep": {
+  "run_id": "b038e362",
+  "arm": "gpu_only_i8",
+  "cap": null,
+  "n_points": 4,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 89533
+ },
+ "xps:bal_g0_f16": {
+  "run_id": "ba7a1e89",
+  "arm": "gpu_only_f16",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87848
+ },
+ "xps:bal_g0_u4": {
+  "run_id": "d6616dfd",
+  "arm": "gpu_only_u4",
+  "cap": null,
+  "n_points": 6,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87411
+ },
+ "xps:bal_g1_u4": {
+  "run_id": "598e882d",
+  "arm": "gpu_only_u4",
+  "cap": null,
+  "n_points": 6,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87411
+ },
+ "xps:bal_c2_f16": {
+  "run_id": "0f3950a3",
+  "arm": "gpu_only_f16",
+  "cap": null,
+  "n_points": 5,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87570
+ },
+ "xps:bytes_u4_unl": {
+  "run_id": "a7c80981",
+  "arm": "gpu_only_u4",
+  "cap": null,
+  "n_points": 2,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87400
+ },
+ "xps:bytes_u4_c256": {
+  "run_id": "7efe5417",
+  "arm": "gpu_only_u4",
+  "cap": 256,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": -73
+ },
+ "xps:bytes_f16_unl": {
+  "run_id": "cea2a132",
+  "arm": "gpu_only_f16",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87445
+ },
+ "xps:bytes_f16_c256": {
+  "run_id": "59f7b2e2",
+  "arm": "gpu_only_f16",
+  "cap": 256,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": -85
+ },
+ "xps:bytes_8_unl": {
+  "run_id": "4032cfae",
+  "arm": "gpu_only_i8",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87411
+ },
+ "xps:bytes_8_c256": {
+  "run_id": "03010dd1",
+  "arm": "gpu_only_i8",
+  "cap": 256,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 3,
+  "peak_minus_after_turn2_slope": -95
+ },
+ "xps:bytes_u4_c1024": {
+  "run_id": "5c28dff2",
+  "arm": "gpu_only_u4",
+  "cap": 1024,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": -87
+ },
+ "xps:mech_f16_unlx": {
+  "run_id": "aa914c4c",
+  "arm": "gpu_only_f16",
+  "cap": 18446744073709551615,
+  "n_points": 2,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87136
+ },
+ "xps:mech_8_c256": {
+  "run_id": "1e9671a0",
+  "arm": "gpu_only_i8",
+  "cap": 256,
+  "n_points": 4,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 0
+ },
+ "xps:mech_u4_c1024": {
+  "run_id": "f7542f68",
+  "arm": "gpu_only_u4",
+  "cap": 1024,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 0
+ },
+ "xps:mech_f16_c1024": {
+  "run_id": "b48e4cfe",
+  "arm": "gpu_only_f16",
+  "cap": 1024,
+  "n_points": 4,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 0
+ },
+ "xps:mech_8_c1024": {
+  "run_id": "3e45f554",
+  "arm": "gpu_only_i8",
+  "cap": 1024,
+  "n_points": 2,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 0
+ },
+ "xps:mech_8_unlx": {
+  "run_id": "fd074be1",
+  "arm": "gpu_only_i8",
+  "cap": 18446744073709551615,
+  "n_points": 2,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87517
+ },
+ "xps:rep_f16_unlx": {
+  "run_id": "c8d3d799",
+  "arm": "gpu_only_f16",
+  "cap": 18446744073709551615,
+  "n_points": 1,
+  "peak_minus_after_turn1_slope": null,
+  "peak_minus_after_turn2_slope": null
+ },
+ "xps:cliff_f16": {
+  "run_id": "83a3c422",
+  "arm": "gpu_only_f16",
+  "cap": null,
+  "n_points": 1,
+  "peak_minus_after_turn1_slope": null,
+  "peak_minus_after_turn2_slope": null
+ },
+ "xps:ttft_u4_unlx": {
+  "run_id": "d42040c1",
+  "arm": "gpu_only_u4",
+  "cap": 18446744073709551615,
+  "n_points": 9,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": -30973
+ },
+ "xps:ttft_u4_c1024": {
+  "run_id": "a8018646",
+  "arm": "gpu_only_u4",
+  "cap": 1024,
+  "n_points": 9,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 0
+ },
+ "xps:ttft_u4_c256": {
+  "run_id": "8997aa4e",
+  "arm": "gpu_only_u4",
+  "cap": 256,
+  "n_points": 9,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 0
+ },
+ "xps:energy_u4": {
+  "run_id": "69f56f0c",
+  "arm": "gpu_only_u4",
+  "cap": null,
+  "n_points": 12,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 90511
+ },
+ "xps:a33_u4_cache2": {
+  "run_id": "aaadf214",
+  "arm": "gpu_only_u4",
+  "cap": 18446744073709551615,
+  "n_points": 2,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 88634
+ },
+ "xps:a33_u4_cache0": {
+  "run_id": "3cd03df7",
+  "arm": "gpu_only_u4",
+  "cap": 18446744073709551615,
+  "n_points": 4,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87429
+ },
+ "xps:bal_g1_f16": {
+  "run_id": "0014465c",
+  "arm": "gpu_only_f16",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87683
+ },
+ "xps:bal_g2_u4": {
+  "run_id": "f9953743",
+  "arm": "gpu_only_u4",
+  "cap": null,
+  "n_points": 5,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87408
+ },
+ "xps:bal_c4_f16": {
+  "run_id": "62d59ab8",
+  "arm": "gpu_only_f16",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87683
+ },
+ "xps:slider_f16": {
+  "run_id": "c461f165",
+  "arm": "gpu_only_f16",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87717
+ },
+ "xps:slider_u4": {
+  "run_id": "f4abaf6e",
+  "arm": "gpu_only_u4",
+  "cap": null,
+  "n_points": 3,
+  "peak_minus_after_turn1_slope": 0,
+  "peak_minus_after_turn2_slope": 87491
+ }
+}

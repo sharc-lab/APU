@@ -11,12 +11,13 @@ with ONSET_S = 657 from session 7f569929 (protocol). The budget bound ensures
 C calibration canaries plus one armed check can fire inside the planned probe
 count (c647f0c7 failure mode: onset-only N=66 against a 39-probe run).
 
-A trip raises CanaryDriftAbort — it must not return a soft status the caller
+A trip raises CanaryDriftAbort. It must not return a soft status the caller
 can ignore (see tools/test_canary_drift_abort_enforcement.ps1 / Invoke-DriftCanary).
 """
 
 from __future__ import annotations
 
+import json
 import math
 import statistics
 from dataclasses import dataclass, field
@@ -24,16 +25,106 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from tools.canary_power_gate import (
+    assert_no_ac_transition,
+    capture_canary_power_snapshot,
+)
+
 # Shortest observed degradation onset (docs/CANARY_PROTOCOL.md / 7f569929).
 ONSET_S = 657.0
 CALIBRATION_C = 3
-REL_DRIFT_FLOOR = 0.05
+# Current-rule pool: pre-WARM_KV_AMEND_2 sessions had no warm-up discard, so each
+# session's first canary is excluded. The 0.05 floor is replaced.
+# Series: derived/c2_ttft/analysis/canary_threshold_pool.json
+HEALTHY_FLOOR_T1 = 0.07709453214145699
+HEALTHY_FLOOR_T2 = 0.1642942216508742
+HEALTHY_FLOOR_P95_T1 = 0.062365838022024195
+HEALTHY_FLOOR_P95_T2 = 0.10864235515205196
+PREVIOUS_HEALTHY_FLOOR_T1 = 0.07709453214145699
+PREVIOUS_HEALTHY_FLOOR_T2 = 0.5655217613849336
+HEALTHY_FLOOR_ANALYSIS = "derived/c2_ttft/analysis/canary_threshold_pool.json"
+POOL_RULE = (
+    "Current calibration discards one warm-up canary, then calibrates on the next three. "
+    "Sessions before WARM_KV_AMEND_2 had no warm-up discard, so each of those sessions "
+    "contributes every canary except its first. The current-rule pool is the derivation."
+)
+WSH_POLICY = (
+    "Kill WorkloadsSessionHost and refuse if it remains. Kill again in every cell preamble; "
+    "it respawns about 4 min after a kill. Record instance_count, pids, WS_MB, and CPU_s "
+    "at every gate and every canary. A failed kill records the exception text in the refusal. "
+    "Record-only would break parity with sealed runs measured with the host cleared."
+)
+HEALTHY_FLOOR_SESSIONS = (
+    "322b2f86-9571-46ae-be6a-ba1cec44e018",
+    "69234ed5-a716-4274-b851-33509bdb9972",
+    "7f232f86-2525-481b-a000-c6b8491bc224",
+    "a427233b-df1c-4c4a-87b9-c368bb270b31",
+    "c2246b1f-c588-4998-838a-5507da87e9ee",
+    "d3dcbd3b-5107-4b5e-a0dd-402f99f6f90c",
+    "fea55e0c-b9f8-4ba9-b5ea-558401910d74",
+    "e9264a0a-d2f0-46dd-99af-8e4d9e36ad44",
+)
 CANARY_ARM = "gpu_only_f16"
 CANARY_N_CACHED = 4000
 CANARY_DELTA = 400
 CANARY_MODE = "RESIDENT"
 FAIL_STATUS = "FAIL_CANARY_DRIFT"
 UNARMED_REFUSE = "REFUSED_UNARMED_CANARY"
+
+
+def threshold_derivation() -> dict[str, Any]:
+    """Pooled healthy-session floors recorded on every canary plan."""
+    return {
+        "formula": "threshold = max(2 * early_max_rel, healthy_floor)",
+        "healthy_floor_t1": HEALTHY_FLOOR_T1,
+        "healthy_floor_t2": HEALTHY_FLOOR_T2,
+        "pooled_max_rel_t1": HEALTHY_FLOOR_T1,
+        "pooled_max_rel_t2": HEALTHY_FLOOR_T2,
+        "pooled_p95_rel_t1": HEALTHY_FLOOR_P95_T1,
+        "pooled_p95_rel_t2": HEALTHY_FLOOR_P95_T2,
+        "p95_method": "statistics.quantiles(data, n=100, method=inclusive)[94]",
+        "pool_rule": POOL_RULE,
+        "previous_healthy_floor_t1": PREVIOUS_HEALTHY_FLOOR_T1,
+        "previous_healthy_floor_t2": PREVIOUS_HEALTHY_FLOOR_T2,
+        "n_canaries_current_rule": 31,
+        "replaced_floor": 0.05,
+        "cell": "gpu_only_f16 RESIDENT n_cached=4000 delta=400",
+        "host": "<xps-hostname>",
+        "platform_id": "aipc-c1",
+        "sessions": list(HEALTHY_FLOOR_SESSIONS),
+        "analysis": HEALTHY_FLOOR_ANALYSIS,
+        "rationale": (
+            "healthy_floor is the largest relative drift, abs(t - session_ref) / session_ref, "
+            "in the current-rule pool: sealed guarded XPS sessions on this cell that finished "
+            "without a trip, excluding each pre-WARM_KV_AMEND_2 session's first canary. "
+            "No accepted session exceeded it, so a larger relative drift is evidence of degradation. "
+            "The pool rule is not chosen by whether a later check would trip."
+        ),
+    }
+
+
+def drift_threshold(early_max_rel: float, healthy_floor: float) -> float:
+    return max(2.0 * float(early_max_rel), float(healthy_floor))
+
+
+def _active_floors(
+    gate: dict[str, Any],
+    *,
+    rel_drift_floor: float | None,
+    rel_drift_floor_t1: float | None,
+    rel_drift_floor_t2: float | None,
+) -> tuple[float, float]:
+    """A single override applies to both turns. Otherwise use the gate floors."""
+    if rel_drift_floor is not None:
+        floor = float(rel_drift_floor)
+        return floor, floor
+    t1 = rel_drift_floor_t1
+    t2 = rel_drift_floor_t2
+    if t1 is None:
+        t1 = gate.get("rel_drift_floor_t1", HEALTHY_FLOOR_T1)
+    if t2 is None:
+        t2 = gate.get("rel_drift_floor_t2", HEALTHY_FLOOR_T2)
+    return float(t1), float(t2)
 
 
 class CanaryDriftAbort(Exception):
@@ -94,33 +185,51 @@ def estimate_bisect_planned_probes(
     return int(n_arms) * points_per_arm * int(repeats)
 
 
+def _n_budget(planned: int, c: int, calibrated_before_probes: bool) -> int:
+    """floor(planned / (C + 1)); at least 1 when calibration runs before the first probe.
+
+    CC fix 2026-10-23e: with the C calibration canaries run up front, only one armed
+    check has to fit inside the planned probes, so a run of 1-3 probes keeps N = 1.
+    """
+    n = planned // (c + 1)
+    if calibrated_before_probes and planned >= 1:
+        return max(1, n)
+    return n
+
+
 def assert_canary_budget_fits(
     planned_probe_count: int,
     *,
     calibration_c: int = CALIBRATION_C,
+    calibrated_before_probes: bool = False,
 ) -> dict[str, Any]:
     """Refuse before start if C calibration + one armed check cannot fit.
 
     Requires floor(planned / (C + 1)) >= 1 so the budget-bound N is at least 1.
+    With calibrated_before_probes (CC fix 2026-10-23e) the C canaries run before
+    any probe, so the budget needs only one armed check: planned >= 1.
     """
     planned = int(planned_probe_count)
     c = int(calibration_c)
     if c < 2:
         raise ValueError("calibration_c must be >= 2")
-    n_budget = planned // (c + 1)
+    n_budget = _n_budget(planned, c, calibrated_before_probes)
     if n_budget < 1:
         raise CanaryBudgetRefuse(
             f"canary budget cannot fit C={c} calibration canaries + 1 armed check: "
             f"planned_probe_count={planned} < C+1={c + 1} "
             f"(floor(planned/(C+1))={n_budget}). Do not start unguarded."
         )
-    return {
+    out: dict[str, Any] = {
         "planned_probe_count": planned,
         "calibration_c": c,
         "n_budget": n_budget,
         "min_canaries_required": c + 1,
         "ok": True,
     }
+    if calibrated_before_probes:
+        out["budget_rule"] = "calibrated_before_probes: C canaries up front + 1 armed check"
+    return out
 
 
 def derive_canary_every_n(
@@ -129,12 +238,13 @@ def derive_canary_every_n(
     onset_s: float = ONSET_S,
     planned_probe_count: int | None = None,
     calibration_c: int = CALIBRATION_C,
+    calibrated_before_probes: bool = False,
 ) -> dict[str, Any]:
     """N = min(onset bound, budget bound). Records both candidates and which bound."""
     c = int(calibration_c)
     n_budget: int | None = None
     if planned_probe_count is not None:
-        n_budget = int(planned_probe_count) // (c + 1)
+        n_budget = _n_budget(int(planned_probe_count), c, calibrated_before_probes)
 
     walls = [float(w) for w in probe_wall_s if w is not None and float(w) > 0]
     mean_w: float | None = None
@@ -225,7 +335,7 @@ def assert_seal_requires_armed_or_unguarded(
             "ok": True,
             "UNGUARDED": True,
             "armed": False,
-            "note": "armed==false; AllowUnguarded — summary/seal must record UNGUARDED",
+            "note": "armed==false; AllowUnguarded. Summary and seal must record UNGUARDED",
         }
     raise CanaryUnarmedSealRefuse(
         "canary gate armed==false; refuse to seal without -AllowUnguarded / "
@@ -239,7 +349,9 @@ def update_canary_drift_bookkeeping(
     gate: dict[str, Any],
     prior_ok_canaries: list[dict[str, Any]],
     calibration_c: int = CALIBRATION_C,
-    rel_drift_floor: float = REL_DRIFT_FLOOR,
+    rel_drift_floor: float | None = None,
+    rel_drift_floor_t1: float | None = None,
+    rel_drift_floor_t2: float | None = None,
 ) -> dict[str, Any]:
     """Python port of tools/SeamPsCommon.ps1 Update-CanaryDriftBookkeeping."""
     if calibration_c < 2:
@@ -254,12 +366,32 @@ def update_canary_drift_bookkeeping(
     t2 = rec.get("turn2_prefill_s")
     ok = rec.get("classification") == "OK" and t1 is not None and t2 is not None
 
+    if rec.get("warmup"):
+        rec["discarded_from_calibration"] = True
+        rec["counts_toward_calibration"] = False
+        rec["drift_tripped"] = False
+        rec["trip_detail"] = None
+        rec["rel_drift_t1"] = None
+        rec["rel_drift_t2"] = None
+        rec["gate_armed"] = bool(gate.get("armed"))
+        rec["threshold_t1"] = gate.get("threshold_t1")
+        rec["threshold_t2"] = gate.get("threshold_t2")
+        return {
+            "rec": rec,
+            "tripped": False,
+            "trip_detail": None,
+            "just_armed": False,
+            "derivation_applied": gate.get("derivation_applied"),
+        }
+    rec["discarded_from_calibration"] = False
+
     if ok:
         if not gate.get("calibration_complete"):
             ok_cal = [
                 c
                 for c in prior_ok_canaries
-                if c.get("classification") == "OK"
+                if not c.get("warmup")
+                and c.get("classification") == "OK"
                 and c.get("turn1_prefill_s") is not None
                 and c.get("turn2_prefill_s") is not None
             ] + [rec]
@@ -272,8 +404,14 @@ def update_canary_drift_bookkeeping(
                 early2 = [_rel_drift(v, ref2) or 0.0 for v in t2s]
                 em1 = max(early1)
                 em2 = max(early2)
-                th1 = max(2.0 * em1, float(rel_drift_floor))
-                th2 = max(2.0 * em2, float(rel_drift_floor))
+                floor1, floor2 = _active_floors(
+                    gate,
+                    rel_drift_floor=rel_drift_floor,
+                    rel_drift_floor_t1=rel_drift_floor_t1,
+                    rel_drift_floor_t2=rel_drift_floor_t2,
+                )
+                th1 = drift_threshold(em1, floor1)
+                th2 = drift_threshold(em2, floor2)
                 gate["armed"] = True
                 gate["calibration_complete"] = True
                 gate["ref_turn1_prefill_s"] = ref1
@@ -282,11 +420,13 @@ def update_canary_drift_bookkeeping(
                 gate["early_max_rel_t2"] = em2
                 gate["threshold_t1"] = th1
                 gate["threshold_t2"] = th2
+                gate["calibration_turn1_prefill_s"] = t1s
+                gate["calibration_turn2_prefill_s"] = t2s
                 gate["derivation_applied"] = (
                     f"calib_n={calibration_c}; ref_t1={ref1:.6f} ref_t2={ref2:.6f}; "
                     f"early_max_rel_t1={em1:.6f} early_max_rel_t2={em2:.6f}; "
-                    f"threshold_t1=max(2*early_max_t1,floor={rel_drift_floor})={th1:.6f}; "
-                    f"threshold_t2={th2:.6f}"
+                    f"threshold_t1=max(2*early_max_t1,healthy_floor_t1={floor1})={th1:.6f}; "
+                    f"threshold_t2=max(2*early_max_t2,healthy_floor_t2={floor2})={th2:.6f}"
                 )
         else:
             rel_t1 = _rel_drift(float(t1), float(gate["ref_turn1_prefill_s"]))
@@ -330,13 +470,26 @@ def update_canary_drift_bookkeeping(
 def new_canary_gate(
     *,
     calibration_c: int = CALIBRATION_C,
-    rel_drift_floor: float = REL_DRIFT_FLOOR,
+    rel_drift_floor: float | None = None,
+    rel_drift_floor_t1: float | None = None,
+    rel_drift_floor_t2: float | None = None,
 ) -> dict[str, Any]:
+    if rel_drift_floor is not None:
+        if rel_drift_floor_t1 is None:
+            rel_drift_floor_t1 = rel_drift_floor
+        if rel_drift_floor_t2 is None:
+            rel_drift_floor_t2 = rel_drift_floor
+    if rel_drift_floor_t1 is None:
+        rel_drift_floor_t1 = HEALTHY_FLOOR_T1
+    if rel_drift_floor_t2 is None:
+        rel_drift_floor_t2 = HEALTHY_FLOOR_T2
     return {
         "armed": False,
         "calibration_complete": False,
         "calibration_c": calibration_c,
-        "rel_drift_floor": rel_drift_floor,
+        "rel_drift_floor_t1": rel_drift_floor_t1,
+        "rel_drift_floor_t2": rel_drift_floor_t2,
+        "threshold_derivation": threshold_derivation(),
         "ref_turn1_prefill_s": None,
         "ref_turn2_prefill_s": None,
         "early_max_rel_t1": None,
@@ -365,8 +518,16 @@ class TtftSloCanaryGuard:
     plan_path: Path | None = None
     planned_probe_count: int = 0
     allow_unguarded: bool = False
+    discard_warmup: bool = False
+    # NPU amendment 2026-10-08: run the C calibration canaries before any probe.
+    arm_before_probes: bool = False
+    # CC fix 2026-10-23e: with arm_before_probes, budget for one armed check only.
+    up_front_budget: bool = False
+    enforce_probe_budget: bool = True
     calibration_c: int = CALIBRATION_C
-    rel_drift_floor: float = REL_DRIFT_FLOOR
+    rel_drift_floor: float | None = None
+    rel_drift_floor_t1: float | None = None
+    rel_drift_floor_t2: float | None = None
     onset_s: float = ONSET_S
     gate: dict[str, Any] = field(default_factory=new_canary_gate)
     canaries: list[dict[str, Any]] = field(default_factory=list)
@@ -375,17 +536,43 @@ class TtftSloCanaryGuard:
     probes_since_canary: int = 0
     opening_done: bool = False
     budget_preflight: dict[str, Any] = field(default_factory=dict)
+    last_power_snapshot: dict[str, Any] | None = None
+    # NPU amendment 2026-10-14: optional per-canary host telemetry (record only).
+    telemetry: Any = None
+    # NPU amendment 2026-10-14b: run each canary cell in a fresh child process.
+    child_process: bool = False
+    child_timeout_s: float = 180.0
+    # Callable (result_path, model_spec) -> argv; None = tools.canary_child.
+    child_command: Any = None
+    # 2026-10-14b transition record: also run in-process (record only) at the
+    # record-only point and the first post-arm point.
+    inprocess_transition: bool = False
+    _transition_post_done: bool = field(default=False, repr=False)
 
     def __post_init__(self) -> None:
+        if self.up_front_budget and not self.arm_before_probes:
+            raise ValueError("up_front_budget needs arm_before_probes")
         self.gate = new_canary_gate(
             calibration_c=self.calibration_c,
             rel_drift_floor=self.rel_drift_floor,
+            rel_drift_floor_t1=self.rel_drift_floor_t1,
+            rel_drift_floor_t2=self.rel_drift_floor_t2,
         )
         self.gate["onset_s"] = self.onset_s
-        self.budget_preflight = assert_canary_budget_fits(
-            int(self.planned_probe_count),
-            calibration_c=self.calibration_c,
-        )
+        if self.enforce_probe_budget:
+            self.budget_preflight = assert_canary_budget_fits(
+                int(self.planned_probe_count),
+                calibration_c=self.calibration_c,
+                calibrated_before_probes=self.up_front_budget,
+            )
+        else:
+            self.budget_preflight = {
+                "ok": True,
+                "skipped": True,
+                "reason": "calibrate-only rehearsal measures no probes",
+                "planned_probe_count": int(self.planned_probe_count),
+                "calibration_c": int(self.calibration_c),
+            }
         self.refresh_interval([])
 
     def plan_fragment(self) -> dict[str, Any]:
@@ -395,16 +582,33 @@ class TtftSloCanaryGuard:
             "fixed_cell": self.gate["fixed_cell"],
             "model_spec": str(self.model_spec),
             "calibration_c": self.calibration_c,
-            "rel_drift_floor": self.rel_drift_floor,
+            "rel_drift_floor_t1": self.gate["rel_drift_floor_t1"],
+            "rel_drift_floor_t2": self.gate["rel_drift_floor_t2"],
+            "threshold_derivation": self.gate["threshold_derivation"],
             "onset_s": self.onset_s,
             "planned_probe_count": self.planned_probe_count,
             "budget_preflight": self.budget_preflight,
             "allow_unguarded": bool(self.allow_unguarded),
             "canary_every_n": self.n_every,
+            **({"schedule": "arm_before_probes"} if self.arm_before_probes else {}),
+            **({"budget_rule": "up_front (CC fix 2026-10-23e)"} if self.up_front_budget else {}),
             "n_derivation": self.n_derivation,
             "canary_gate": self.gate,
             "n_canaries": len(self.canaries),
+            "workloads_session_host_policy": WSH_POLICY,
+            "workloads_session_host_at_canaries": [
+                {
+                    "canary_index": c.get("canary_index"),
+                    "workloads_session_host": c.get("workloads_session_host"),
+                }
+                for c in self.canaries
+            ],
             "abort_on_trip": FAIL_STATUS,
+            "power_transition_refuse": (
+                "INF-6: capture Win32_Battery BatteryStatus + EstimatedChargeRemaining "
+                "at every canary; refuse on AC on_ac transition. "
+                "No-battery hosts pass trivially."
+            ),
             "enforcement": (
                 "CanaryDriftAbort exception; session status FAIL_CANARY_DRIFT. "
                 "Does not return a soft bool that a caller can ignore "
@@ -415,16 +619,25 @@ class TtftSloCanaryGuard:
         }
 
     def refresh_interval(self, probe_wall_s: list[float]) -> None:
+        if not self.enforce_probe_budget:
+            self.n_derivation = {
+                "n": None,
+                "derivable": False,
+                "refuse": False,
+                "planned_probe_count": int(self.planned_probe_count),
+                "calibration_c": int(self.calibration_c),
+                "note": "calibrate-only rehearsal measures no probes",
+            }
+            return
         self.n_derivation = derive_canary_every_n(
             probe_wall_s,
             onset_s=self.onset_s,
             planned_probe_count=int(self.planned_probe_count),
             calibration_c=self.calibration_c,
+            calibrated_before_probes=self.up_front_budget,
         )
         if self.n_derivation.get("refuse"):
-            raise CanaryBudgetRefuse(
-                self.n_derivation.get("note") or "canary budget refuse"
-            )
+            raise CanaryBudgetRefuse(self.n_derivation.get("note") or "canary budget refuse")
         if self.n_derivation.get("derivable"):
             self.n_every = int(self.n_derivation["n"])
 
@@ -436,18 +649,18 @@ class TtftSloCanaryGuard:
         )
 
     def _run_cell(self) -> dict[str, Any]:
-        from tools.smoke_delta_prefill import run_cell
+        from tools.canary_child import cell_inprocess, child_command, run_child
 
         self.work_dir.mkdir(parents=True, exist_ok=True)
-        raw = run_cell(
-            "ttft_slo_canary",
-            arm_id=CANARY_ARM,
-            mode=CANARY_MODE,
-            n_cached=CANARY_N_CACHED,
-            delta=CANARY_DELTA,
-            model_spec=self.model_spec,
-            pipeline_type="llm",
-        )
+        child: dict[str, Any] | None = None
+        if self.child_process:
+            out = self.work_dir / f"child.{len(self.canaries)}.json"
+            build = self.child_command or child_command
+            raw, child = run_child(
+                list(build(out, self.model_spec)), out, timeout_s=float(self.child_timeout_s)
+            )
+        else:
+            raw = cell_inprocess(self.model_spec)
         t1 = (raw.get("turn1") or {}).get("prefill_s")
         t2 = (raw.get("turn2") or {}).get("prefill_s")
         classification = raw.get("classification") or "OTHER"
@@ -470,27 +683,94 @@ class TtftSloCanaryGuard:
             "execute_ok": raw.get("execute_ok"),
             "execute_error": raw.get("execute_error"),
         }
+        if child is not None:
+            rec["child"] = child
         out = self.work_dir / f"canary.{rec['canary_index']}.json"
         out.write_text(
-            __import__("json").dumps({"record": rec, "cell": raw}, indent=2, sort_keys=True) + "\n",
+            json.dumps({"record": rec, "cell": raw}, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
         return rec
 
-    def run_canary(self, *, after_probe_count: int) -> dict[str, Any]:
-        """Run one canary. Raises CanaryDriftAbort on trip — never soft-fails."""
+    def _inprocess_record(self, point: str) -> dict[str, Any]:
+        """2026-10-14b transition record: the cell in-process, after the gating run."""
+        from tools.canary_child import cell_inprocess
+
+        try:
+            raw = cell_inprocess(self.model_spec)
+        except Exception as exc:
+            return {"point": point, "error": f"{type(exc).__name__}: {exc}"}
+        return {
+            "point": point,
+            "classification": raw.get("classification"),
+            "turn1_prefill_s": (raw.get("turn1") or {}).get("prefill_s"),
+            "turn2_prefill_s": (raw.get("turn2") or {}).get("prefill_s"),
+            "execute_error": raw.get("execute_error"),
+            "gates": False,
+        }
+
+    def _write_canary_record(self, rec: dict[str, Any]) -> None:
+        path = self.work_dir / f"canary.{rec['canary_index']}.json"
+        if not path.is_file():
+            return
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        doc["record"] = rec
+        path.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    def _stamp_plan(self) -> None:
+        if self.plan_path is None or not self.plan_path.is_file():
+            return
+        doc = json.loads(self.plan_path.read_text(encoding="utf-8"))
+        doc["canary"] = self.plan_fragment()
+        self.plan_path.write_text(
+            json.dumps(doc, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    def run_canary(self, *, after_probe_count: int, warmup: bool = False) -> dict[str, Any]:
+        """Run one canary. Raises CanaryDriftAbort / CanaryPowerTransitionAbort."""
         print(
             f"[c2_canary] index={len(self.canaries)} after_probes={after_probe_count} "
             f"armed={self.gate.get('armed')} every_n={self.n_every} "
             f"bound={(self.n_derivation or {}).get('binding_bound')}",
             flush=True,
         )
+        # INF-6: record BatteryStatus + charge; refuse on AC transition.
+        power = capture_canary_power_snapshot()
+        transition = assert_no_ac_transition(previous=self.last_power_snapshot, current=power)
+        self.last_power_snapshot = power
+        from seam.run_environment import snapshot_workloads_session_host
+
+        wsh = snapshot_workloads_session_host()
+        # Taken before the canary cell so its own child process is not counted.
+        tele: dict[str, Any] | None = None
+        if self.telemetry is not None:
+            try:
+                tele = self.telemetry()
+            except Exception as exc:
+                tele = {"error": f"{type(exc).__name__}: {exc}"}
         rec = self._run_cell()
+        rec["power"] = power
+        rec["power_transition"] = transition
+        rec["workloads_session_host"] = wsh
         rec["after_probe_count"] = after_probe_count
+        rec["warmup"] = bool(warmup)
+        if tele is not None:
+            rec["telemetry"] = tele
+        point = None
+        if self.inprocess_transition:
+            if warmup:
+                point = "record_only"
+            elif after_probe_count >= 0 and not self._transition_post_done:
+                point = "first_post_arm"
+                self._transition_post_done = True
+        if point is not None:
+            rec["inprocess_transition"] = self._inprocess_record(point)
         prior_ok = [
             c
             for c in self.canaries
-            if c.get("classification") == "OK"
+            if not c.get("warmup")
+            and c.get("classification") == "OK"
             and c.get("turn1_prefill_s") is not None
             and c.get("turn2_prefill_s") is not None
         ]
@@ -503,6 +783,8 @@ class TtftSloCanaryGuard:
         )
         rec = bk["rec"]
         self.canaries.append(rec)
+        self._write_canary_record(rec)
+        self._stamp_plan()
         self.probes_since_canary = 0
         if bk.get("just_armed"):
             print(f"[c2_canary] gate ARMED: {bk.get('derivation_applied')}", flush=True)
@@ -515,8 +797,16 @@ class TtftSloCanaryGuard:
     def opening(self) -> None:
         if self.opening_done:
             return
-        self.run_canary(after_probe_count=-1)
+        if self.discard_warmup:
+            self.run_canary(after_probe_count=-1, warmup=True)
+        for _ in range(int(self.calibration_c) if self.arm_before_probes else 1):
+            self.run_canary(after_probe_count=-1)
         self.opening_done = True
+
+    def closing(self, probes_log: list[dict[str, Any]]) -> None:
+        """One armed check after the last probe when probes ran since the last canary."""
+        if self.arm_before_probes and probes_log and self.probes_since_canary > 0:
+            self.run_canary(after_probe_count=len(probes_log) - 1)
 
     def after_probe(self, probes_log: list[dict[str, Any]]) -> None:
         """Call once after each successful probe append."""

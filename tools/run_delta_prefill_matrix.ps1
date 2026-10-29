@@ -29,11 +29,11 @@
 
   From the Mac, with Cursor and browsers closed on the XPS:
 
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_delta_prefill_matrix.ps1 -Orchestrate"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_delta_prefill_matrix.ps1 -Orchestrate -Arms gpu_only_u8 -NCached 4000,12000 -Deltas 100,400,1000,2000"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_delta_prefill_matrix.ps1 -Orchestrate -Arms gpu_only_u4 -NCached 2000,4000,8000,12000 -Deltas 50,150,400,1000 -Tag dispatch_o_u4"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_dispatch_p_precision_matrix.ps1 -Orchestrate"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_delta_prefill_matrix.ps1 -Status"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_delta_prefill_matrix.ps1 -Orchestrate"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_delta_prefill_matrix.ps1 -Orchestrate -Arms gpu_only_u8 -NCached 4000,12000 -Deltas 100,400,1000,2000"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_delta_prefill_matrix.ps1 -Orchestrate -Arms gpu_only_u4 -NCached 2000,4000,8000,12000 -Deltas 50,150,400,1000 -Tag dispatch_o_u4"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_dispatch_p_precision_matrix.ps1 -Orchestrate"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_delta_prefill_matrix.ps1 -Status"
 
   Drift canary (optional; required for DISPATCH P interleaved precision):
     -CanaryEveryN N>0 inserts a fixed canary cell (default gpu_only / nc=4000 /
@@ -68,7 +68,7 @@ param(
     [Parameter(ParameterSetName = "VerifyDetach")]
     [Parameter(ParameterSetName = "DryRunGate")]
     [Parameter(ParameterSetName = "EmitSchedule")]
-    [string]$PythonExe = "C:\Users\zjohn\Projects\gnn-hls-accel\.venv-seam\Scripts\python.exe",
+    [string]$PythonExe = "C:\Users\<user>\Projects\gnn-hls-accel\.venv-seam\Scripts\python.exe",
 
     # Comma-separated n_cached values. Default preserves single 12000.
     # Typed as [object] (not [int]/[string]): unquoted 4000,12000 binds as Object[] and
@@ -232,7 +232,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$root = "C:\Users\zjohn\Projects\gnn-hls-accel"
+$root = "C:\Users\<user>\Projects\gnn-hls-accel"
 . (Join-Path $root "tools\SeamPsCommon.ps1")
 $cfgPath = Join-Path $root "configs\delta_n.yaml"
 $smokePy = Join-Path $root "tools\smoke_delta_prefill.py"

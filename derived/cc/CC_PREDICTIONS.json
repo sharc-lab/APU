@@ -1,0 +1,233 @@
+{
+  "id": "CC_PREDICTIONS",
+  "status": "registered with docs/registrations/CC_CONTEXT_CEILING_2026-10-23.md before any CC run; DERIVED",
+  "generator": "tools/cc_predict.py",
+  "runner_must_not_read_this_file": true,
+  "inputs": {
+    "sealed_xps_limits": {
+      "f16": {
+        "tokens": 15000,
+        "run_id": "553b3a5c"
+      },
+      "u8": {
+        "tokens": 20000,
+        "run_id": "cf3555d5"
+      },
+      "u4": {
+        "tokens": 26500,
+        "run_id": "e4a22dac"
+      }
+    },
+    "k_kv_B_per_token": {
+      "f16": 147456,
+      "u8": 78336,
+      "u4": 41472
+    },
+    "caps": [
+      1024,
+      256
+    ],
+    "grow_factors": [
+      1.5,
+      2.0
+    ],
+    "mixed_B_per_T_per_context_token": 64,
+    "t2s_gpu_visible_mb": 48634,
+    "t2s_weights_reserve_B_ASSUMED": 4000000000.0
+  },
+  "pair_fits": {
+    "f16/u8": {
+      "c_B_per_token": 129024,
+      "budget_GiB": 3.862
+    },
+    "f16/u4": {
+      "c_B_per_token": 96768,
+      "budget_GiB": 3.412
+    },
+    "u8/u4": {
+      "c_B_per_token": 71956,
+      "budget_GiB": 2.799
+    }
+  },
+  "xps_resident_limits": {
+    "f16:c1024": {
+      "point": 17200,
+      "band": [
+        10192,
+        27229
+      ],
+      "by_hypothesis_f16u4_pair": {
+        "act": 24172,
+        "mixed": 17200,
+        "grow_g1.5": 16562,
+        "grow_g2": 12422
+      }
+    },
+    "f16:c256": {
+      "point": 22359,
+      "band": [
+        10192,
+        27901
+      ],
+      "by_hypothesis_f16u4_pair": {
+        "act": 24676,
+        "mixed": 22359,
+        "grow_g1.5": 16562,
+        "grow_g2": 12422
+      }
+    },
+    "f16:unl_explicit": {
+      "point": 15000,
+      "band": [
+        14000,
+        16000
+      ],
+      "basis": "explicit SchedulerConfig with an unlimited step = the sealed plain-pipeline limit within 2 rungs, if the scheduler object itself changes nothing"
+    },
+    "u8:c1024": {
+      "point": 25463,
+      "band": [
+        19186,
+        51255
+      ],
+      "by_hypothesis_f16u4_pair": {
+        "act": 45500,
+        "mixed": 25463,
+        "grow_g1.5": 31176,
+        "grow_g2": 23382
+      }
+    },
+    "u8:c256": {
+      "point": 38676,
+      "band": [
+        19186,
+        52520
+      ],
+      "by_hypothesis_f16u4_pair": {
+        "act": 46448,
+        "mixed": 38676,
+        "grow_g1.5": 31176,
+        "grow_g2": 23382
+      }
+    },
+    "u8:unl_explicit": {
+      "point": 20000,
+      "band": [
+        19000,
+        21000
+      ],
+      "basis": "explicit SchedulerConfig with an unlimited step = the sealed plain-pipeline limit within 2 rungs, if the scheduler object itself changes nothing"
+    },
+    "u4:c1024": {
+      "point": 34234,
+      "band": [
+        28090,
+        96814
+      ],
+      "by_hypothesis_f16u4_pair": {
+        "act": 85944,
+        "mixed": 34234,
+        "grow_g1.5": 58889,
+        "grow_g2": 44167
+      }
+    },
+    "u4:c256": {
+      "point": 63319,
+      "band": [
+        36239,
+        99204
+      ],
+      "by_hypothesis_f16u4_pair": {
+        "act": 87736,
+        "mixed": 63319,
+        "grow_g1.5": 58889,
+        "grow_g2": 44167
+      }
+    },
+    "u4:unl_explicit": {
+      "point": 26500,
+      "band": [
+        25500,
+        27500
+      ],
+      "basis": "explicit SchedulerConfig with an unlimited step = the sealed plain-pipeline limit within 2 rungs, if the scheduler object itself changes nothing"
+    }
+  },
+  "xps_ratios": {
+    "sealed_u4_over_f16": 1.767,
+    "c1024_u4_over_f16": {
+      "point": 1.99,
+      "band": [
+        1.99,
+        3.56
+      ]
+    },
+    "c256_u4_over_f16": {
+      "point": 2.83,
+      "band": [
+        2.83,
+        3.56
+      ]
+    }
+  },
+  "xps_gate": {
+    "rule": "mechanism gate (F1): HIT if the u4 c256 limit >= 40,000 tokens (1.5x the sealed 26,500) in the median of r=3 limit-point checks",
+    "predicted": "HIT"
+  },
+  "t2s": {
+    "uncapped_ceiling_tokens_DERIVED": {
+      "f16": 161437,
+      "u8": 215249,
+      "u4": 261789
+    },
+    "holds_at_40960_every_arm": true,
+    "settled_slope_B_per_token": {
+      "f16": {
+        "point": 147456,
+        "band": [
+          110592,
+          184320
+        ]
+      },
+      "u8": {
+        "point": 78336,
+        "band": [
+          58752,
+          97920
+        ]
+      },
+      "u4": {
+        "point": 41472,
+        "band": [
+          31104,
+          51840
+        ]
+      }
+    },
+    "peak_minus_settled_slope_B_per_token": {
+      "unl": {
+        "band": [
+          71956,
+          129024
+        ]
+      },
+      "c1024": {
+        "band": [
+          0,
+          65536
+        ]
+      },
+      "c256": {
+        "band": [
+          0,
+          16384
+        ]
+      }
+    }
+  },
+  "cliff_xps": {
+    "below_limit": "every point <= sealed L* holds; TTFT grows with n (exponent 1.8-2.4)",
+    "above_limit": "points >= L* + 500 fail LOUD (CL_OUT_OF_RESOURCES or an allocation error) in turn 1, as all 3 sealed limit probes did; no point above L* holds with a >10x TTFT step (no silent paging in this probe)"
+  },
+  "scoring": "a limit is HIT if the measured largest holding n lies in band; a ratio is HIT if inside its band; a TIME_BOUND probe (child timeout with no allocation or OpenCL error) is not a memory limit and leaves that cell UNRESOLVED, not MISS"
+}

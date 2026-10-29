@@ -1,0 +1,209 @@
+{
+  "id": "BR_HYB1_PREDICTIONS",
+  "registration": "docs/registrations/BR_HYB1_2026-10-26.md",
+  "generator": "tools/br_predict.py",
+  "runner_must_not_read_this_file": true,
+  "no_trace_row_opened": true,
+  "constants": {
+    "B_BR_bytes": 3267086560,
+    "a": 87520,
+    "k_compiled": {
+      "f16": 147456,
+      "i8": 84096,
+      "u4": 47232
+    },
+    "window": 40960
+  },
+  "kv_only_phantom_ratio": {
+    "f16": 1.594,
+    "i8": 2.041,
+    "u4": 2.853
+  },
+  "kv_only_phantom_ceiling": {
+    "f16": 22156,
+    "i8": 38849,
+    "u4": 69171
+  },
+  "law_unchunked_ceiling": {
+    "f16": 13904,
+    "i8": 19037,
+    "u4": 24245
+  },
+  "u4_c256_memory_ceiling": 68697,
+  "band_16gb": {
+    "default_i8_unchunked": [
+      19750,
+      40960
+    ],
+    "default_source": "b038e362 (A21 8-bit, the true-default KV type i8)",
+    "u4_unchunked_comparison": [
+      24250,
+      40960
+    ],
+    "u4_unchunked_source": "3cd03df7",
+    "identity": "dS = F(min(L_c, W)) - F(L_u) per call (no SLO); an upper bound per session under sticky escalation"
+  },
+  "band_32gb_64gb": "empty (window-bound under the default; T2S CC-WINDOW 7e249f7e / 6dfd1a12 / 2d329db2 at 40,448)",
+  "hard_fail_bound_per_1k_calls": {
+    "copilot_mean_40.6_calls": 24.6,
+    "tracelab_about_83_steps": 12.0
+  },
+  "hypotheses": {
+    "H-NARROW": "TraceLab calls with n_ctx <= 40,960 are < 25% of calls and < 5% of input tokens",
+    "H-BAND": "P1 - P0 local-feasible share (no SLO) equals F(min(L_c, W)) - F(L_u) on every tier; zero on 32 and 64 GB",
+    "H-CONTRAST": "Exgentic feasible share >= 3x TraceLab's on 16 GB",
+    "H-P2": "P2 hard failures + silent overruns <= 10% of P0's, at <= 5 pp local-share loss versus P4 (m = L90)",
+    "H-KV": "unchunked: P2-KV hard failures >= 5x P2's; chunk-256: within +-10% of P2's",
+    "H-SILENT": "conditional on the window probe running silently past 40,960: P1 incurs silent overruns in every session crossing 40,960 below the memory ceiling; P0 fails loudly; P2 has none",
+    "H-RANK": "P4 >= P3 >= P2 > P0 on failure waste and local-within-SLO share in >= 90% of sensitivity settings; at a 20 s SLO the TTFT roof binds for most calls that clear memory and window"
+  },
+  "window_probe": {
+    "cell": "u4 chunk-256 at 42,000 and 45,000 (one trial each, XPS, 57%)",
+    "prediction": "silent: both hold with no error (GenAI enforces no position limit; BB found 43 local generates above 40,960 in 8 runs)"
+  },
+  "replay_criteria": {
+    "R-fit": ">= 95% fit/fail agreement outside the +-10% band (in-band reported)",
+    "R-ttft": "median absolute TTFT error <= 15%",
+    "R-guard": "zero hard failures under P2 at m = L90"
+  },
+  "budget_rule": {
+    "rule": "B_i = P + k_compiled*L + a*min(L, cap); B_BR = median(B_i); band [min, max]",
+    "cells": [
+      {
+        "run_id": "5943c992",
+        "cell": "mech_u4_unlx",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 25000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3368800000
+      },
+      {
+        "run_id": "d6616dfd",
+        "cell": "bal_g0_u4",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 25000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3368800000
+      },
+      {
+        "run_id": "3cd03df7",
+        "cell": "a33_u4_cache0",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 24250,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3267736000
+      },
+      {
+        "run_id": "aa914c4c",
+        "cell": "mech_f16_unlx",
+        "arm": "f16",
+        "cap": "none",
+        "largest_held": 14000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3289664000
+      },
+      {
+        "run_id": "ba7a1e89",
+        "cell": "bal_g0_f16",
+        "arm": "f16",
+        "cap": "none",
+        "largest_held": 13250,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3113432000
+      },
+      {
+        "run_id": "fd074be1",
+        "cell": "mech_8_unlx",
+        "arm": "i8",
+        "cap": "none",
+        "largest_held": 18000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3089088000
+      },
+      {
+        "run_id": "b038e362",
+        "cell": "a21_8bit_rep",
+        "arm": "i8",
+        "cap": "none",
+        "largest_held": 19750,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3389416000
+      },
+      {
+        "run_id": "f8df3847",
+        "cell": "mech_u4_c256",
+        "arm": "u4",
+        "cap": 256,
+        "largest_held": 70000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3328645120
+      },
+      {
+        "run_id": "d782cf80",
+        "cell": "mech_f16_c256",
+        "arm": "f16",
+        "cap": 256,
+        "largest_held": 22000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3266437120
+      },
+      {
+        "run_id": "1e9671a0",
+        "cell": "mech_8_c256",
+        "arm": "i8",
+        "cap": 256,
+        "largest_held": 38000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3218053120
+      },
+      {
+        "run_id": "f7542f68",
+        "cell": "mech_u4_c1024",
+        "arm": "u4",
+        "cap": 1024,
+        "largest_held": 67000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3254164480
+      },
+      {
+        "run_id": "b48e4cfe",
+        "cell": "mech_f16_c1024",
+        "arm": "f16",
+        "cap": 1024,
+        "largest_held": 21000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3186196480
+      },
+      {
+        "run_id": "3e45f554",
+        "cell": "mech_8_c1024",
+        "arm": "i8",
+        "cap": 1024,
+        "largest_held": 36000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3117076480
+      },
+      {
+        "run_id": "aaadf214",
+        "cell": "a33_u4_cache2",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 13000,
+        "pool_bytes": 2147483648,
+        "implied_B_bytes": 3285243648
+      }
+    ],
+    "B_BR_bytes": 3267086560,
+    "B_BR_GB": 3.267,
+    "B_BR_GiB": 3.043,
+    "band_bytes": [
+      3089088000,
+      3389416000
+    ],
+    "spread_pct": 4.6,
+    "label": "IN-SAMPLE (57% override, windows 20261023_140349_cc_v3 and 20261024_175932_cc_v3b)"
+  }
+}

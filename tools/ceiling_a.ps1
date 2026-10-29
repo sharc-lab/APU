@@ -10,13 +10,13 @@
 
   From the Mac, with Cursor and browsers closed on the XPS:
 
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms B,B_prime"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms gpu_only"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms gpu_only_u8"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms gpu_only_u4"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Status"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Resume -SessionId <session_id>"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms B,B_prime"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms gpu_only"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms gpu_only_u8"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms gpu_only_u4"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Status"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Resume -SessionId <session_id>"
 
   -Orchestrate is one WMI-detached job: after the interactive-software check passes,
   isolation.pre_run_settle_s (300) runs inside the detached process, then the interleaved
@@ -45,11 +45,11 @@ param(
     [Parameter(ParameterSetName = "Run")]
     [Parameter(ParameterSetName = "Status")]
     [Parameter(ParameterSetName = "Resume")]
-    [string]$PythonExe = "C:\Users\zjohn\Projects\gnn-hls-accel\.venv-seam\Scripts\python.exe"
+    [string]$PythonExe = "C:\Users\<user>\Projects\gnn-hls-accel\.venv-seam\Scripts\python.exe"
 )
 
 $ErrorActionPreference = "Stop"
-$root = "C:\Users\zjohn\Projects\gnn-hls-accel"
+$root = "C:\Users\<user>\Projects\gnn-hls-accel"
 . (Join-Path $root "tools\SeamPsCommon.ps1")
 $outDir = Join-Path $root "derived\ceiling_a\_launches"
 $statePath = Join-Path $outDir "launches.json"
@@ -380,17 +380,17 @@ if ($Local) {
     Write-Output "  For harness validation under an interactive session (not a measurement):"
     Write-Output "    .venv-seam\Scripts\python.exe -u -m seam.tools.ceiling_a --smoke --allow-dirty"
     Write-Output "  For the real run, from the Mac with Cursor/browsers closed:"
-    Write-Output "    ssh xps `"cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate`""
-    Write-Output "    ssh xps `"cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms B,B_prime`""
-    Write-Output "    ssh xps `"cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms gpu_only`""
+    Write-Output "    ssh xps `"cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate`""
+    Write-Output "    ssh xps `"cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms B,B_prime`""
+    Write-Output "    ssh xps `"cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms gpu_only`""
     exit 1
 }
 
 if (-not $Orchestrate) {
     Write-Output "REFUSED -- pass -Orchestrate (remote gate path)"
-    Write-Output "  Mac: ssh xps `"cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate`""
-    Write-Output "  Mac: ssh xps `"cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms B,B_prime`""
-    Write-Output "  Mac: ssh xps `"cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms gpu_only`""
+    Write-Output "  Mac: ssh xps `"cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate`""
+    Write-Output "  Mac: ssh xps `"cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms B,B_prime`""
+    Write-Output "  Mac: ssh xps `"cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -File tools/ceiling_a.ps1 -Orchestrate -Arms gpu_only`""
     exit 1
 }
 

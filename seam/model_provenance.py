@@ -50,6 +50,14 @@ def load_local_spec(path: Path) -> dict[str, Any]:
         )
     if kind == "self_exported" and "export_command" not in data:
         raise ConfigError(f"self-exported model spec {path} has no export_command")
+    # Repo-relative ir_dir (PORT-1): resolve against repository root, not CWD.
+    ir_raw = data.get("ir_dir")
+    if isinstance(ir_raw, str) and ir_raw.strip():
+        ir_path = Path(ir_raw)
+        if not ir_path.is_absolute():
+            # configs/models/<spec>.yaml → parents[2] == repo root
+            repo_root = path.resolve().parents[2]
+            data["ir_dir"] = str((repo_root / ir_path).resolve())
     return data
 
 

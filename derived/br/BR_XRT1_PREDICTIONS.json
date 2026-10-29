@@ -1,0 +1,168 @@
+{
+  "id": "BR_XRT1_PREDICTIONS",
+  "registration": "docs/registrations/BR_XRT_2026-10-26.md",
+  "generator": "tools/br_predict.py",
+  "runner_must_not_read_this_file": true,
+  "kv_bytes_per_token_llamacpp": {
+    "f16": 147456,
+    "q8_0": 78336,
+    "q4_0": 41472
+  },
+  "e1_census": {
+    "grid": "ctx 4096/16384/32768 x ubatch 128/256/512/1024/2048/4096 x KV f16/q8_0/q4_0 x FA on/off, SYCL and Vulkan builds, --fit off",
+    "P-XRT-1": "KV buffer MiB = n_ctx x k / 2^20 within 1% for every ready combination",
+    "P-XRT-2": "FA on: compute buffer flat in n_ctx (max/min across 4K/16K/32K <= 1.05) at each ubatch and KV type",
+    "P-XRT-3": "FA off: compute buffer grows with n_ctx at fixed ubatch (32K / 4K >= 2.0)",
+    "P-XRT-4": "FA off with a quantized V cache is refused at load (recorded, not a crash)"
+  },
+  "e2_boundary": {
+    "cells": "f16 and q4_0, FA on, ubatch 512, at slider 50% and 74%, both builds",
+    "P-XRT-5": "q4_0 / f16 ceiling ratio >= 3.0 at ubatch 512 (k ratio 3.56)",
+    "P-XRT-6 (=P-INV-3)": "ceiling at 74% >= ceiling at 50% for each KV type and build (H1); a fall > 15% is the H2 branch; under 15% inconclusive"
+  },
+  "rithwik_side": {
+    "P-XRT-7 (E3, RTX 4070, FA off)": "ceiling proportional to 1 / (k + 4 x n_head x ubatch) bytes (n_head 32: 4 x 32 x 512 = 65,536 B/token at ubatch 512)",
+    "P-XRT-8 (E5, Strix Halo)": "ceiling linear in the GPU share with slope 1/k (R^2 >= 0.98 over >= 3 points); any drop at high share generalizes the inversion",
+    "status": "CONDITIONAL on Rithwik (docs/RITHWIK_ASKS_2026-10-26.md)"
+  },
+  "budget_rule": {
+    "rule": "B_i = P + k_compiled*L + a*min(L, cap); B_BR = median(B_i); band [min, max]",
+    "cells": [
+      {
+        "run_id": "5943c992",
+        "cell": "mech_u4_unlx",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 25000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3368800000
+      },
+      {
+        "run_id": "d6616dfd",
+        "cell": "bal_g0_u4",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 25000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3368800000
+      },
+      {
+        "run_id": "3cd03df7",
+        "cell": "a33_u4_cache0",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 24250,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3267736000
+      },
+      {
+        "run_id": "aa914c4c",
+        "cell": "mech_f16_unlx",
+        "arm": "f16",
+        "cap": "none",
+        "largest_held": 14000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3289664000
+      },
+      {
+        "run_id": "ba7a1e89",
+        "cell": "bal_g0_f16",
+        "arm": "f16",
+        "cap": "none",
+        "largest_held": 13250,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3113432000
+      },
+      {
+        "run_id": "fd074be1",
+        "cell": "mech_8_unlx",
+        "arm": "i8",
+        "cap": "none",
+        "largest_held": 18000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3089088000
+      },
+      {
+        "run_id": "b038e362",
+        "cell": "a21_8bit_rep",
+        "arm": "i8",
+        "cap": "none",
+        "largest_held": 19750,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3389416000
+      },
+      {
+        "run_id": "f8df3847",
+        "cell": "mech_u4_c256",
+        "arm": "u4",
+        "cap": 256,
+        "largest_held": 70000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3328645120
+      },
+      {
+        "run_id": "d782cf80",
+        "cell": "mech_f16_c256",
+        "arm": "f16",
+        "cap": 256,
+        "largest_held": 22000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3266437120
+      },
+      {
+        "run_id": "1e9671a0",
+        "cell": "mech_8_c256",
+        "arm": "i8",
+        "cap": 256,
+        "largest_held": 38000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3218053120
+      },
+      {
+        "run_id": "f7542f68",
+        "cell": "mech_u4_c1024",
+        "arm": "u4",
+        "cap": 1024,
+        "largest_held": 67000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3254164480
+      },
+      {
+        "run_id": "b48e4cfe",
+        "cell": "mech_f16_c1024",
+        "arm": "f16",
+        "cap": 1024,
+        "largest_held": 21000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3186196480
+      },
+      {
+        "run_id": "3e45f554",
+        "cell": "mech_8_c1024",
+        "arm": "i8",
+        "cap": 1024,
+        "largest_held": 36000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3117076480
+      },
+      {
+        "run_id": "aaadf214",
+        "cell": "a33_u4_cache2",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 13000,
+        "pool_bytes": 2147483648,
+        "implied_B_bytes": 3285243648
+      }
+    ],
+    "B_BR_bytes": 3267086560,
+    "B_BR_GB": 3.267,
+    "B_BR_GiB": 3.043,
+    "band_bytes": [
+      3089088000,
+      3389416000
+    ],
+    "spread_pct": 4.6,
+    "label": "IN-SAMPLE (57% override, windows 20261023_140349_cc_v3 and 20261024_175932_cc_v3b)"
+  }
+}

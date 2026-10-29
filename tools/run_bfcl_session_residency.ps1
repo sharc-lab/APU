@@ -19,10 +19,10 @@
   Prefer -Orchestrate (ssh_detached). Preconditions: AC, tier-1 closed, Available>=7000.
 
   Mac:
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_bfcl_session_residency.ps1 -DryRunGate"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_bfcl_session_residency.ps1 -ColdControl"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_bfcl_session_residency.ps1 -Orchestrate"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_bfcl_session_residency.ps1 -Status"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_bfcl_session_residency.ps1 -DryRunGate"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_bfcl_session_residency.ps1 -ColdControl"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_bfcl_session_residency.ps1 -Orchestrate"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_bfcl_session_residency.ps1 -Status"
 #>
 [CmdletBinding(DefaultParameterSetName = "Run")]
 param(
@@ -37,7 +37,7 @@ param(
     [Parameter(ParameterSetName = "Status")]
     [Parameter(ParameterSetName = "DryRunGate")]
     [Parameter(ParameterSetName = "ColdControl")]
-    [string]$PythonExe = "C:\Users\zjohn\Projects\gnn-hls-accel\.venv-seam\Scripts\python.exe",
+    [string]$PythonExe = "C:\Users\<user>\Projects\gnn-hls-accel\.venv-seam\Scripts\python.exe",
     [Parameter(ParameterSetName = "Run")]
     [Parameter(ParameterSetName = "Orchestrate")]
     [Parameter(ParameterSetName = "ColdControl")]
@@ -55,7 +55,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$root = "C:\Users\zjohn\Projects\gnn-hls-accel"
+$root = "C:\Users\<user>\Projects\gnn-hls-accel"
 . (Join-Path $root "tools\SeamPsCommon.ps1")
 
 $outRoot = Join-Path $root "derived\bfcl_feasibility\session_residency"

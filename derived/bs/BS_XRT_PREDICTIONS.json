@@ -1,0 +1,75 @@
+{
+  "id": "BS_XRT_PREDICTIONS",
+  "registration": "docs/registrations/BS_XRT_RUNBOOKS_2026-10-26.md",
+  "registered": "2026-10-26 ~8:55 PM ET (Task BS), before any E3/E5/T2S-XRT run",
+  "runner_must_not_read_this_file": true,
+  "generator": "written in Task BS; rule only, no fitted value; illustrative rows are DERIVED arithmetic",
+  "kv_bytes_per_token_llamacpp": {
+    "f16": 147456,
+    "q4_0": 41472
+  },
+  "e4": {
+    "status": "NOT RUN",
+    "reason": "vLLM needs WSL/Docker on these Windows machines; admin + reboot on evo-x2 not approved by Rithwik; no substitute cell"
+  },
+  "e3": {
+    "unchanged": "P-XRT-7 (docs/registrations/BR_XRT_2026-10-26.md)",
+    "cells": [
+      "E3_fa0_ub128_f16",
+      "E3_fa0_ub512_f16",
+      "E3_fa0_ub2048_f16",
+      "E3_fa1_ub512_f16",
+      "E3_fa1_ub512_q4_0"
+    ]
+  },
+  "e5a": {
+    "substitution_rule": "L_pred(kv) = floor((F - W - C) / k_kv); F = 'MiB free' on the 'using device Vulkan0' line, W = Vulkan0 model buffer, C = Vulkan0 compute + output buffers, all from the first held trial log of that L cell, x 2^20 B; no refit",
+    "P-E5a-1": "KV buffer MiB = n_ctx x k / 2^20 within 1% on every loaded trial",
+    "P-E5a-2": "Vulkan0 compute buffer max/min <= 1.05 across loaded trials with n_ctx <= 131,072",
+    "P-E5a-3": "L-cell largest hold within +-10% of L_pred per KV type; above_range if L_pred > 4,194,304; failure cause max_buffer at the boundary -> UNRESOLVED",
+    "P-E5a-4": "q4_0 / f16 L-cell ratio >= 3.0",
+    "P-E5a-5": "if L_pred >= 132,096 the P cell is above_range at 131,072; else P-cell largest hold within 1,024 of the L cell's",
+    "descriptive": "same rule with F = device-local heap only (vulkaninfo or dxdiag Dedicated Memory); not scored",
+    "illustrative_DERIVED": [
+      {
+        "F_minus_W_minus_C_GiB": 8,
+        "L_pred_f16": 58254,
+        "L_pred_q4_0": 207126
+      },
+      {
+        "F_minus_W_minus_C_GiB": 16,
+        "L_pred_f16": 116508,
+        "L_pred_q4_0": 414252
+      },
+      {
+        "F_minus_W_minus_C_GiB": 32,
+        "L_pred_f16": 233016,
+        "L_pred_q4_0": 828504
+      },
+      {
+        "F_minus_W_minus_C_GiB": 48,
+        "L_pred_f16": 349525,
+        "L_pred_q4_0": 1242756
+      },
+      {
+        "F_minus_W_minus_C_GiB": 64,
+        "L_pred_f16": 466033,
+        "L_pred_q4_0": 1657008
+      },
+      {
+        "F_minus_W_minus_C_GiB": 96,
+        "L_pred_f16": 699050,
+        "L_pred_q4_0": 2485513
+      }
+    ]
+  },
+  "e5b": {
+    "unchanged": "P-XRT-8 on the P cells; UNRESOLVED if every P cell is above_range (window binds); L cells reported against slope 1/k descriptively",
+    "gate": "E5B_SHARE_OK=1 and E5B_SHARE_GB, only with Rithwik's OK"
+  },
+  "t2s_xrt_optional": {
+    "predictions": "P-E5a-1..5 with SYCL0 / Vulkan0 substitution",
+    "expected": "P cells hold at 131,072 (A19 shared 48,634 MiB)",
+    "status": "CONDITIONAL on Rithwik's OK for the evening and the folder install"
+  }
+}

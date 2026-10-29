@@ -39,7 +39,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$root = "C:\Users\zjohn\Projects\gnn-hls-accel"
+$root = "C:\Users\<user>\Projects\gnn-hls-accel"
 Set-Location $root
 
 # 1.5x H1_PREDICTIONS point estimates (launcher-side only; runner is blinded).

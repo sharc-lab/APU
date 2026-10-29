@@ -1,0 +1,288 @@
+{
+  "experiment": "ROUTE-1",
+  "title": "Ceiling-planned sessions: cost vs the default hybrid",
+  "status": "REGISTERED - NO DATA - [private]",
+  "filed_at_ET": "2026-10-29 17:15 EDT",
+  "amendment": "docs/amendments/HYB1_AMEND_2026-10-29_ROUTE1_SAVINGS.md",
+  "amends": {
+    "registration": "docs/registrations/BR_HYB1_2026-10-26.md",
+    "sha256": "c1454ebbdbe38e6d472a240f6531ce53518f7c82719ee0ced2021498cacb5642",
+    "check_at_filing": "MATCH"
+  },
+  "scope_request": "[private]",
+  "constants": {
+    "k_B_per_token": {
+      "f16": 147456,
+      "i8": 84096,
+      "u4": 47232
+    },
+    "a_B_per_token": 87520,
+    "B_BR_bytes": 3267086560,
+    "W": 40960,
+    "window_headroom": 512,
+    "slo_ttft_s": 10,
+    "margin_m": 0.059,
+    "margin_rule": "m = 0.059 unless the STAT-1 L90 margin is larger; (1-m) multiplies the memory ceiling of resident configs only; W-512 is exact",
+    "session_law": "L_total(T) = (B - a*min(T,c))/k",
+    "session_law_error_band": [
+      -0.025,
+      0.059
+    ]
+  },
+  "inputs_MEASURED": {
+    "i8_default_ceiling": {
+      "19750": "b038e362",
+      "18000": "fd074be1"
+    },
+    "true_default_kv_i8": "597f40a9",
+    "ttft_edge_10s_at_10000": "c2246b1f",
+    "ttft_u4_16k_s": [
+      22.7,
+      "d42040c1"
+    ],
+    "ttft_u4_c256_16k_s": [
+      48.1,
+      "8997aa4e"
+    ],
+    "ttft_turn_60k_s": [
+      53,
+      "d7e8b43e"
+    ],
+    "u4_c256_capacity": [
+      70000,
+      "f8df3847",
+      "0/4 repeats"
+    ],
+    "i8_c256": [
+      38000,
+      "1e9671a0"
+    ],
+    "time_to_fail_s": [
+      0.442,
+      "00c7fa60"
+    ],
+    "compile_s": [
+      3.77,
+      "96612911"
+    ],
+    "arm_a_ttft_p50_s_at_3936": [
+      0.3,
+      "d482c621"
+    ]
+  },
+  "M1_prior": {
+    "value": "RESIDENT",
+    "basis": "code/doc text only: tools/run_h1_hybrid.py:1483-1484, 1658; DEMO2_AMEND_2026-10-16_TRUE_DEFAULT.md lines 138-148",
+    "status": "unverified until the M1 two-call probe"
+  },
+  "config_set": [
+    "i8 default",
+    "i8+resident",
+    "i8-c256+resident",
+    "u4-c256+resident"
+  ],
+  "controls": {
+    "D1": "OpenVINO GenAI LLMPipeline(model,'GPU') true default (i8 read-back, unchunked, 57%, W 40,960); residency AS MEASURED BY M1; local-first; on exception or no first token within 10 s -> cancel, re-issue to cloud with full transcript and cache_control on the stable prefix; sticky; 0 local retries",
+    "D1_sensitivities": [
+      "D1-nb (non-sticky per call)",
+      "3 retries"
+    ],
+    "D2": "D1 + pre-call check: Qwen3 tokens + max_new > declared window -> cloud, sticky; declared window runtime-reported (OpenVINO 40,960; Ollama num_ctx via /api/show); margin 0 primary, 0.05 sensitivity",
+    "ROUTE-1": "session-start config from the set maximizing predicted local turns s.t. k*n_ctx + a*min(n_new,c) <= B_eff*(1-m); n_ctx + max_new <= W-512; predicted TTFT <= 10 s; passed COST-1 X-Q; tie-break toward the default; planned migration = first t with predicted C_t > min(L_session, W-512)*(1-m) (margin on the memory term only); delta-hat re-estimated each turn; per-call guard; one cloud tier per session; transcript handoff",
+    "Oracle": "perfect per-turn feasibility, TTFT and cache state; minimizes $ with no failure and no SLO miss; Y = (D - ROUTE-1)/(D - Oracle), D = control with the smaller saving",
+    "ablations": {
+      "A0": "HYB-1 P2-U guard at default config",
+      "A1": "D1 on ROUTE-1's config, no predictor",
+      "A2": "ROUTE-1 with a = 0",
+      "A3": [
+        "B-4K",
+        "B-8K",
+        "B-rand seed 20261031 at ROUTE-1's cloud share"
+      ]
+    }
+  },
+  "predictions": {
+    "H-R0": {
+      "contrast": "A0 vs D1",
+      "prediction": "cloud $ differ by <= 2%; failed local attempts >= 95% fewer",
+      "usd_rel_diff_le": 0.02,
+      "failed_attempts_reduction_ge": 0.95
+    },
+    "H-R1": {
+      "contrast": "ROUTE-1 vs min(D1, D2), Sonnet, sessions crossing 19,750",
+      "branch_S": {
+        "definition": "M1 shows the default re-prefills, or Gate B fails at i8",
+        "lower_by_ge": 0.25
+      },
+      "branch_R": {
+        "definition": "default resident and Gate B passes at i8",
+        "lower_by_range": [
+          0.03,
+          0.12
+        ]
+      },
+      "basis": "DERIVED base: S 35.8-42.4%; R 5.5-8.4%"
+    },
+    "H-R1u": {
+      "contrast": "same, unconditional per workload",
+      "tau2": {
+        "S_ge": 0.15,
+        "R_le": 0.05
+      },
+      "TraceLab_le_both_branches": 0.05
+    },
+    "H-R2": {
+      "contrast": "oracle gap closed, crossing sessions",
+      "Y_ge": 0.7
+    },
+    "H-R3": {
+      "contrast": "A1 vs ROUTE-1",
+      "usd_within": 0.05,
+      "A1_failures_or_silent_overruns_per_session_crossing_W_ge": 1
+    },
+    "H-R4": {
+      "contrast": "A2 vs ROUTE-1, unchunked configs",
+      "failed_attempts_per_base_session_ge": 10,
+      "chunk256_within": 0.01
+    },
+    "H-R5": {
+      "contrast": "price tiers",
+      "pct_saving_haiku_flashlite_vs_sonnet_pp": [
+        -5,
+        15
+      ],
+      "abs_haiku_usd_le_fraction_of_sonnet": 0.1
+    },
+    "H-R6": {
+      "contrast": "migration accuracy",
+      "within_turns": 1,
+      "share_of_crossing_sessions_ge": 0.9
+    },
+    "H-R7": {
+      "contrast": "success, crossing sessions",
+      "noninferiority_lower_bound_gt_pp": -5
+    },
+    "H-R8": {
+      "contrast": "safety and energy",
+      "route1_hard_failures": 0,
+      "extra_local_energy_le_fraction_of_sonnet_saving": 0.02
+    }
+  },
+  "decision_rules": {
+    "DR-R1": "H-R1 lower CI bound clears its branch floor, and H-R7 holds -> headline with X and Y",
+    "DR-R2": "H-R1 holds, H-R7 fails -> headline only as rework-adjusted $; under 10% -> no dollar headline, lead with failures and time",
+    "DR-R3": "branch R -> 'Zero failed attempts and planned migration at 5-8% lower $'; [private]",
+    "DR-R4": "H-R3 holds -> say the dollars come from the configuration the model selects",
+    "DR-R5": "live billed $ misses +/-10% -> live numbers carry the headline; simulator exploratory",
+    "DR-R6": "COST-1 X-Q <= 26/30 -> drop u4; use i8-c256 + resident (38,000, 1e9671a0); base edge ~30% (DERIVED $165.10)",
+    "DR-R7": "[private]"
+  },
+  "statistics": {
+    "unit": "session",
+    "paired": true,
+    "cluster_bootstrap": 10000,
+    "clusters": {
+      "Exgentic": "tasks then traces",
+      "TraceLab": "users then sessions"
+    },
+    "multiplicity": "Holm across H-R0..H-R8",
+    "noninferiority_delta_pp": 5,
+    "power": {
+      "pairs_120_discordance_0.10": 0.53,
+      "pairs_for_80pct": 247
+    }
+  },
+  "simulator_validation": {
+    "billed_usd_within": 0.1,
+    "migration_turn_within": 1,
+    "migration_share_ge": 0.9,
+    "also": [
+      "R-fit",
+      "R-ttft",
+      "R-guard"
+    ]
+  },
+  "cost_model": {
+    "cache_rules": {
+      "ttl_s": 300,
+      "ttl_from": "request start, refreshed on hit",
+      "prefix": "exact",
+      "lookback_blocks": 20,
+      "invalidation": "tools -> system -> messages",
+      "min_tokens": 512,
+      "model_or_tier_switch": "cold (ASSUMED, verify live)"
+    },
+    "forced_hit_grid": [
+      0.55,
+      0.75,
+      0.9,
+      0.96
+    ],
+    "local_energy_usd_per_kwh": 0.182,
+    "wait": "separate axis, never in the headline $",
+    "rework_adjusted": "always reported"
+  },
+  "price_sheets": {
+    "primary": "HYB-1 2026-10-26 (per M tokens: Haiku 5.5 0.10/0.125/0.01/0.50 x5 above 100K; Sonnet 5.5 2/2.50/0.10/10; Opus 5.5 4/5/0.20/20)",
+    "flash_lite_line": "Gemini 3.1 Flash-Lite $0.25 in / $0.025 cached / $1.50 out, cache write = input (ASSUMED), checked 2026-10-29, https://ai.google.dev/gemini-api/docs/pricing",
+    "headline_tier": "Sonnet 5.5"
+  },
+  "workload_pins": {
+    "tau2_exgentic": {
+      "v1": "70036b93",
+      "v2": "4b8ad4ab",
+      "full_hashes": "to copy from the dataset page without opening data"
+    },
+    "BFCL_v4": "multi-turn base + long_context",
+    "TraceLab": "v0.0.2 (HYB-1 pin)",
+    "SWE-bench_exgentic": "cost-only sensitivity",
+    "OSWorld": "stretch, unregistered outcomes",
+    "opened_before_Nov6": false
+  },
+  "spend": {
+    "now_usd": 0,
+    "tranches": {
+      "A": [
+        3,
+        5
+      ],
+      "B": [
+        7,
+        15
+      ],
+      "C": [
+        2,
+        4
+      ]
+    },
+    "cap_usd": 30,
+    "hard_stop_usd": 40,
+    "approval": "Zach's written approval logged in PLAN_LOCK before any call",
+    "stop_over_estimate": 0.5
+  },
+  "synthetic_fixtures_reproduced": {
+    "sonnet": {
+      "all_cloud": 281.25,
+      "D1_stateless_turn6": 262.75,
+      "D1_hardfail_turn12": 235.6,
+      "A0": 235.6,
+      "D1_resident_turn24": 165.1,
+      "ROUTE1_i8_resident_turn22": 178.35,
+      "ROUTE1_u4_c256_turn26": 151.25,
+      "Oracle": 151.25,
+      "B4K": 277.85,
+      "B8K": 270.6
+    },
+    "haiku": {
+      "all_cloud": 17.69,
+      "D1_hardfail": 14.77,
+      "ROUTE1_u4": 8.44
+    },
+    "flash_lite": {
+      "all_cloud": 43.5,
+      "D1_hardfail": 35.39,
+      "ROUTE1_u4": 18.5
+    },
+    "note": "synthetic B=3.27e9; not predictions about data"
+  }
+}

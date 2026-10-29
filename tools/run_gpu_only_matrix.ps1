@@ -11,8 +11,8 @@
 
   From the Mac, with Cursor and browsers closed on the XPS:
 
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_gpu_only_matrix.ps1 -Orchestrate -Tag reconcile_n12000 -NsList 12000"
-    ssh xps "cd C:/Users/zjohn/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_gpu_only_matrix.ps1 -Status"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_gpu_only_matrix.ps1 -Orchestrate -Tag reconcile_n12000 -NsList 12000"
+    ssh xps "cd C:/Users/<user>/Projects/gnn-hls-accel; powershell -NoProfile -File tools/run_gpu_only_matrix.ps1 -Status"
 
   Checkpoint / heartbeat:
     derived/gpu_only_matrix/<session_id>/heartbeat.json
@@ -64,7 +64,7 @@ param(
     [Parameter(ParameterSetName = "Status")]
     [Parameter(ParameterSetName = "VerifyDetach")]
     [Parameter(ParameterSetName = "DryRunGate")]
-    [string]$PythonExe = "C:\Users\zjohn\Projects\gnn-hls-accel\.venv-seam\Scripts\python.exe",
+    [string]$PythonExe = "C:\Users\<user>\Projects\gnn-hls-accel\.venv-seam\Scripts\python.exe",
 
     # Comma-separated prompt lengths. Default preserves the original {2000,12000} matrix.
     [Parameter(ParameterSetName = "Run")]
@@ -93,7 +93,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$root = "C:\Users\zjohn\Projects\gnn-hls-accel"
+$root = "C:\Users\<user>\Projects\gnn-hls-accel"
 . (Join-Path $root "tools\SeamPsCommon.ps1")
 $cfgPath = Join-Path $root "configs\delta_n.yaml"
 $smokePs1 = Join-Path $root "tools\smoke_gpu_exec.ps1"

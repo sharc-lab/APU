@@ -1,0 +1,10 @@
+{
+ "figure": "fig9_implied_b",
+ "script": "analysis/meeting_20261027/make_figs.py",
+ "inputs_sha256": {
+  "analysis/cc_20261026/measured.json": "75e7596d1150ac55579f86dd2485ce2ede38399fda033515618f449e543aae5e"
+ },
+ "notes": [
+  "IN-SAMPLE: the same cells define B; held-out tests are SESS-1, STAT-1, 8B (registered BR)"
+ ]
+}

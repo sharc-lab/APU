@@ -1,0 +1,208 @@
+{
+  "id": "BR_M2B_PREDICTIONS",
+  "registration": "docs/registrations/BR_8B_2026-10-26.md",
+  "generator": "tools/br_predict.py",
+  "runner_must_not_read_this_file": true,
+  "a_derivation": {
+    "qwen3_4b": {
+      "rules": {
+        "f16_live_7(d+I)": 86016,
+        "fp32_(2I+d)x4": 88064
+      },
+      "measured": [
+        87520,
+        "e4e797e7"
+      ]
+    },
+    "qwen3_8b": {
+      "rules": {
+        "f16_live_7(d+I)": 114688,
+        "fp32_(2I+d)x4": 114688
+      },
+      "point": 114688,
+      "band_10pct": [
+        103219,
+        126157
+      ]
+    },
+    "note": "for the 8B both readings equal 114,688 B/token; for the 4B they bracket the measured 87,520 (-1.7% / +0.6%)"
+  },
+  "budget": {
+    "rule": "B_8B = B_BR - (W_8B - W_4B), W = IR bytes (the BO rule with B_BR in place of the 3.412 GiB pair fit)",
+    "B_BR_bytes": 3267086560,
+    "B_8B_bytes": 674989389,
+    "B_8B_GiB": 0.629
+  },
+  "uncapped_limits": {
+    "f16": {
+      "point": 2575,
+      "band": [
+        2189,
+        2961
+      ]
+    },
+    "i8": {
+      "point": 3396,
+      "band": [
+        2886,
+        3905
+      ]
+    },
+    "u4": {
+      "point": 4169,
+      "band": [
+        3543,
+        4794
+      ]
+    }
+  },
+  "u4_cap256_limit": {
+    "point": 13669,
+    "band": [
+      11619,
+      15720
+    ]
+  },
+  "registered_bo_values_kept": "CC_M2_PREDICTIONS.json (a 131,072; limits 3,846 / 5,116 / 6,209; u4 cap256 25,022) stay registered and are scored as registered",
+  "early_warning": "retro sealed 8B f16 3,156 (322b2f86) and u8 4,062 (69234ed5), older driver and tool, not a test of this amendment",
+  "budget_rule": {
+    "rule": "B_i = P + k_compiled*L + a*min(L, cap); B_BR = median(B_i); band [min, max]",
+    "cells": [
+      {
+        "run_id": "5943c992",
+        "cell": "mech_u4_unlx",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 25000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3368800000
+      },
+      {
+        "run_id": "d6616dfd",
+        "cell": "bal_g0_u4",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 25000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3368800000
+      },
+      {
+        "run_id": "3cd03df7",
+        "cell": "a33_u4_cache0",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 24250,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3267736000
+      },
+      {
+        "run_id": "aa914c4c",
+        "cell": "mech_f16_unlx",
+        "arm": "f16",
+        "cap": "none",
+        "largest_held": 14000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3289664000
+      },
+      {
+        "run_id": "ba7a1e89",
+        "cell": "bal_g0_f16",
+        "arm": "f16",
+        "cap": "none",
+        "largest_held": 13250,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3113432000
+      },
+      {
+        "run_id": "fd074be1",
+        "cell": "mech_8_unlx",
+        "arm": "i8",
+        "cap": "none",
+        "largest_held": 18000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3089088000
+      },
+      {
+        "run_id": "b038e362",
+        "cell": "a21_8bit_rep",
+        "arm": "i8",
+        "cap": "none",
+        "largest_held": 19750,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3389416000
+      },
+      {
+        "run_id": "f8df3847",
+        "cell": "mech_u4_c256",
+        "arm": "u4",
+        "cap": 256,
+        "largest_held": 70000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3328645120
+      },
+      {
+        "run_id": "d782cf80",
+        "cell": "mech_f16_c256",
+        "arm": "f16",
+        "cap": 256,
+        "largest_held": 22000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3266437120
+      },
+      {
+        "run_id": "1e9671a0",
+        "cell": "mech_8_c256",
+        "arm": "i8",
+        "cap": 256,
+        "largest_held": 38000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3218053120
+      },
+      {
+        "run_id": "f7542f68",
+        "cell": "mech_u4_c1024",
+        "arm": "u4",
+        "cap": 1024,
+        "largest_held": 67000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3254164480
+      },
+      {
+        "run_id": "b48e4cfe",
+        "cell": "mech_f16_c1024",
+        "arm": "f16",
+        "cap": 1024,
+        "largest_held": 21000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3186196480
+      },
+      {
+        "run_id": "3e45f554",
+        "cell": "mech_8_c1024",
+        "arm": "i8",
+        "cap": 1024,
+        "largest_held": 36000,
+        "pool_bytes": 0,
+        "implied_B_bytes": 3117076480
+      },
+      {
+        "run_id": "aaadf214",
+        "cell": "a33_u4_cache2",
+        "arm": "u4",
+        "cap": "none",
+        "largest_held": 13000,
+        "pool_bytes": 2147483648,
+        "implied_B_bytes": 3285243648
+      }
+    ],
+    "B_BR_bytes": 3267086560,
+    "B_BR_GB": 3.267,
+    "B_BR_GiB": 3.043,
+    "band_bytes": [
+      3089088000,
+      3389416000
+    ],
+    "spread_pct": 4.6,
+    "label": "IN-SAMPLE (57% override, windows 20261023_140349_cc_v3 and 20261024_175932_cc_v3b)"
+  }
+}

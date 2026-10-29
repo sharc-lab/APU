@@ -16,7 +16,7 @@ publisher_quantization:
   awq: false
 note: Uncompressed fp16 OpenVINO IR. T2 / W-5 boundary arm; not a W-2 measurement
   weight.
-ir_dir: C:\Users\zjohn\Projects\gnn-hls-accel\models\Qwen3-4B-fp16-ov
+ir_dir: C:\Users\<user>\Projects\gnn-hls-accel\models\Qwen3-4B-fp16-ov
 ir_sha256: 3dabb40979295a47506bab4073a4d553177d4ec6dc43a93b8a2762dfcd563d1f
 ir_files:
   .gitattributes: 34448b82c17d60fec9b65b1f093c115ddbaadc04beb1b0140b6bfed2e012a930

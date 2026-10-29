@@ -1,4 +1,4 @@
-"""C-1 / C-2 ceiling sweep worker — KV-precision limits on int4 / gpu_only_*.
+"""C-1 / C-2 ceiling sweep worker - KV-precision limits on int4 / gpu_only_*.
 
 Detached payload for tools/launch_c1.ps1 and tools/launch_c2.ps1.
 Binary-searches the largest n_cached per arm (gpu_only_f16, gpu_only_u8,
@@ -9,8 +9,8 @@ gpu_only_u4).
 --criterion ttft_slo: pass = median(prefill_s) <= --slo-s (C-2 / AM-038).
   Drift canary (docs/CANARY_PROTOCOL.md) is mandatory on this path: fixed
   gpu_only_f16 / n=4000 / d=400 / RESIDENT cell; N from THIS run's probe
-  wall times; C=3; threshold from early_max with 0.05 floor. A trip aborts
-  with status FAIL_CANARY_DRIFT (CanaryDriftAbort — not a soft return).
+  wall times; C=3; threshold from early_max with the healthy-session floor. A trip aborts
+  with status FAIL_CANARY_DRIFT (CanaryDriftAbort - not a soft return).
 
 CRITICAL (completion): every failed probe is classified as memory_wall vs
 position_limit (or other), with the verbatim exception text retained.
@@ -21,7 +21,10 @@ from __future__ import annotations
 
 import argparse
 import atexit
+import copy
 import json
+import os
+import re
 import statistics
 import subprocess
 import sys
@@ -33,6 +36,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from tools.criterion_timeout import derive_probe_timeout_s  # noqa: E402
+from tools.ttft_slo_predictions import resolve_ttft_slo_plan_predictions  # noqa: E402
 
 ARMS = ("gpu_only_f16", "gpu_only_u8", "gpu_only_u4")
 POSITION_LIMIT = 40960
@@ -174,25 +180,64 @@ def _start_wsh_watchdog(session_dir: Path, interval_s: int) -> dict[str, Any] | 
     }
 
 
+def memory_fields(result: dict[str, Any]) -> dict[str, Any]:
+    """Every memory_* snapshot on the wrapper or the nested child result."""
+    found: dict[str, Any] = {}
+    sources: list[dict[str, Any]] = [result]
+    child = result.get("child")
+    if isinstance(child, dict):
+        sources.append(child)
+    for source in sources:
+        for key, value in source.items():
+            if str(key).startswith("memory_"):
+                found[str(key)] = value
+    return found
+
+
+_REQUESTED_BYTES = re.compile(r"(\d+)\s+bytes", re.IGNORECASE)
+
+
+def requested_bytes(text: str) -> int | None:
+    match = _REQUESTED_BYTES.search(text)
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
+def alloc_logits_pattern(text: str) -> bool:
+    """True when the text is a logits-buffer allocation failure."""
+    lowered = text.lower()
+    if "logit" not in lowered:
+        return False
+    markers = ("alloc", "out of memory", "bad_alloc", "cannot allocate", "failed to allocate")
+    return any(marker in lowered for marker in markers)
+
+
 def classify_c1_failure(result: dict[str, Any]) -> dict[str, Any]:
-    """Distinguish memory_wall vs position_limit; keep verbatim text."""
+    """Label memory_wall, onednn_primitive_failure, or position_limit.
+
+    memory_wall is only CL_OUT_OF_RESOURCES or an explicit allocation error.
+    A oneDNN primitive failure is its own kind. The return carries every
+    memory_* field available on the result.
+    """
     from seam.tools.ceiling_a import classify_failure
 
     base = classify_failure(result)
     child = result.get("child") or {}
-    exc = child.get("exception") or {}
+    exc = child.get("exception") or result.get("exception") or {}
+    if not isinstance(exc, dict):
+        exc = {}
     exc_type = str(exc.get("type") or "")
     exc_msg = str(exc.get("message") or "")
     failure_mode = str(result.get("failure_mode") or "")
     combined = f"{failure_mode} {exc_type} {exc_msg}"
     combined_l = combined.lower()
     verbatim = combined.strip() or None
+    snapshot = memory_fields(result)
 
     memory_markers = (
         "cl_out_of_resources",
-        "out_of_resources",
         "out of memory",
-        "oom",
         "std::bad_alloc",
         "bad_alloc",
         "cannot allocate",
@@ -200,8 +245,10 @@ def classify_c1_failure(result: dict[str, Any]) -> dict[str, Any]:
         "memoryerror",
         "failed to allocate",
         "allocation failure",
-        "c0000005",
-        "0xc0000005",
+    )
+    primitive_markers = (
+        "could not execute a primitive",
+        "primitive_onednn_base",
     )
     position_markers = (
         "max_position_embeddings",
@@ -219,15 +266,22 @@ def classify_c1_failure(result: dict[str, Any]) -> dict[str, Any]:
         return {
             "class": "pass",
             "failure_kind": None,
+            "error_class": None,
+            "requested_bytes": None,
+            "alloc_logits_pattern": False,
             "verbatim": None,
+            "memory": snapshot,
             "base": base,
         }
 
     is_memory = any(m in combined_l for m in memory_markers)
+    is_primitive = any(m in combined_l for m in primitive_markers)
     is_position = any(m in combined_l for m in position_markers)
 
     if is_memory and not is_position:
         kind = "memory_wall"
+    elif is_primitive and not is_memory:
+        kind = "onednn_primitive_failure"
     elif is_position and not is_memory:
         kind = "position_limit"
     elif is_memory and is_position:
@@ -238,10 +292,14 @@ def classify_c1_failure(result: dict[str, Any]) -> dict[str, Any]:
     return {
         "class": base.get("class"),
         "failure_kind": kind,
+        "error_class": kind,
+        "requested_bytes": requested_bytes(combined),
+        "alloc_logits_pattern": alloc_logits_pattern(combined),
         "verbatim": verbatim[:2000] if verbatim else None,
         "exception_type": exc_type or None,
         "exception_message": (exc_msg[:1200] if exc_msg else None),
         "failure_mode_raw": failure_mode or None,
+        "memory": snapshot,
         "base": base,
     }
 
@@ -294,7 +352,7 @@ def _predictions(m_available_mb: float) -> dict[str, Any]:
             "workspace_not_constant": (
                 "Workspace residual ~87,371 B/token (f16) vs ~98,000 (u8/u4), "
                 "a 12% spread. A miss on the secondary is as likely extrapolation "
-                "error as model error — do not conflate them in the artifact."
+                "error as model error - do not conflate them in the artifact."
             ),
         },
         "example_at_M_10200_mb": {
@@ -392,6 +450,17 @@ def _available_mb() -> float:
     from seam.tools.delta_n import memory_now
 
     return float(memory_now()["available_mb"])
+
+
+def _stamp_deviation(doc: dict[str, Any]) -> None:
+    from tools.t2s_control_band import noreboot_deviation
+
+    deviation = noreboot_deviation()
+    if deviation is not None:
+        doc["deviation"] = deviation
+    log_path = os.environ.get("SEAM_WATCHDOG_LOG", "").strip()
+    if log_path:
+        doc["watchdog_log"] = log_path
 
 
 def _probe_once(
@@ -526,6 +595,7 @@ def bisect_arm(
     slo_s: float = SLO_S_DEFAULT,
     label_prefix: str = "c1",
     canary_guard: Any | None = None,
+    fixed_n: int | None = None,
 ) -> dict[str, Any]:
     from transformers import AutoTokenizer
 
@@ -601,6 +671,21 @@ def bisect_arm(
             "failure_classification": fail_cls,
             "failure_kind": (fail_cls or {}).get("failure_kind"),
             "verbatim_error": (fail_cls or {}).get("verbatim"),
+        }
+
+    if fixed_n is not None:
+        probe = probe_n(int(fixed_n))
+        return {
+            "arm_id": arm["id"],
+            "status": "complete",
+            "fixed_n": int(fixed_n),
+            "probes": [probe],
+            "fixed_probe": probe,
+            "ttft_limit_n": int(fixed_n) if probe.get("pass") else None,
+            "note": (
+                "fixed-n probe; the T2S control band is applied by the "
+                "sequencer after this cell, not by the SLO bisection"
+            ),
         }
 
     low_probe = probe_n(lo)
@@ -711,6 +796,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model-spec", type=Path, default=DEFAULT_MODEL_SPEC)
     parser.add_argument("--low", type=int, default=LOW_DEFAULT)
     parser.add_argument("--high", type=int, default=HIGH_DEFAULT)
+    parser.add_argument(
+        "--fixed-n",
+        type=int,
+        default=None,
+        help="Probe this n only (repeats times). Skips the low/high bisection.",
+    )
     parser.add_argument("--resolution", type=int, default=RESOLUTION)
     parser.add_argument("--repeats", type=int, default=REPEATS)
     parser.add_argument("--watchdog-interval-s", type=int, default=60)
@@ -792,8 +883,24 @@ def main(argv: list[str] | None = None) -> int:
                     "REFUSED -- gpu_only_f16 must request KV_CACHE_PRECISION=f16 " f"(got {props})"
                 )
 
+    # INF-6: mutate a copy so criterion-aware timeout does not rewrite shared cfg.
+    cfg = copy.deepcopy(cfg)
+    timeout_derivation = derive_probe_timeout_s(
+        criterion=criterion,
+        slo_s=slo_s if criterion == CRITERION_TTFT_SLO else None,
+        config_timeout_s=float(cfg["generation"]["timeout_s"]),
+    )
+    cfg["generation"]["timeout_s"] = float(timeout_derivation["timeout_s"])
+
     if criterion == CRITERION_TTFT_SLO:
-        predictions = _ttft_slo_predictions(slo_s=slo_s, repeats=int(args.repeats))
+        predictions = resolve_ttft_slo_plan_predictions(
+            model_spec=model_spec,
+            arm_ids=arm_ids,
+            slo_s=slo_s,
+            repeats=int(args.repeats),
+            default_c2_predictions=_ttft_slo_predictions,
+            repo_root=ROOT,
+        )
         kind = "c2_ttft_bound_limit"
     else:
         m_mb = _available_mb()
@@ -805,10 +912,17 @@ def main(argv: list[str] | None = None) -> int:
     plan = {
         "kind": kind,
         "session_id": args.session_id,
+        "untracked_derived": [
+            line
+            for line in os.environ.get("SEAM_UNTRACKED_DERIVED", "").splitlines()
+            if line.strip()
+        ],
         "started_utc": _utc(),
         "model_spec": str(model_spec),
         "ir_sha256": spec.get("ir_sha256"),
-        "ir_bytes": IR_BYTES,
+        # Prefer FetchedModelSpec ir_bytes so non-default -ModelSpec (CAP-3 8B/int8)
+        # does not inherit the 4B-int4 constant.
+        "ir_bytes": int(spec["ir_bytes"]) if spec.get("ir_bytes") is not None else IR_BYTES,
         "arms": arm_ids,
         "criterion": criterion,
         "slo_s": slo_s if criterion == CRITERION_TTFT_SLO else None,
@@ -817,10 +931,12 @@ def main(argv: list[str] | None = None) -> int:
             "high": int(args.high),
             "resolution_tokens": int(args.resolution),
             "repeats_per_probe": int(args.repeats),
+            "fixed_n": None if args.fixed_n is None else int(args.fixed_n),
             "pass_requires_all_repeats": True,
             "criterion": criterion,
             "slo_s": slo_s if criterion == CRITERION_TTFT_SLO else None,
         },
+        "probe_timeout_derivation": timeout_derivation,
         "pre_registered_predictions": predictions,
         "gpu_only_f16_pin_note": (
             "gpu_only_f16 requests KV_CACHE_PRECISION=f16 and has matched "
@@ -830,6 +946,7 @@ def main(argv: list[str] | None = None) -> int:
         "watchdog": watch,
         "status": "running",
     }
+    _stamp_deviation(plan)
     (out_dir / "plan.json").write_text(
         json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -857,17 +974,31 @@ def main(argv: list[str] | None = None) -> int:
 
     canary_guard = None
     if criterion == CRITERION_TTFT_SLO:
+        from tools.canary_power_gate import CanaryPowerTransitionAbort
         from tools.ttft_slo_canary import (
+            UNARMED_REFUSE,
             CanaryBudgetRefuse,
             CanaryDriftAbort,
             CanaryUnarmedSealRefuse,
             TtftSloCanaryGuard,
-            UNARMED_REFUSE,
             estimate_bisect_planned_probes,
         )
 
         planned = args.planned_probe_count
-        if planned is None:
+        if planned is None and args.fixed_n is not None:
+            # repeats probes is below C+1 (C=3), so the guard would refuse
+            # before any probe. Budget repeats+1; the cell still runs repeats.
+            planned = int(args.repeats) + 1
+            plan["fixed_n"] = int(args.fixed_n)
+            plan["fixed_n_canary_budget"] = {
+                "executed_probes": int(args.repeats),
+                "planned_probe_count": int(planned),
+                "note": (
+                    "planned_probe_count is repeats+1 so floor(planned/(C+1)) "
+                    ">= 1 with C=3. The cell executes repeats probes at fixed_n."
+                ),
+            }
+        elif planned is None:
             planned = estimate_bisect_planned_probes(
                 n_arms=len(arm_ids),
                 low=int(args.low),
@@ -912,6 +1043,7 @@ def main(argv: list[str] | None = None) -> int:
                 "primary_claim_eval": None,
                 "n_probes": 0,
             }
+            _stamp_deviation(summary)
             (out_dir / "summary.json").write_text(
                 json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
             )
@@ -937,11 +1069,57 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
             return 2
+
+        except CanaryPowerTransitionAbort as exc:
+            session_status = "FAIL_CANARY_POWER_TRANSITION"
+            summary = {
+                "kind": kind,
+                "session_id": args.session_id,
+                "ended_utc": _utc(),
+                "status": session_status,
+                "abort_reason": "FAIL_CANARY_POWER_TRANSITION",
+                "power_transition_detail": exc.detail,
+                "power_snapshot": exc.snapshot,
+                "canary": canary_guard.plan_fragment(),
+                "canaries": canary_guard.canaries,
+                "criterion": criterion,
+                "pre_registered_predictions": predictions,
+                "arm_results": [],
+                "primary_claim_eval": None,
+                "n_probes": 0,
+            }
+            _stamp_deviation(summary)
+            (out_dir / "summary.json").write_text(
+                json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            plan["status"] = session_status
+            plan["abort_reason"] = "FAIL_CANARY_POWER_TRANSITION"
+            plan["canary"] = canary_guard.plan_fragment()
+            plan["canaries"] = canary_guard.canaries
+            plan["ended_utc"] = summary["ended_utc"]
+            (out_dir / "plan.json").write_text(
+                json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "status": session_status,
+                        "abort_reason": "FAIL_CANARY_POWER_TRANSITION",
+                        "detail": exc.detail,
+                        "session_id": args.session_id,
+                        "out": str(out_dir),
+                    },
+                    indent=2,
+                )
+            )
+            return 2
         plan["canary"] = canary_guard.plan_fragment()
         (out_dir / "plan.json").write_text(
             json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
 
+    mid_session_abort: dict[str, Any] | None = None
     try:
         for aid in arm_ids:
             print(f"[{label_prefix}] BEGIN arm={aid}", flush=True)
@@ -963,6 +1141,7 @@ def main(argv: list[str] | None = None) -> int:
                 slo_s=slo_s,
                 label_prefix=label_prefix,
                 canary_guard=canary_guard,
+                fixed_n=None if args.fixed_n is None else int(args.fixed_n),
             )
             arm_results.append(res)
             (out_dir / "probes.ndjson").write_text(
@@ -980,18 +1159,126 @@ def main(argv: list[str] | None = None) -> int:
                 )
     except Exception as exc:
         # Import locally so completion path stays free of the canary module.
+        from seam.errors import SeamError
+        from tools.canary_power_gate import CanaryPowerTransitionAbort
         from tools.ttft_slo_canary import CanaryDriftAbort
 
-        if not isinstance(exc, CanaryDriftAbort):
-            raise
-        session_status = "FAIL_CANARY_DRIFT"
+        if isinstance(exc, CanaryPowerTransitionAbort):
+            session_status = "FAIL_CANARY_POWER_TRANSITION"
+            summary = {
+                "kind": kind,
+                "session_id": args.session_id,
+                "ended_utc": _utc(),
+                "status": session_status,
+                "abort_reason": "FAIL_CANARY_POWER_TRANSITION",
+                "power_transition_detail": exc.detail,
+                "power_snapshot": exc.snapshot,
+                "canary": canary_guard.plan_fragment() if canary_guard else None,
+                "canaries": canary_guard.canaries if canary_guard else [],
+                "criterion": criterion,
+                "pre_registered_predictions": predictions,
+                "arm_results": arm_results,
+                "primary_claim_eval": None,
+                "n_probes": len(probes_log),
+            }
+            _stamp_deviation(summary)
+            (out_dir / "summary.json").write_text(
+                json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            (out_dir / "probes.ndjson").write_text(
+                "".join(json.dumps(p, sort_keys=True) + "\n" for p in probes_log),
+                encoding="utf-8",
+            )
+            plan["status"] = session_status
+            plan["abort_reason"] = "FAIL_CANARY_POWER_TRANSITION"
+            plan["canary"] = canary_guard.plan_fragment() if canary_guard else None
+            plan["canaries"] = canary_guard.canaries if canary_guard else []
+            plan["arm_results"] = arm_results
+            plan["ended_utc"] = summary["ended_utc"]
+            (out_dir / "plan.json").write_text(
+                json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "status": session_status,
+                        "abort_reason": "FAIL_CANARY_POWER_TRANSITION",
+                        "detail": exc.detail,
+                        "session_id": args.session_id,
+                        "out": str(out_dir),
+                    },
+                    indent=2,
+                )
+            )
+            return 2
+        if isinstance(exc, CanaryDriftAbort):
+            session_status = "FAIL_CANARY_DRIFT"
+            summary = {
+                "kind": kind,
+                "session_id": args.session_id,
+                "ended_utc": _utc(),
+                "status": session_status,
+                "abort_reason": "FAIL_CANARY_DRIFT",
+                "canary_trip_detail": exc.detail,
+                "canary": canary_guard.plan_fragment() if canary_guard else None,
+                "canaries": canary_guard.canaries if canary_guard else [],
+                "criterion": criterion,
+                "pre_registered_predictions": predictions,
+                "arm_results": arm_results,
+                "primary_claim_eval": None,
+                "n_probes": len(probes_log),
+            }
+            _stamp_deviation(summary)
+            (out_dir / "summary.json").write_text(
+                json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            (out_dir / "probes.ndjson").write_text(
+                "".join(json.dumps(p, sort_keys=True) + "\n" for p in probes_log),
+                encoding="utf-8",
+            )
+            plan["status"] = session_status
+            plan["abort_reason"] = "FAIL_CANARY_DRIFT"
+            plan["canary"] = canary_guard.plan_fragment() if canary_guard else None
+            plan["canaries"] = canary_guard.canaries if canary_guard else []
+            plan["arm_results"] = arm_results
+            plan["ended_utc"] = summary["ended_utc"]
+            (out_dir / "plan.json").write_text(
+                json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "status": session_status,
+                        "abort_reason": "FAIL_CANARY_DRIFT",
+                        "detail": exc.detail,
+                        "session_id": args.session_id,
+                        "out": str(out_dir),
+                    },
+                    indent=2,
+                )
+            )
+            return 2
+
+        # SeamError (e.g. three consecutive quiescence refusals from measured_repeat)
+        # and other mid-session exceptions: write aborted summary, then re-raise.
+        mid_session_abort = {
+            "status": "aborted",
+            "abort_reason": type(exc).__name__,
+            "abort_verbatim": str(exc),
+            "exception_type": type(exc).__name__,
+            "is_seam_error": isinstance(exc, SeamError),
+            "arm_results_partial": arm_results,
+            "n_probes": len(probes_log),
+        }
         summary = {
             "kind": kind,
             "session_id": args.session_id,
             "ended_utc": _utc(),
-            "status": session_status,
-            "abort_reason": "FAIL_CANARY_DRIFT",
-            "canary_trip_detail": exc.detail,
+            "status": "aborted",
+            "abort_reason": mid_session_abort["abort_reason"],
+            "abort_verbatim": mid_session_abort["abort_verbatim"],
             "canary": canary_guard.plan_fragment() if canary_guard else None,
             "canaries": canary_guard.canaries if canary_guard else [],
             "criterion": criterion,
@@ -1000,36 +1287,42 @@ def main(argv: list[str] | None = None) -> int:
             "primary_claim_eval": None,
             "n_probes": len(probes_log),
         }
+        _stamp_deviation(summary)
         (out_dir / "summary.json").write_text(
-            json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            json.dumps(summary, indent=2, sort_keys=True, default=str) + "\n",
+            encoding="utf-8",
         )
         (out_dir / "probes.ndjson").write_text(
             "".join(json.dumps(p, sort_keys=True) + "\n" for p in probes_log),
             encoding="utf-8",
         )
-        plan["status"] = session_status
-        plan["abort_reason"] = "FAIL_CANARY_DRIFT"
-        plan["canary"] = canary_guard.plan_fragment() if canary_guard else None
-        plan["canaries"] = canary_guard.canaries if canary_guard else []
+        (out_dir / "arm_results.json").write_text(
+            json.dumps(arm_results, indent=2, sort_keys=True, default=str) + "\n",
+            encoding="utf-8",
+        )
+        plan["status"] = "aborted"
+        plan["abort_reason"] = mid_session_abort["abort_reason"]
+        plan["abort_verbatim"] = mid_session_abort["abort_verbatim"]
         plan["arm_results"] = arm_results
         plan["ended_utc"] = summary["ended_utc"]
         (out_dir / "plan.json").write_text(
-            json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            json.dumps(plan, indent=2, sort_keys=True, default=str) + "\n",
+            encoding="utf-8",
         )
         print(
             json.dumps(
                 {
                     "ok": False,
-                    "status": session_status,
-                    "abort_reason": "FAIL_CANARY_DRIFT",
-                    "detail": exc.detail,
+                    "status": "aborted",
+                    "abort_reason": mid_session_abort["abort_reason"],
+                    "abort_verbatim": mid_session_abort["abort_verbatim"],
                     "session_id": args.session_id,
                     "out": str(out_dir),
                 },
                 indent=2,
             )
         )
-        return 2
+        raise
 
     by_id = {r["arm_id"]: r for r in arm_results}
     if criterion == CRITERION_TTFT_SLO:
@@ -1116,6 +1409,7 @@ def main(argv: list[str] | None = None) -> int:
             ]
             for r in arm_results
         }
+    _stamp_deviation(summary)
     (out_dir / "summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

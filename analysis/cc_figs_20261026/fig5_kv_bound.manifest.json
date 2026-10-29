@@ -1,0 +1,15 @@
+{
+ "figure": "fig5_kv_bound",
+ "outputs": [
+  "analysis/meeting_20261027/figs/fig5_kv_bound.png",
+  "analysis/meeting_20261027/figs/fig5_kv_bound.pdf"
+ ],
+ "inputs_sha256": {
+  "derived/cc/CC_BL_PREDICTIONS.json": "5a4c4477747b94dc9a0b172497dcb5f35c4fa27adebd386449c140c1df3e9d56",
+  "derived/cc/CC_PREDICTIONS.json": "8bd98ad4fde84a27944dc781029075cfa7757f1307c074cb1f2917599aa2d5ca",
+  "derived/cc/CC_M2_PREDICTIONS.json": "930d3981a8dfc8802e917d20bead0448e04d4a65922c2d3eaf378fa4c3975d6e"
+ },
+ "notes": [
+  "the 1.77x point is in-sample (a fitted to it)"
+ ]
+}

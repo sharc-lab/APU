@@ -1,0 +1,11 @@
+{
+ "figure": "fig2_context_vs_kv",
+ "script": "analysis/meeting_20261027/make_figs.py",
+ "inputs_sha256": {
+  "analysis/cc_20261026/measured.json": "75e7596d1150ac55579f86dd2485ce2ede38399fda033515618f449e543aae5e"
+ },
+ "notes": [
+  "L* from sealed bisections: f16 unl aa914c4c, c1024 b48e4cfe, c256 d782cf80; i8 unl fd074be1, c1024 3e45f554, c256 1e9671a0; u4 unl 5943c992, c1024 f7542f68, c256 f8df3847",
+  "robust ceilings (ADDENDUM 1) in analysis/cc_20261026/measured.json repeats"
+ ]
+}

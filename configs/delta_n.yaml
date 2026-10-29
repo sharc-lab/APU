@@ -1,0 +1,253 @@
+# ΔN — does enabling a compute backend reduce the maximum context the device can hold?
+#
+# Four phases, each sealed as its own run and each a gate on the next:
+#
+#   preflight   devices, per-model iGPU smoke (openvino#34390), working-set-lock grant,
+#               reserved-CPU-set readback, account and elevation
+#   acceptance  one fixed config measured twice, twenty minutes apart. 1.98x is the number to
+#               beat. If the machine cannot reproduce itself it is not an instrument and ΔN is
+#               not worth measuring on it.
+#   ceiling_a   arm A alone. If the ceiling reaches the model's position limit, memory does not
+#               bind for this model under isolation and that is the finding — stop, do not run ΔN.
+#   delta_n     the interleaved three-arm ladder
+#
+# Interleaving is the core design choice. At each rung every active arm is measured, one repeat
+# per round, in a freshly randomized arm order, before the ladder advances. Interference then
+# lands on all arms equally and the comparison survives drift in the absolutes. The unexplained
+# 1.98x was a between-run difference; within an interleaved run it cancels.
+
+experiment_id: delta_n
+question: >-
+  Does enabling a compute backend reduce the maximum context the device can hold?
+
+randomization_seed: 20260805
+
+openvino:
+  model_spec: configs/models/Qwen3-4B-int4-ov.yaml
+  # Applied to the CPU pipeline in every arm identically. Confinement is NOT adopted on this
+  # platform (project_state: adopted_mechanism=null, A1-A6 UNCLEAR), so these are held constant
+  # as a control rather than relied on as a confinement claim. Any leak is common-mode across
+  # arms and cancels in the difference.
+  cpu_properties:
+    SCHEDULING_CORE_TYPE: PCORE_ONLY
+    ENABLE_CPU_PINNING: true
+    INFERENCE_NUM_THREADS: 4
+  affinity: p_cpus
+
+# Hard-minimum working set, requested before the model is compiled so the OS cannot trim the
+# resident weights mid-run. Phase 3's ERROR_INVALID_HANDLE was a defect in the call, not a
+# permissions wall: SetProcessWorkingSetSize takes no flags and cannot express a hard minimum.
+working_set_lock:
+  mode: request            # request | off
+  minimum_bytes: 4294967296   # 4 GiB: 2.29 GB of IR plus prefill activations and headroom
+  maximum_bytes: 12884901888  # 12 GiB ceiling; the hard bound that matters is the minimum
+
+# iGPU, not NPU. The NPU path requires NPUW_LLM_PREFILL_CHUNK_SIZE to work around openvino#34617,
+# which bounds prefill activation memory by construction while cpu-p may not — that difference
+# would sit inside the comparison at the magnitude being detected. NPU is a follow-up.
+arms:
+  - id: A
+    label: cpu-p only
+    load_sequence: [CPU]
+    generate_device: CPU
+  - id: B
+    label: cpu-p + igpu
+    load_sequence: [GPU, CPU]
+    generate_device: CPU
+  - id: A_prime
+    label: cpu-p only (A/A replicate)
+    load_sequence: [CPU]
+    generate_device: CPU
+  - id: B_prime
+    label: cpu-p + igpu (B/B replicate)
+    load_sequence: [GPU, CPU]
+    generate_device: CPU
+  - id: gpu_only
+    label: gpu only (single pipeline)
+    load_sequence: [GPU]
+    generate_device: GPU
+  # KV precision arms — same topology as gpu_only; only KV_CACHE_PRECISION differs.
+  # Property is applied at GPU compile; harness readback must match or the cell fails
+  # (not a measurement). Bare gpu_only leaves device precision unset (readback often
+  # dynamic); use gpu_only_f16 for an explicit f16 pin.
+  - id: gpu_only_f16
+    label: gpu only (KV_CACHE_PRECISION=f16)
+    load_sequence: [GPU]
+    generate_device: GPU
+    properties:
+      KV_CACHE_PRECISION: f16
+  - id: gpu_only_u8
+    label: gpu only (KV_CACHE_PRECISION=u8)
+    load_sequence: [GPU]
+    generate_device: GPU
+    properties:
+      KV_CACHE_PRECISION: u8
+  - id: gpu_only_u4
+    label: gpu only (KV_CACHE_PRECISION=u4)
+    load_sequence: [GPU]
+    generate_device: GPU
+    properties:
+      KV_CACHE_PRECISION: u4
+  # Task BM (A21/A31): the sealed u8 limit cf3555d5 compiled i8; CC cells request i8 directly
+  # so the compiled type equals the request.
+  - id: gpu_only_i8
+    label: gpu only (KV_CACHE_PRECISION=i8)
+    load_sequence: [GPU]
+    generate_device: GPU
+    properties:
+      KV_CACHE_PRECISION: i8
+
+arm_order: [A, B, A_prime]
+
+ladder:
+  rungs: [2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000, 20000, 24000, 28000, 32000, 36000, 40000]
+  repeats: 3
+  bisect_resolution_tokens: 250
+  bisect_round_to: 50
+  max_new_tokens: 8
+  filler_unit: " the quick brown fox jumps over the lazy dog."
+  # A rung PASSES only if every repeat completes. Some-but-not-all is MIXED and is recorded as
+  # the repeat spread at the boundary; it does not count as a pass.
+  pass_requires_all_repeats: true
+
+acceptance:
+  # One fixed config, measured twice, this far apart.
+  gap_s: 1200
+  context_tokens: 2048
+  max_new_tokens: 64
+  repeats: 3
+  # Both lock states are measured so the page-read difference is recorded whether or not the
+  # hard minimum was granted.
+  working_set_lock_conditions: [off, request]
+
+  # The acceptance bound is DERIVED FROM THE RUNS, not asserted. Same discipline as the paging and
+  # canary gates: measure the baseline first, take the threshold from the baseline, put both in
+  # the manifest. An asserted number would be a guess about the machine dressed as a criterion.
+  #
+  #   s     = the larger of the two runs' within-run relative spread on `basis`
+  #   band  = band_multiple x s
+  #   PASS  iff |ratio - 1| <= band  AND  s <= max_within_run_spread
+  #
+  # The second condition is not redundant. |ratio - 1| <= 2s alone is satisfiable by making s
+  # large, so a sufficiently noisy pair of runs would pass on the strength of its own noise. A
+  # wide band derived from a noisy run is a machine that cannot support a claim, not a pass.
+  basis: r_decode_tok_s
+  # CV = sd/|mean|, seam.analysis.slice_stats.coefficient_of_variation. Chosen because it is what
+  # the harness already computes; MAD/median appears nowhere in the codebase, and at repeats=3 it
+  # degenerates to the smaller of the two non-zero deviations, which would bias the band low and
+  # manufacture failures.
+  spread_estimator: cv
+  band_multiple: 2.0
+  max_within_run_spread: 0.10
+  prior_unexplained_ratio: 1.98
+
+generation:
+  timeout_s: 1800
+  # After the child rewrites its result as phase done or failed, wait this long
+  # for process exit. CL_OUT_OF_RESOURCES can leave the GPU plugin hung in
+  # teardown after that write. Kill and keep the result-file outcome.
+  hang_after_result_s: 30
+  # Path.replace of the result file raised WinError 5 on e4a22dac n30000
+  # and on d4f66bbc gpu-n6000-r2 while the parent was polling that file.
+  result_replace_attempts: 8
+  result_replace_wait_s: 0.05
+
+recovery:
+  settle_s: 20
+  min_available_mb: 2600
+  max_wait_s: 420
+  poll_s: 5
+
+# Machine-level isolation discipline for the acceptance gate and ΔN. Distinct from
+# recovery.settle_s (post-child reclaim before the next block). This wait is for memory
+# reclaim and writeback after interactive software has already been closed by the operator —
+# the harness refuses while tier-1 (Cursor/etc.) are resident; it does not kill them.
+isolation:
+  pre_run_settle_s: 300
+  # Pre-run cleanliness: refuse the matrix unless \Memory\Available MBytes (not
+  # FreePhysicalMemory) is at least this floor before the first cell. Derived from the
+  # 2026-08-09 clean session that idled at 7477 MB Available; arm A's lowest successful
+  # free_physical_mb_start in that session was 6926. 7000 is the floor of that reference
+  # state. A loaded session at 4401 MB Available produced climbing gpu_only prefill
+  # (30–43 s) vs flat 13–19 s on the clean machine — same tool, prompt hash, power scheme.
+  # UNCHANGED by the 2026-08-09 tier-2 split: ~194 MiB of msedgewebview2 against this
+  # floor with ~7891 MB Available still passes by ~900 MB; the floor is the substantive check.
+  pre_run_available_mb_min: 7000
+  pre_run_available_mb_min_citation: "2026-08-09 clean session / 7477 MB Available; arm A lowest free_physical_mb_start 6926; floor 7000"
+  # Two-tier contending-process check (seam/isolation.py). NOT a quiet relaxation of the
+  # refuse gate: tier 1 still refuses; the Available floor above is unchanged.
+  #
+  # Tier 1 REFUSE — operator-controlled: Cursor, Code, chrome, msedge, firefox, brave,
+  #   slack, Discord, Teams, ms-teams, Spotify, OUTLOOK, claude, vmmem (+ obsidian,
+  #   docker desktop in the Python frozenset).
+  # Tier 2 RECORD ONLY — auto-respawning shell / vendor agents: msedgewebview2,
+  #   SearchHost, Widgets, WorkloadsSessionHost, DellOptimizer.Systray,
+  #   SupportAssistAgent, ICPS.
+  #
+  # Why tier 2 exists (verified 2026-08-09): msedgewebview2 hosts are the Windows shell
+  # packages MicrosoftWindows.Client.CBS (Search / Copilot shell) and
+  # MicrosoftWindows.Client.WebExperience (Widgets). Both respawn within 5 s of
+  # Stop-Process; killed alongside Widgets and SearchHost, six msedgewebview2 processes
+  # returned with new PIDs inside the 5 s sleep before the gate ran. Tier-2 presence and
+  # private working set are written into environment_start / environment_peak of every
+  # cell so any later contamination question is answerable from the artifact.
+  contending_process_tiers:
+    tier1_refuse: operator_controlled
+    tier2_record_only: auto_respawning_shell_and_vendor
+    tier2_rationale: >-
+      2026-08-09: msedgewebview2 hosted by MicrosoftWindows.Client.CBS (Search/Copilot)
+      and MicrosoftWindows.Client.WebExperience (Widgets); 5 s respawn after Stop-Process
+      verified; Available floor remains 7000 MB (not lowered).
+  # tools/run_gpu_only_matrix.ps1: inter-cell settle MUST equal pre_run_settle_s (not
+  # recovery.settle_s=20). Arm A releases 6-10 GB; 20s left a systematic 1-2 GB free-memory
+  # deficit on the following arm in matrix_partial_39a8a0f5 (A free_physical_mb_start
+  # ~7.4-7.9 GB vs gpu_only ~6.2-6.5 GB at n=12000; max-min ~1698 MB).
+  # Gate: after each round at a given n, max(available_mb)-min(...) across arms at that n
+  # must be <= settle_adequacy_max_spread_mb, else FAIL the run. Metric is Available MBytes
+  # (environment_start.available_mb), not free_physical. 512 MB is PROVISIONAL — derived
+  # from contaminated 39a8a0f5; pending re-derive on a clean interleaved run.
+  settle_adequacy_metric: available_mb
+  settle_adequacy_max_spread_mb: 512
+  settle_adequacy_provisional: true
+  settle_adequacy_citation: "contaminated 39a8a0f5 / pending clean re-derive"
+
+admissibility:
+  max_block_retries: 3
+  # A repeat whose [started_utc, ended_utc] contains Kernel-Power 506 (enter Modern
+  # Standby / Idle Timeout) or 507 (exit / Power Button wake) is not a measurement.
+  # It is INADMISSIBLE and retried under max_block_retries. Discarded repeats are
+  # recorded verbatim with their events; they are excluded from CV, median, and
+  # spread. Mechanistic and uniform — not a positional warmup discard.
+  reject_kernel_power_ids: [506, 507]
+  modern_standby_inadmissible: true
+
+controls:
+  # A control, not a factor. Recorded at the start of every arm and every rung; never varied.
+  observe_processes: [aihost, aicontext]
+  # Machine-level isolation belongs to the operator. Read and record; never set.
+  reserved_cpu_sets: read_only_never_set
+
+materiality:
+  # Materiality is defined by the workload, not by the ceiling. Both conditions are required.
+  #
+  # Detectable: ΔN >= detectable_multiple x the measured A/A spread.
+  # Consequential: the band [ceiling(B), ceiling(A)] intersects the operating window below.
+  detectable_multiple: 2.0
+  consequential_window_tokens: [5000, 32000]
+  consequential_window_basis: >-
+    Lower bound from the C2 pilot's observed peaks of 5,105-9,114 tokens. Upper bound from real
+    agent operating points (DeepAgents offloads at 20K), capped below the model's 40,960
+    position limit.
+
+ceiling_a_gate:
+  # Early exit when ANY selected arm PASSes the top rung (ceiling_a.py records the triggering
+  # arm_id). If the ceiling reaches the model's position limit, memory is not the binding
+  # constraint under isolation and ΔN is not the measurement to take. Applies to single-arm
+  # selections (e.g. -Arms gpu_only) as well as A,A_prime / B,B_prime pairs.
+  stop_if_ceiling_at_position_limit: true
+
+paging:
+  # The paging gate governs admissibility of individual rungs, not the ceiling determination:
+  # a rung that pages is still a rung that completed or did not. Recorded in full, never used
+  # to discard a completion.
+  exclude_on_failure: false
