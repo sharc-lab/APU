@@ -6,7 +6,8 @@ demo_detector_requests  results/demo_detector_check*.jsonl: one request per reco
                         Ollama's message-drop line as a drop) and prompt_tokens is the server's own count (used_tokens).
 r2a_turn_requests       x2_r2_evalset r2a_turn rows that carry a detector v2 verdict per turn (cut_v2_flagged; the own
                         compaction runs): one request per task turn of a completed session, with that verdict as
-                        recorded_verdict (the server logs themselves were not kept).
+                        recorded_verdict (the server logs themselves were not kept). prompt_tokens is the turn's
+                        final_call_prompt_tokens_calibrated (an estimate, labelled), for the cloud-cost columns.
 """
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ def demo_detector_requests(rows: list[dict], lane: str) -> list[dict]:
         calls = r["calls"]
         for i, c in enumerate(calls):
             out.append({"session_id": sid, "task_id": r["task_id"], "request_idx": c["n"] - 1, "n_messages": None,
-                        "prompt_tokens": c.get("used_tokens"),
+                        "prompt_tokens": c.get("used_tokens"), "prompt_tokens_basis": "server count",
                         "http_status": 200 if c.get("outcome") == "ok" else None,
                         "error": None if c.get("outcome") == "ok" else c.get("outcome"),
                         "ran_at": {"config": DEMO_LANES.get(lane, lane), "window": c["loaded_window"]},
@@ -43,6 +44,8 @@ def r2a_turn_requests(rows: list[dict]) -> list[dict]:
         out.append({"session_id": f"{cfg}:{r['seed']}:{r.get('attempt_id')}", "task_id": f"{r['turn_idx']}:{r['task_id']}",
                     "request_idx": r["turn_idx"], "ran_at": {"config": cfg, "window": r.get("loaded_context")},
                     "outcome": {"ok": r.get("end_state_ok") is True},
+                    "prompt_tokens": r.get("final_call_prompt_tokens_calibrated"),
+                    "prompt_tokens_basis": "calibrated estimate of the final call as sent",
                     "recorded_verdict": {"flagged": bool(r.get("cut_v2_flagged")),
                                          "no_log": bool(r.get("cut_v2_no_log_calls")),
                                          "evidence": r.get("cut_v2_evidence") or []}})

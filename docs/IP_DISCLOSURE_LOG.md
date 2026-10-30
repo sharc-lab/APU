@@ -37,6 +37,22 @@ operator raises the question with Prof. Hao.
 | Cost model: src/cloud pricing | a257a20, 2026-09-30 20:07 / 20:07 (`src/cloud/client.py`: spend cap and ledger); efea7bf, 2026-10-14 21:43 / 21:43 (`src/cloud/prices.py`, shared price loader); d0ed237, 2026-10-14 21:43 (client prices from the shared files) | a257a20: 2026-10-01 23:39; efea7bf and d0ed237: 2026-10-14 21:56 | efea7bf, 2026-10-14 21:43 (R2 session cost) | Prices are public vendor list prices; the loader is the disclosed part. |
 | Cost model: DSE v1 (cost ranking, Pareto, brute-force validation) | bc6996c, 2026-10-23 12:06 / 12:06 (`src/dse/dse_v1.py` added) | 2026-10-23 12:40 | 92aade5, 2026-10-23 12:02, `docs/EXPERIMENTS.md` (pre-registration, "cost model") | |
 
+## Update 2026-10-29: first public commit per concept
+
+Read from the table above (same method, no re-fetch; offline task). "First public" is the earliest of the code and
+description commits by first local push record.
+
+| Concept | First public commit | First local push record | Status |
+|---|---|---|---|
+| Route-at-start | eca13d6, 2026-10-22 16:12 (code and `docs/IMPACT.md`) | 2026-10-22 16:40 | public |
+| Rollback (environment snapshots before a cloud redo) | df10229, 2026-10-23 12:03 (code); 5d270af, 2026-10-23 12:06 (pre-registration) | 2026-10-23 12:54 | public |
+| Post-run check | none | none | not yet public: being written on 2026-10-29, not on `main` or `origin/main`. Earlier, different sense: 93ffd20, 2026-10-08 14:15, a "post-run runtime check" of the loaded context per turn in the T2S week plan; listed only because a reader could argue it as prior disclosure. |
+| Compaction (client-side context manager) | 0387a4f, 2026-10-23 12:09 (code); client-trim precursor 4b46765, 2026-10-08 14:00 | 2026-10-23 13:09 (client trim 2026-10-08 14:17) | public |
+| Detector (window flag; shift rule; v1; v2) | window flag e22ea9b, 2026-10-07 20:54; shift rule 07682d8, 2026-10-08 13:56; v1 92c02cd, 2026-10-22 18:38; v2 0387a4f, 2026-10-23 12:09 | 2026-10-07 20:55; 2026-10-08 14:12; 2026-10-23 21:03; 2026-10-23 13:09 | public (v2 is the runtime's own signal, not claimed) |
+| Cost model (pricing; impact model; DSE v1) | a257a20, 2026-09-30 20:07; 6b09282, 2026-10-14 09:07; bc6996c, 2026-10-23 12:06 | 2026-10-01 23:39; 2026-10-14 09:13; 2026-10-23 12:40 | public |
+
+Draft disclosures held privately by the operator.
+
 ## Committed personal usernames and paths
 
 Searched separately (all of history reachable from `origin/main`, and the current tree). The findings are reported

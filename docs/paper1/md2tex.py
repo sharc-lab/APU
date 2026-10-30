@@ -15,7 +15,13 @@ CITE = {
  'FrugalGPT': 'chen2023frugalgpt', 'Self-Verification': 'weng2023selfverification',
  'SelfCheckGPT': 'manakul2023selfcheckgpt', 'vLLM': 'kwon2023vllm', 'MELTing Point': 'laskaridis2024melt',
  'PowerInfer': 'song2024powerinfer', 'LLM in a Flash': 'edge_llm_serving',
+ 'EdgeWise': 'shi2026edgewise', 'EC2-Bench': 'huang2026ec2bench', 'Minions': 'narayan2025minions',
+ 'Arch-Router': 'tran2025archrouter',
 }
+# Citations written without an author-year in the draft: [name; to verify].
+CITE_NOYEAR = {'llmfit': 'llmfit', 'Ollama issue #14259': 'ollama14259'}
+# Named in the draft but with no verified source, so no bib entry: printed as a visible marker, never \cite.
+UNVERIFIED = {'ContextPaw'}
 SECNAMES = {'4.1': 'Introduction', '4.2': 'Background and Related Work', '4.3': 'Platforms, Harness and Methodology',
             '4.4': 'Memory-Architecture Boundaries', '4.5': 'Runtime Policy', '4.6': 'Agent Consequences',
             '4.6a': 'The Window Result', '4.6b': 'The Mechanism on AMD and NVIDIA', '4.7': 'Fixes',
@@ -61,9 +67,19 @@ def inline(t, comments):
     t = re.sub(r' +([.,;:)])', r'\1', t) if comments is not None else t
     # citations
     def cite(m):
-        key = CITE[m.group(1).strip()]
-        return hold(r'~\cite{%s}' % key)
+        name = m.group(1).strip()
+        if name not in CITE:
+            raise SystemExit('md2tex: citation %r has no key in CITE; add it and its references.bib entry' % name)
+        return hold(r'~\cite{%s}' % CITE[name])
     t = re.sub(r'\s*\[[A-Z][^\]]*? \d{4}, ([^\];]+); to verify\]', cite, t)
+    def cite_noyear(m):
+        name = m.group(1).strip()
+        if name in UNVERIFIED:
+            return hold(r'~[\textbf{source not verified}]')
+        if name not in CITE_NOYEAR:
+            raise SystemExit('md2tex: citation %r has no key in CITE_NOYEAR; add it and its references.bib entry' % name)
+        return hold(r'~\cite{%s}' % CITE_NOYEAR[name])
+    t = re.sub(r'\s*\[([^\]\d][^\];,]*?); to verify\]', cite_noyear, t)
     # code spans
     t = re.sub(r'`([^`]+)`', lambda m: hold(r'\texttt{%s}' % esc(m.group(1))), t)
     # section refs

@@ -6430,9 +6430,17 @@ def compute_t2s_evalset_tasks(repo, be):
     import x2_r2_evalset as ev
     val_name, real_name = T2S_EVALSET_FILES[be]
     rows = ev.ag.read_rows(repo / real_name)
+    m = ev.TASKS_V2_T2S_MODELS[0]
+    # A strict-preflight refusal is final and writes no run_end (the job stops before any session; 2026-10-28 on both
+    # Intel backends), so it is reported from its refused_model record; anything else still needs run_end.
+    refused = [x for r in rows if r.get("record") == "refused_model" and r.get("model_id") == m
+               for x in (r.get("reasons") or [])]
+    if refused and not any(r.get("record") == "r2a_session" for r in rows):
+        return {"value": f"{m} {be}: refused by the strict preflight (v2_strict, no waiver) on {val_name} "
+                         f"({'; '.join(refused)}); no Intel task accuracy measured, the projection stays",
+                "n": "0 task turns"}
     if not any(r.get("record") == "run_end" for r in rows):
         raise ValueError(f"{real_name} has no run_end (unfinished); not read")
-    m = ev.TASKS_V2_T2S_MODELS[0]
     o = ev.tasks_real_v2_outcome(rows, tiers=ev.TASKS_V2_T2S_TIERS, seeds=ev.TASKS_V2_T2S_SEEDS,
                                  models=ev.TASKS_V2_T2S_MODELS)
     d = o["models"].get(m, {})

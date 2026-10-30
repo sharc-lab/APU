@@ -10,6 +10,7 @@ Input (schema apu-audit-session/1): JSONL, one request per line (an optional fir
   n_messages        int, when messages are redacted (needed only to read Ollama's message-drop line exactly)
   prompt_chars      int, when messages are redacted (chars of messages + tools, for the chars/4 estimate)
   prompt_tokens, completion_tokens, cached_prompt_tokens, cache_write_tokens   provider usage, optional
+  prompt_tokens_basis  str, optional: where prompt_tokens came from when it is not provider usage (e.g. "server count")
   completion        str, optional (chars/4 of it when completion_tokens is absent)
   http_status, error   what the client saw, optional (absent = 200, no error)
   outcome           {"ok": bool}, optional: the task's graded outcome (on any request of the task; last one wins)
@@ -136,7 +137,7 @@ def prompt_chars(r: dict) -> int | None:
 
 def prompt_tokens(r: dict) -> tuple[int | None, str]:
     if r.get("prompt_tokens") is not None:
-        return int(r["prompt_tokens"]), "provider usage"
+        return int(r["prompt_tokens"]), r.get("prompt_tokens_basis") or "provider usage"
     c = prompt_chars(r)
     return (math.ceil(c / EST_CHARS_PER_TOKEN), "chars/4") if c is not None else (None, "none")
 
