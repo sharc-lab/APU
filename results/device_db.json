@@ -1,0 +1,1258 @@
+{
+ "schema": [
+  "device",
+  "runtime",
+  "version",
+  "model",
+  "window",
+  "kv",
+  "backend",
+  "measured_ceiling",
+  "wrong_rate",
+  "s_per_task"
+ ],
+ "note": "Schema (FIELDS): device, runtime, version, model, window, kv, backend, measured_ceiling, wrong_rate, s_per_task, plus workload, metric notes and `sources` (field -> source row or file). wrong_rate is a task wrong rate (B3 v2 tasks, long-horizon tasks or the profiler probe's B3 v2 tasks) as a fraction with its k/n; R2 sessions carry r2_gated_silent (k/n of sessions with a gated silent rule failure after the window was exceeded) instead, never a wrong rate. s_per_task is the mean wall seconds per task turn (R2: per session turn).",
+ "not_included": [
+  "Blade 14 (separate experiment arm; its spill sweep and validation are in the blade-* rows, not joined here so the arms are never mixed)",
+  "OpenVINO (row xruntime-openvino-ceiling PENDING, awaiting Zach's files)"
+ ],
+ "entries": [
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 40960,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 17,
+    "n": 150,
+    "rate": 0.11333333333333333
+   },
+   "s_per_task": 10.637926666663649,
+   "sources": {
+    "wrong_rate": "row x2-evalset-tasks-real-v2-wrong-rate",
+    "window": "row x2-evalset-tasks-real-v2-wrong-rate",
+    "version": "file results/x2_evalset_tasks_real_v2.jsonl runtime record",
+    "s_per_task": "file results/x2_evalset_tasks_real_v2.jsonl r2a_turn turn_wall_s",
+    "kv": "file results/x2_own_profiler_probe_v1_ollama_default.jsonl KV line (same tier, same tasks)"
+   },
+   "workload": "B3 v2 tasks, 5 seeds",
+   "setting": "ollama_default",
+   "silent_wrong": 17
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 16384,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 19,
+    "n": 150,
+    "rate": 0.12666666666666668
+   },
+   "s_per_task": 10.788113333336078,
+   "sources": {
+    "wrong_rate": "row x2-evalset-tasks-real-v2-wrong-rate",
+    "window": "row x2-evalset-tasks-real-v2-wrong-rate",
+    "version": "file results/x2_evalset_tasks_real_v2.jsonl runtime record",
+    "s_per_task": "file results/x2_evalset_tasks_real_v2.jsonl r2a_turn turn_wall_s",
+    "kv": "file results/x2_own_profiler_probe_v1_ollama_ctx_16384.jsonl KV line (same tier, same tasks)"
+   },
+   "workload": "B3 v2 tasks, 5 seeds",
+   "setting": "ollama_ctx_16384",
+   "silent_wrong": 19
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 8192,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 53,
+    "n": 150,
+    "rate": 0.35333333333333333
+   },
+   "s_per_task": 24.299466666667723,
+   "sources": {
+    "wrong_rate": "row x2-evalset-tasks-real-v2-wrong-rate",
+    "window": "row x2-evalset-tasks-real-v2-wrong-rate",
+    "version": "file results/x2_evalset_tasks_real_v2.jsonl runtime record",
+    "s_per_task": "file results/x2_evalset_tasks_real_v2.jsonl r2a_turn turn_wall_s",
+    "kv": "file results/x2_own_profiler_probe_v1_ollama_ctx_8192.jsonl KV line (same tier, same tasks)"
+   },
+   "workload": "B3 v2 tasks, 5 seeds",
+   "setting": "ollama_ctx_8192",
+   "silent_wrong": 53
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 4096,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 63,
+    "n": 150,
+    "rate": 0.42
+   },
+   "s_per_task": 18.53646666666493,
+   "sources": {
+    "wrong_rate": "row x2-evalset-tasks-real-v2-wrong-rate",
+    "window": "row x2-evalset-tasks-real-v2-wrong-rate",
+    "version": "file results/x2_evalset_tasks_real_v2.jsonl runtime record",
+    "s_per_task": "file results/x2_evalset_tasks_real_v2.jsonl r2a_turn turn_wall_s",
+    "kv": "file results/x2_own_profiler_probe_v1_ollama_ctx_4096.jsonl KV line (same tier, same tasks)"
+   },
+   "workload": "B3 v2 tasks, 5 seeds",
+   "setting": "ollama_ctx_4096",
+   "silent_wrong": 63
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 4096,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 45,
+    "n": 150,
+    "rate": 0.3
+   },
+   "s_per_task": 11.691133333337493,
+   "sources": {
+    "wrong_rate": "row x2-evalset-tasks-real-v2-wrong-rate",
+    "window": "row x2-evalset-tasks-real-v2-wrong-rate",
+    "version": "file results/x2_evalset_tasks_real_v2.jsonl runtime record",
+    "s_per_task": "file results/x2_evalset_tasks_real_v2.jsonl r2a_turn turn_wall_s"
+   },
+   "workload": "B3 v2 tasks, 5 seeds",
+   "setting": "ollama_ctx_4096_numkeep",
+   "silent_wrong": 45
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 16384,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 26.81651500000109,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "num_ctx_16384",
+   "r2_gated_silent": {
+    "k": 3,
+    "n": 10
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 16384,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 66.73756250000152,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "num_ctx_16384",
+   "r2_gated_silent": {
+    "k": 0,
+    "n": 10
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:8b",
+   "window": 16384,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 36.291500000000525,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "num_ctx_16384",
+   "r2_gated_silent": {
+    "k": 0,
+    "n": 5
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 32768,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 34.85656000000148,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "num_ctx_32768",
+   "r2_gated_silent": {
+    "k": 0,
+    "n": 5
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 32768,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 149.53999499999975,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "num_ctx_32768",
+   "r2_gated_silent": {
+    "k": 0,
+    "n": 5
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:8b",
+   "window": 32768,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 59.30845000000117,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "num_ctx_32768",
+   "r2_gated_silent": {
+    "k": 0,
+    "n": 5
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 4096,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 10.214300000000222,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "num_ctx_4096",
+   "r2_gated_silent": {
+    "k": 10,
+    "n": 10
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 4096,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 19.664662499999395,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "num_ctx_4096",
+   "r2_gated_silent": {
+    "k": 8,
+    "n": 10
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:8b",
+   "window": 4096,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 16.284057500000344,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "num_ctx_4096",
+   "r2_gated_silent": {
+    "k": 2,
+    "n": 10
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 8192,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 15.916127500000439,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "num_ctx_8192",
+   "r2_gated_silent": {
+    "k": 5,
+    "n": 10
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 8192,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 34.970727500001814,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "num_ctx_8192",
+   "r2_gated_silent": {
+    "k": 0,
+    "n": 10
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:8b",
+   "window": 8192,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 23.02918999999922,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "num_ctx_8192",
+   "r2_gated_silent": {
+    "k": 6,
+    "n": 10
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 131072,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 60.18146000000044,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "ollama_default",
+   "r2_gated_silent": {
+    "k": 0,
+    "n": 10
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 40960,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 277.3076500000019,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "ollama_default",
+   "r2_gated_silent": {
+    "k": 0,
+    "n": 10
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:8b",
+   "window": 40960,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 107.41163000000059,
+   "sources": {
+    "r2_gated_silent": "rows R2-v1b-excess-10seed, R2-qwen3-8b-reversal-10seed",
+    "window": "files results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/x2_r2_real_v1.jsonl, results/x2_r2_real_v1b.jsonl, results/x2_r2_v1b_seeds_06_10.jsonl, results/x2_r2_qwen3_8b_seeds_06_10.jsonl"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "ollama_default",
+   "r2_gated_silent": {
+    "k": 0,
+    "n": 5
+   }
+  },
+  {
+   "device": "evo-t2s Intel CPU",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 4096,
+   "kv": null,
+   "backend": "cpu",
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 153.45977999999974,
+   "sources": {
+    "r2_gated_silent": "row t2s-r2-real-cpu",
+    "window": "files results/t2s_r2_real_cpu_v1.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/t2s_r2_real_cpu_v1.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/t2s_r2_real_cpu_v1.jsonl",
+    "backend": "row t2s-r2-real-cpu (file name)"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "ollama_default",
+   "r2_gated_silent": {
+    "k": 5,
+    "n": 5
+   }
+  },
+  {
+   "device": "evo-t2s Intel CPU",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 4096,
+   "kv": null,
+   "backend": "cpu",
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 274.4871900000001,
+   "sources": {
+    "r2_gated_silent": "row t2s-r2-real-cpu",
+    "window": "files results/t2s_r2_real_cpu_v1.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/t2s_r2_real_cpu_v1.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/t2s_r2_real_cpu_v1.jsonl",
+    "backend": "row t2s-r2-real-cpu (file name)"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "ollama_default",
+   "r2_gated_silent": {
+    "k": 5,
+    "n": 5
+   }
+  },
+  {
+   "device": "evo-t2s Intel iGPU",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 32768,
+   "kv": null,
+   "backend": "igpu",
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 255.86311499999996,
+   "sources": {
+    "r2_gated_silent": "row t2s-r2-real-igpu",
+    "window": "files results/t2s_r2_real_igpu_v1.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/t2s_r2_real_igpu_v1.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/t2s_r2_real_igpu_v1.jsonl",
+    "backend": "row t2s-r2-real-igpu (file name)"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "ollama_default",
+   "r2_gated_silent": {
+    "k": 0,
+    "n": 5
+   }
+  },
+  {
+   "device": "evo-t2s Intel iGPU",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 32768,
+   "kv": null,
+   "backend": "igpu",
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 583.007335,
+   "sources": {
+    "r2_gated_silent": "row t2s-r2-real-igpu",
+    "window": "files results/t2s_r2_real_igpu_v1.jsonl r2a_session loaded_context_values",
+    "version": "runtime record of results/t2s_r2_real_igpu_v1.jsonl",
+    "s_per_task": "r2a_turn turn_wall_s of results/t2s_r2_real_igpu_v1.jsonl",
+    "backend": "row t2s-r2-real-igpu (file name)"
+   },
+   "workload": "R2 40-turn sessions",
+   "setting": "ollama_default",
+   "r2_gated_silent": {
+    "k": 0,
+    "n": 5
+   }
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 131072,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 65.48682500000578,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_a_default_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 131072,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 65.42656666666929,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_c_trim_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 131072,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 65.18462499999636,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_d_router_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 131072,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 63.86329999999725,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_f_num_keep_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 131072,
+   "kv": "q8_0",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 10.41912499999744,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_g_kv_q8_0_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 131072,
+   "kv": "q4_0",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 9.879816666666496,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_h_kv_q4_0_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 40960,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 322.2023416666702,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_a_default_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 40960,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 268.04819166666516,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_c_trim_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 40960,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 260.51289166666686,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_d_router_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 40960,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 311.680475000001,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_f_num_keep_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 40960,
+   "kv": "q8_0",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 113.03736666666228,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_g_kv_q8_0_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 40960,
+   "kv": "q4_0",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 113.0540499999964,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_h_kv_q4_0_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "llama3.1:8b",
+   "window": 131072,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 65.10285833333619,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare_fa_control.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare_fa_control.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare_fa_control.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_i_kv_f16_fa_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": "0.34.4",
+   "model": "qwen3:14b",
+   "window": 40960,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": 309.8667833333311,
+   "sources": {
+    "kv": "row kv-precision-evidence (policies a, i, g, h); harness/policy_compare.py policy env (c, d, f: no KV env)",
+    "window": "file results/x2_policy_compare_fa_control.jsonl r2a_session loaded_context_values",
+    "version": "file results/x2_policy_compare_fa_control.jsonl runtime record",
+    "s_per_task": "file results/x2_policy_compare_fa_control.jsonl turn_wall_s"
+   },
+   "workload": "R2 40-turn sessions (B5 policy compare, 3 seeds)",
+   "setting": "b5_i_kv_f16_fa_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "llama-server",
+   "version": "b10970-bfdc32183",
+   "model": "qwen3:14b (GGUF)",
+   "window": 40960,
+   "kv": null,
+   "backend": "Vulkan",
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 12,
+    "n": 150,
+    "rate": 0.08
+   },
+   "s_per_task": 12.654073333332004,
+   "sources": {
+    "wrong_rate": "row xruntime-llamacpp-wrong-rate",
+    "version": "file results/xruntime_llamacpp_qwen3_14b.jsonl server_start props_build_info",
+    "window": "row xruntime-llamacpp-wrong-rate",
+    "s_per_task": "file results/xruntime_llamacpp_qwen3_14b.jsonl turn_wall_s",
+    "backend": "same llama-server.exe as results/x2_mx2_qwen3_32b_spill_sweep.jsonl run_start exe (row fh1-amd-qwen3-32b-spill-sweep, Vulkan heaps measured)"
+   },
+   "workload": "B3 v2 tasks, 5 seeds",
+   "setting": "llamacpp_ctx_40960_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "llama-server",
+   "version": "b10970-bfdc32183",
+   "model": "qwen3:14b (GGUF)",
+   "window": 4096,
+   "kv": null,
+   "backend": "Vulkan",
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 150,
+    "n": 150,
+    "rate": 1.0
+   },
+   "s_per_task": 0.7085399999997268,
+   "sources": {
+    "wrong_rate": "row xruntime-llamacpp-wrong-rate",
+    "version": "file results/xruntime_llamacpp_qwen3_14b.jsonl server_start props_build_info",
+    "window": "row xruntime-llamacpp-wrong-rate",
+    "s_per_task": "file results/xruntime_llamacpp_qwen3_14b.jsonl turn_wall_s",
+    "backend": "same llama-server.exe as results/x2_mx2_qwen3_32b_spill_sweep.jsonl run_start exe (row fh1-amd-qwen3-32b-spill-sweep, Vulkan heaps measured)"
+   },
+   "workload": "B3 v2 tasks, 5 seeds",
+   "setting": "llamacpp_ctx_4096_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "llama-server",
+   "version": "b10970-bfdc32183",
+   "model": "qwen3:14b (GGUF)",
+   "window": 40960,
+   "kv": null,
+   "backend": "Vulkan",
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 12,
+    "n": 150,
+    "rate": 0.08
+   },
+   "s_per_task": 12.662206666662048,
+   "sources": {
+    "wrong_rate": "row xruntime-llamacpp-wrong-rate",
+    "version": "file results/xruntime_llamacpp_qwen3_14b.jsonl server_start props_build_info",
+    "window": "row xruntime-llamacpp-wrong-rate",
+    "s_per_task": "file results/xruntime_llamacpp_qwen3_14b.jsonl turn_wall_s",
+    "backend": "same llama-server.exe as results/x2_mx2_qwen3_32b_spill_sweep.jsonl run_start exe (row fh1-amd-qwen3-32b-spill-sweep, Vulkan heaps measured)"
+   },
+   "workload": "B3 v2 tasks, 5 seeds",
+   "setting": "llamacpp_default_call2_notools"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": null,
+   "model": "qwen3:14b",
+   "window": 40960,
+   "kv": "f16",
+   "backend": "ROCm",
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 3,
+    "n": 30,
+    "rate": 0.1
+   },
+   "s_per_task": 10.888033333335382,
+   "sources": {
+    "wrong_rate": "row own-profiler-probe",
+    "s_per_task": "row own-profiler-probe",
+    "window": "row own-profiler-probe",
+    "kv": "row own-profiler-probe",
+    "backend": "row own-profiler-probe KV line (results/x2_own_profiler_probe_v1_ollama_default.jsonl)"
+   },
+   "workload": "B3 v2 tasks, seed 20260901, <= 600 s probe",
+   "setting": "ollama_default"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": null,
+   "model": "qwen3:14b",
+   "window": 16384,
+   "kv": "f16",
+   "backend": "ROCm",
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 3,
+    "n": 30,
+    "rate": 0.1
+   },
+   "s_per_task": 10.970299999997952,
+   "sources": {
+    "wrong_rate": "row own-profiler-probe",
+    "s_per_task": "row own-profiler-probe",
+    "window": "row own-profiler-probe",
+    "kv": "row own-profiler-probe",
+    "backend": "row own-profiler-probe KV line (results/x2_own_profiler_probe_v1_ollama_ctx_16384.jsonl)"
+   },
+   "workload": "B3 v2 tasks, seed 20260901, <= 600 s probe",
+   "setting": "ollama_ctx_16384"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": null,
+   "model": "qwen3:14b",
+   "window": 8192,
+   "kv": "f16",
+   "backend": "ROCm",
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 10,
+    "n": 25,
+    "rate": 0.4
+   },
+   "s_per_task": 22.518159999996424,
+   "sources": {
+    "wrong_rate": "row own-profiler-probe",
+    "s_per_task": "row own-profiler-probe",
+    "window": "row own-profiler-probe",
+    "kv": "row own-profiler-probe",
+    "backend": "row own-profiler-probe KV line (results/x2_own_profiler_probe_v1_ollama_ctx_8192.jsonl)"
+   },
+   "workload": "B3 v2 tasks, seed 20260901, <= 600 s probe",
+   "setting": "ollama_ctx_8192"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": null,
+   "model": "qwen3:14b",
+   "window": 4096,
+   "kv": "f16",
+   "backend": "ROCm",
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 10,
+    "n": 30,
+    "rate": 0.3333333333333333
+   },
+   "s_per_task": 16.6281333333347,
+   "sources": {
+    "wrong_rate": "row own-profiler-probe",
+    "s_per_task": "row own-profiler-probe",
+    "window": "row own-profiler-probe",
+    "kv": "row own-profiler-probe",
+    "backend": "row own-profiler-probe KV line (results/x2_own_profiler_probe_v1_ollama_ctx_4096.jsonl)"
+   },
+   "workload": "B3 v2 tasks, seed 20260901, <= 600 s probe",
+   "setting": "ollama_ctx_4096"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": null,
+   "model": "qwen3:14b",
+   "window": 15360,
+   "kv": "q8_0",
+   "backend": "ROCm",
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 3,
+    "n": 30,
+    "rate": 0.1
+   },
+   "s_per_task": 12.20203333334066,
+   "sources": {
+    "wrong_rate": "row own-profiler-probe",
+    "s_per_task": "row own-profiler-probe",
+    "window": "row own-profiler-probe",
+    "kv": "row own-profiler-probe",
+    "backend": "row own-profiler-probe KV line (results/x2_own_profiler_probe_v1_ollama_ctx_15360.jsonl)"
+   },
+   "workload": "B3 v2 tasks, seed 20260901, <= 600 s probe",
+   "setting": "ollama_ctx_15360"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": null,
+   "model": "qwen3:14b",
+   "window": 28928,
+   "kv": "q4_0",
+   "backend": "ROCm",
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 3,
+    "n": 30,
+    "rate": 0.1
+   },
+   "s_per_task": 14.494799999993605,
+   "sources": {
+    "wrong_rate": "row own-profiler-probe",
+    "s_per_task": "row own-profiler-probe",
+    "window": "row own-profiler-probe",
+    "kv": "row own-profiler-probe",
+    "backend": "row own-profiler-probe KV line (results/x2_own_profiler_probe_v1_ollama_ctx_28928.jsonl)"
+   },
+   "workload": "B3 v2 tasks, seed 20260901, <= 600 s probe",
+   "setting": "ollama_ctx_28928"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "llama-server",
+   "version": "b10970-bfdc32183",
+   "model": "qwen3-32b (GGUF)",
+   "window": null,
+   "kv": null,
+   "backend": "Vulkan",
+   "measured_ceiling": 40960,
+   "wrong_rate": null,
+   "s_per_task": null,
+   "sources": {
+    "measured_ceiling": "row fh1-amd-qwen3-32b-spill-sweep",
+    "version": "file results/x2_mx2_qwen3_32b_spill_sweep.jsonl sweep_point props_build_info",
+    "backend": "row fh1-amd-qwen3-32b-spill-sweep (llama-server Vulkan, Vulkan heaps)"
+   },
+   "workload": "spill sweep 20480 to 40960, -ngl 99",
+   "ceiling_note": "largest tested n_ctx without spill; no spill point up to it"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "llama-server",
+   "version": null,
+   "model": "llama-3.3-70b (GGUF)",
+   "window": null,
+   "kv": null,
+   "backend": "Vulkan",
+   "measured_ceiling": 65536,
+   "wrong_rate": null,
+   "s_per_task": null,
+   "sources": {
+    "measured_ceiling": "row fh1-amd-boundary-llama-3.3-70b",
+    "first_spill_n_ctx": "row fh1-amd-boundary-llama-3.3-70b",
+    "backend": "row fh1-amd-boundary-llama-3.3-70b (llama-server Vulkan)"
+   },
+   "workload": "FH1 AMD spill boundary",
+   "first_spill_n_ctx": 100096,
+   "ceiling_note": "last unclamped no-spill n_ctx measured (spill_stats)"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "llama-server",
+   "version": null,
+   "model": "qwen3-32b (GGUF)",
+   "window": null,
+   "kv": null,
+   "backend": "Vulkan",
+   "measured_ceiling": 20480,
+   "wrong_rate": null,
+   "s_per_task": null,
+   "sources": {
+    "measured_ceiling": "row fh1-amd-boundary-qwen3-32b",
+    "first_spill_n_ctx": "row fh1-amd-boundary-qwen3-32b",
+    "backend": "row fh1-amd-boundary-qwen3-32b (llama-server Vulkan)"
+   },
+   "workload": "FH1 AMD spill boundary",
+   "first_spill_n_ctx": null,
+   "ceiling_note": "last unclamped no-spill n_ctx measured (validation)"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": null,
+   "model": "qwen3:14b",
+   "window": 40960,
+   "kv": "f16",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 55,
+    "n": 60,
+    "rate": 0.9166666666666666
+   },
+   "s_per_task": 47.71311666663969,
+   "sources": {
+    "wrong_rate": "row long-task-local-accuracy",
+    "window": "row long-task-local-accuracy",
+    "kv": "harness/x2_longtask.py ARMS (kv_q8_0 env); ollama_default = B5 policy (a), row kv-precision-evidence",
+    "s_per_task": "file results/x2_longtask_local_v1.jsonl task_wall_s"
+   },
+   "workload": "long-horizon synthetic tasks, 20 x 3 seeds",
+   "setting": "ollama_default"
+  },
+  {
+   "device": "evo-x2",
+   "runtime": "ollama",
+   "version": null,
+   "model": "qwen3:14b",
+   "window": 40960,
+   "kv": "q8_0",
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": {
+    "k": 56,
+    "n": 60,
+    "rate": 0.9333333333333333
+   },
+   "s_per_task": 48.355133333348206,
+   "sources": {
+    "wrong_rate": "row long-task-local-accuracy",
+    "window": "row long-task-local-accuracy",
+    "kv": "harness/x2_longtask.py ARMS (kv_q8_0 env); ollama_default = B5 policy (a), row kv-precision-evidence",
+    "s_per_task": "file results/x2_longtask_local_v1.jsonl task_wall_s"
+   },
+   "workload": "long-horizon synthetic tasks, 20 x 3 seeds",
+   "setting": "kv_q8_0"
+  },
+  {
+   "device": "evo-t2s Intel CPU",
+   "runtime": "ollama",
+   "version": null,
+   "model": "qwen3:14b",
+   "window": null,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": null,
+   "sources": {
+    "status": "row t2s-evalset-tasks-cpu; file results/t2s_evalset_tasks_real_v2_cpu.jsonl refused_model"
+   },
+   "workload": "B3 v2 tasks",
+   "completed_sessions": 0,
+   "status": "refused at preflight"
+  },
+  {
+   "device": "evo-t2s Intel iGPU",
+   "runtime": "ollama",
+   "version": null,
+   "model": "qwen3:14b",
+   "window": null,
+   "kv": null,
+   "backend": null,
+   "measured_ceiling": null,
+   "wrong_rate": null,
+   "s_per_task": null,
+   "sources": {
+    "status": "row t2s-evalset-tasks-igpu; file results/t2s_evalset_tasks_real_v2_igpu.jsonl refused_model"
+   },
+   "workload": "B3 v2 tasks",
+   "completed_sessions": 0,
+   "status": "refused at preflight"
+  }
+ ]
+}

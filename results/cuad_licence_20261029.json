@@ -1,0 +1,15 @@
+{
+ "record": "external_input",
+ "label": "EXTERNAL INPUT (dataset licence, checked at its official source)",
+ "dataset": "Contract Understanding Atticus Dataset (CUAD) v1",
+ "publisher": "The Atticus Project",
+ "licence": "CC BY 4.0",
+ "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+ "official_source": "https://www.atticusprojectai.org/cuad",
+ "official_source_finding": "The CUAD page shows the badge \"CC BY 4.0\"; describes \"Contract Understanding Atticus Dataset (CUAD) v1\", 510 commercial legal contracts, 41 clause types, more than 13,000 labels; links GitHub (https://github.com/TheAtticusProject/cuad) and Hugging Face (https://huggingface.co/datasets/theatticusproject/cuad).",
+ "second_source": "https://huggingface.co/datasets/theatticusproject/cuad",
+ "second_source_finding": "Dataset card metadata license: cc-by-4.0 (Hugging Face Hub, read 2026-10-29).",
+ "github_repo_finding": "https://github.com/TheAtticusProject/cuad lists no LICENSE file and no licence statement in its readme (checked 2026-10-29); the licence is taken from the official Atticus page and the Hugging Face card.",
+ "obligations": "CC BY 4.0: attribution required (credit The Atticus Project and the CUAD paper, link the licence, state changes). Redistribution allowed, but this repo commits only a manifest (results/cuad_manifest_v1.json), no contract or clause text.",
+ "fetched_utc_date": "2026-10-29"
+}

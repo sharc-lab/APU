@@ -1,0 +1,480 @@
+{
+ "record": "cuad_manifest_v1",
+ "dataset": "CUAD v1 (The Atticus Project), test split (test.json of data.zip)",
+ "licence": "CC BY 4.0 (results/cuad_licence_20261029.json)",
+ "source_zip_sha256": "f8161d18bea4e9c05e78fa6dda61c19c846fb8087ea969c172753bc2f45b999a",
+ "source_url": "https://github.com/TheAtticusProject/cuad/raw/main/data.zip",
+ "local_copy_note": "data.zip and its extracted files are kept outside the repo (the session scratchpad); nothing from them but this manifest is committed",
+ "categories": [
+  "Governing Law",
+  "Expiration Date",
+  "Renewal Term",
+  "Termination For Convenience",
+  "Anti-Assignment",
+  "Exclusivity",
+  "Non-Compete",
+  "Cap On Liability",
+  "Audit Rights",
+  "License Grant"
+ ],
+ "order_salt": "20261029",
+ "n_fit_target": 40,
+ "n_over_target": 10,
+ "fit_tokens": 30000,
+ "window": 40960,
+ "n_contracts_in_split": 102,
+ "n_over_window_in_split": 5,
+ "token_estimate": "ASSUMPTION: chars / 4 + 3 per segment + 600",
+ "contracts": [
+  {
+   "title": "ArconicRolledProductsCorp_20191217_10-12B_EX-2.7_11923804_EX-2.7_Trademark License Agreement",
+   "stratum": "fits",
+   "context_sha256": "bc3db8c11b06d0847c57051aaf75c493dda351e87a98fd5fcfe3fca7c751a0fa",
+   "n_chars": 18069,
+   "n_segments": 18,
+   "est_prompt_tokens": 5171,
+   "gold_pairs": 5,
+   "gold_empty": false
+  },
+  {
+   "title": "PLAYAHOTELS_RESORTSNV_03_14_2017-EX-10.22-STRATEGIC ALLIANCE AGREEMENT (Hyatt Ziva Cancun)",
+   "stratum": "fits",
+   "context_sha256": "8621625f68b9dd6dfad65f47fbc13779a8b65995dcd6eac85927d2cfcbc2b3f3",
+   "n_chars": 22259,
+   "n_segments": 56,
+   "est_prompt_tokens": 6333,
+   "gold_pairs": 2,
+   "gold_empty": false
+  },
+  {
+   "title": "WEBHELPCOMINC_03_22_2000-EX-10.8-HOSTING AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "2d4e106b0139dbc3fa27478071905b7edae86ff3d0277c29ebb770a904216e10",
+   "n_chars": 19257,
+   "n_segments": 41,
+   "est_prompt_tokens": 5537,
+   "gold_pairs": 13,
+   "gold_empty": false
+  },
+  {
+   "title": "WestPharmaceuticalServicesInc_20200116_8-K_EX-10.1_11947529_EX-10.1_Supply Agreement",
+   "stratum": "fits",
+   "context_sha256": "7c991c9f55f81fd83a885f40cf89eb81f276897ee3ff068f0b7d689b6f88d495",
+   "n_chars": 82898,
+   "n_segments": 264,
+   "est_prompt_tokens": 22116,
+   "gold_pairs": 13,
+   "gold_empty": false
+  },
+  {
+   "title": "PcquoteComInc_19990721_S-1A_EX-10.11_6377149_EX-10.11_Co-Branding Agreement2",
+   "stratum": "fits",
+   "context_sha256": "f4315bbc3c62769c0f78a6c62a6a452e9b0ebbc409a8f7ee6cd73de55a9e01c1",
+   "n_chars": 857,
+   "n_segments": 8,
+   "est_prompt_tokens": 838,
+   "gold_pairs": 0,
+   "gold_empty": true
+  },
+  {
+   "title": "AgapeAtpCorp_20191202_10-KA_EX-10.1_11911128_EX-10.1_Supply Agreement",
+   "stratum": "fits",
+   "context_sha256": "6d43065ff242642866da6be6b83f9849ad898e6eea9c1e71b0c2853dd3822c5a",
+   "n_chars": 20693,
+   "n_segments": 26,
+   "est_prompt_tokens": 5851,
+   "gold_pairs": 9,
+   "gold_empty": false
+  },
+  {
+   "title": "SUCAMPOPHARMACEUTICALS,INC_11_04_2015-EX-10.2-STRATEGIC ALLIANCE AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "83c8a5b6a0ee219c184a90eaffec0cf930e7ed80e4f12ce342714bc745115934",
+   "n_chars": 62272,
+   "n_segments": 75,
+   "est_prompt_tokens": 16393,
+   "gold_pairs": 4,
+   "gold_empty": false
+  },
+  {
+   "title": "INGEVITYCORP_05_16_2016-EX-10.5-INTELLECTUAL PROPERTY AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "d7eaeae37b293bb0530fb5ff9a62692bd4946598905f1093a534589dd9a32af1",
+   "n_chars": 63376,
+   "n_segments": 38,
+   "est_prompt_tokens": 16558,
+   "gold_pairs": 5,
+   "gold_empty": false
+  },
+  {
+   "title": "ScansourceInc_20190509_10-Q_EX-10.2_11661422_EX-10.2_Distributor Agreement",
+   "stratum": "fits",
+   "context_sha256": "4996dfa734c77a1825fb95e4916c09bd264181e35d455e10717433d1709b2aee",
+   "n_chars": 14149,
+   "n_segments": 59,
+   "est_prompt_tokens": 4314,
+   "gold_pairs": 1,
+   "gold_empty": false
+  },
+  {
+   "title": "Columbia Laboratories, (Bermuda) Ltd. - AMEND NO. 2 TO MANUFACTURING AND SUPPLY AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "17bea1f531d30d456d2df5787dfdf6a44723e822e397b5ad841c4f39cdfca4ef",
+   "n_chars": 45846,
+   "n_segments": 127,
+   "est_prompt_tokens": 12442,
+   "gold_pairs": 4,
+   "gold_empty": false
+  },
+  {
+   "title": "IdeanomicsInc_20151124_8-K_EX-10.2_9354744_EX-10.2_Content License Agreement",
+   "stratum": "fits",
+   "context_sha256": "c538e198298848d2e29a5e608ac164c5995768059b85485f564d184ae354f1c5",
+   "n_chars": 35189,
+   "n_segments": 43,
+   "est_prompt_tokens": 9526,
+   "gold_pairs": 7,
+   "gold_empty": false
+  },
+  {
+   "title": "STWRESOURCESHOLDINGCORP_08_06_2014-EX-10.1-COOPERATION AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "58356a12396d1fac4b19989fe1b0a9f21f8d1a3243f406fe782d154599d63e64",
+   "n_chars": 27721,
+   "n_segments": 36,
+   "est_prompt_tokens": 7638,
+   "gold_pairs": 4,
+   "gold_empty": false
+  },
+  {
+   "title": "SoupmanInc_20150814_8-K_EX-10.1_9230148_EX-10.1_Franchise Agreement4",
+   "stratum": "fits",
+   "context_sha256": "d3b48e403dce07c50842f80ffc6d9b03d5e22597822766851478b17923442743",
+   "n_chars": 3314,
+   "n_segments": 8,
+   "est_prompt_tokens": 1452,
+   "gold_pairs": 0,
+   "gold_empty": true
+  },
+  {
+   "title": "ACCELERATEDTECHNOLOGIESHOLDINGCORP_04_24_2003-EX-10.13-JOINT VENTURE AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "85182a8d5506adf149a0c8ea479167d6c11b979a821fa33a5da2ce1cdcd13c31",
+   "n_chars": 13038,
+   "n_segments": 40,
+   "est_prompt_tokens": 3980,
+   "gold_pairs": 4,
+   "gold_empty": false
+  },
+  {
+   "title": "CURAEGISTECHNOLOGIES,INC_05_26_2010-EX-1-CORPORATE SPONSORSHIP AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "01a6a01aef555c3b1cf58d562a6a6970c91beb1cca066424ef8c1a962a047735",
+   "n_chars": 12624,
+   "n_segments": 75,
+   "est_prompt_tokens": 3981,
+   "gold_pairs": 6,
+   "gold_empty": false
+  },
+  {
+   "title": "PRIMEENERGYRESOURCESCORP_04_02_2007-EX-10.28-COMPLETION AND LIQUIDITY MAINTENANCE AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "050ebe65b872b964ccbcf71874e1514c34651c3dce14040ea9debb5539201bdd",
+   "n_chars": 5030,
+   "n_segments": 25,
+   "est_prompt_tokens": 1932,
+   "gold_pairs": 1,
+   "gold_empty": false
+  },
+  {
+   "title": "BIOPURECORP_06_30_1999-EX-10.13-AGENCY AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "46efce0876517845139456fb334958c9d530b7ebdea2a955c1f693d432e591f0",
+   "n_chars": 40590,
+   "n_segments": 148,
+   "est_prompt_tokens": 11192,
+   "gold_pairs": 9,
+   "gold_empty": false
+  },
+  {
+   "title": "VALENCETECHNOLOGYINC_02_14_2003-EX-10-JOINT VENTURE CONTRACT",
+   "stratum": "fits",
+   "context_sha256": "c1c3c5d87acdce496832abeb85ed860e5379861b9f29744f88c55da16f5c91ac",
+   "n_chars": 73698,
+   "n_segments": 439,
+   "est_prompt_tokens": 20342,
+   "gold_pairs": 10,
+   "gold_empty": false
+  },
+  {
+   "title": "GridironBionutrientsInc_20171206_8-K_EX-10.2_10972556_EX-10.2_Endorsement Agreement",
+   "stratum": "fits",
+   "context_sha256": "496339cad48b3918f42897cff2281cc85952d83f41eae5ca04e48ddf20768009",
+   "n_chars": 3456,
+   "n_segments": 12,
+   "est_prompt_tokens": 1500,
+   "gold_pairs": 0,
+   "gold_empty": true
+  },
+  {
+   "title": "CYBERIANOUTPOSTINC_07_09_1998-EX-10.13-PROMOTION AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "a3530d141fa1b32e5ea38c78611921eac7ed5af9051fad14ec87e630beb338d6",
+   "n_chars": 25288,
+   "n_segments": 66,
+   "est_prompt_tokens": 7120,
+   "gold_pairs": 13,
+   "gold_empty": false
+  },
+  {
+   "title": "MERITLIFEINSURANCECO_06_19_2020-EX-10.(XIV)-MASTER SERVICES AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "09eac9cb5a8cacc009776409a7206c71ac2817174426dc2009ec7e06c2fb7af9",
+   "n_chars": 22090,
+   "n_segments": 20,
+   "est_prompt_tokens": 6182,
+   "gold_pairs": 7,
+   "gold_empty": false
+  },
+  {
+   "title": "MSCIINC_02_28_2008-EX-10.10-",
+   "stratum": "fits",
+   "context_sha256": "f9315155cae492ba772b8a5f69d8fcefbe1f70d0358eb402fd67a7dff4b3022e",
+   "n_chars": 11770,
+   "n_segments": 55,
+   "est_prompt_tokens": 3708,
+   "gold_pairs": 7,
+   "gold_empty": false
+  },
+  {
+   "title": "BizzingoInc_20120322_8-K_EX-10.17_7504499_EX-10.17_Endorsement Agreement",
+   "stratum": "fits",
+   "context_sha256": "3047c857b6497a9ce5f15a8f94881e0345a2c5225e642b79d607421b9d365d33",
+   "n_chars": 24223,
+   "n_segments": 43,
+   "est_prompt_tokens": 6785,
+   "gold_pairs": 8,
+   "gold_empty": false
+  },
+  {
+   "title": "RMRGROUPINC_01_22_2020-EX-99.1-JOINT FILING AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "970873275c228d4c10c4944fcec4dcb4c9cbd52fb5f01f667e74bcfc43a69868",
+   "n_chars": 645,
+   "n_segments": 1,
+   "est_prompt_tokens": 764,
+   "gold_pairs": 0,
+   "gold_empty": true
+  },
+  {
+   "title": "CardlyticsInc_20180112_S-1_EX-10.16_11002987_EX-10.16_Maintenance Agreement3",
+   "stratum": "fits",
+   "context_sha256": "9a5b359346f414dff69f8436603e30a6e9e3bb3671f8370dffaff3e6990b5256",
+   "n_chars": 1707,
+   "n_segments": 17,
+   "est_prompt_tokens": 1078,
+   "gold_pairs": 0,
+   "gold_empty": true
+  },
+  {
+   "title": "TEARDROPGOLFCO_10_23_1996-EX-10.12-ENDORSEMENT AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "3310cdd1e51609025da7bd6bfc11d72087bde2b2bdfdf2b8f371f2e159abf3b2",
+   "n_chars": 26215,
+   "n_segments": 110,
+   "est_prompt_tokens": 7484,
+   "gold_pairs": 7,
+   "gold_empty": false
+  },
+  {
+   "title": "GALERATHERAPEUTICS,INC_02_14_2020-EX-99.A-JOINT FILING AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "c9e975471fb0998b7562262d83518f81b8de936e091c26ecb7dc3c4ebb40eb69",
+   "n_chars": 3892,
+   "n_segments": 29,
+   "est_prompt_tokens": 1660,
+   "gold_pairs": 0,
+   "gold_empty": true
+  },
+  {
+   "title": "SPOKHOLDINGS,INC_06_19_2020-EX-10.1-COOPERATION AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "a89d914772be939230b36e8203170c5cff90b598ce640e6b11d5d49b191c7c1f",
+   "n_chars": 17710,
+   "n_segments": 36,
+   "est_prompt_tokens": 5136,
+   "gold_pairs": 3,
+   "gold_empty": false
+  },
+  {
+   "title": "LOOKSMARTLTD_07_20_2012-EX-99.(D)(I)-SPONSORSHIP AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "1455fd9c2d9b5abe65cbd8a5b96105312c40c612ad069775fff9619544b6f362",
+   "n_chars": 25922,
+   "n_segments": 14,
+   "est_prompt_tokens": 7122,
+   "gold_pairs": 3,
+   "gold_empty": false
+  },
+  {
+   "title": "OMINTO,INC_03_29_2004-EX-10-RESELLER AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "63c4ce209111a2920d803f15cb0f1ca5c1919368cad08862fea3ce0923870e55",
+   "n_chars": 28463,
+   "n_segments": 136,
+   "est_prompt_tokens": 8124,
+   "gold_pairs": 9,
+   "gold_empty": false
+  },
+  {
+   "title": "ElPolloLocoHoldingsInc_20200306_10-K_EX-10.16_12041700_EX-10.16_Development Agreement",
+   "stratum": "fits",
+   "context_sha256": "bc76571a2b5ae91953575dd7deaee58a11d55ce9a891fa9335e7c2aff05cb9c4",
+   "n_chars": 60618,
+   "n_segments": 163,
+   "est_prompt_tokens": 16244,
+   "gold_pairs": 11,
+   "gold_empty": false
+  },
+  {
+   "title": "WASTE2ENERGYHOLDINGS,INC_06_03_2010-EX-10.2-STRATEGIC ALLIANCE AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "bb4490eb87a64beac2445b430f94a57ba78e6ab397dd7535ad29ba3b7c2f3303",
+   "n_chars": 40442,
+   "n_segments": 35,
+   "est_prompt_tokens": 10816,
+   "gold_pairs": 4,
+   "gold_empty": false
+  },
+  {
+   "title": "FreezeTagInc_20180411_8-K_EX-10.1_11139603_EX-10.1_Sponsorship Agreement",
+   "stratum": "fits",
+   "context_sha256": "744a41987516df4d6cee1e635626da0a8306095b174a4f44eaf4519e89e8f6fb",
+   "n_chars": 26753,
+   "n_segments": 30,
+   "est_prompt_tokens": 7378,
+   "gold_pairs": 5,
+   "gold_empty": false
+  },
+  {
+   "title": "XinhuaSportsEntertainmentLtd_20070221_F-1_EX-99.4_645553_EX-99.4_Content License Agreement",
+   "stratum": "fits",
+   "context_sha256": "d20ca7099b4894b290f3e0399f466b78ab1cd297bdfc9b270b80528607dcab51",
+   "n_chars": 19128,
+   "n_segments": 127,
+   "est_prompt_tokens": 5763,
+   "gold_pairs": 17,
+   "gold_empty": false
+  },
+  {
+   "title": "Quaker Chemical Corporation - NON COMPETITION AND NON SOLICITATION AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "c1c3668fe4a3a44599de2e66dc724a948163944c2cd92b73e810e9cfd6ede6ed",
+   "n_chars": 22700,
+   "n_segments": 20,
+   "est_prompt_tokens": 6335,
+   "gold_pairs": 3,
+   "gold_empty": false
+  },
+  {
+   "title": "CHIPMOSTECHNOLOGIESBERMUDALTD_04_18_2016-EX-4.72-Strategic Alliance Agreement",
+   "stratum": "fits",
+   "context_sha256": "a3c62071e79c5a3c4756df742251665115f48c778c179f2628ee9f5a65a837d0",
+   "n_chars": 13506,
+   "n_segments": 52,
+   "est_prompt_tokens": 4132,
+   "gold_pairs": 4,
+   "gold_empty": false
+  },
+  {
+   "title": "TRICITYBANKSHARESCORP_05_15_1998-EX-10-OUTSOURCING AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "5ace7a03650252f3f2a08d44b3bf4c689d6b9e1bc62a90a455a23bcb4e484b02",
+   "n_chars": 101639,
+   "n_segments": 308,
+   "est_prompt_tokens": 26934,
+   "gold_pairs": 20,
+   "gold_empty": false
+  },
+  {
+   "title": "EMERALDHEALTHTHERAPEUTICSINC_06_10_2020-EX-4.5-CONSULTING AGREEMENT - DR. GAETANO MORELLO N.D. INC.",
+   "stratum": "fits",
+   "context_sha256": "e9b670a117b0093c45379e52dd4aca10ae2e7f5e7460d89816e6546ff7875d96",
+   "n_chars": 20637,
+   "n_segments": 58,
+   "est_prompt_tokens": 5933,
+   "gold_pairs": 5,
+   "gold_empty": false
+  },
+  {
+   "title": "WESTERN COPPER - NON-COMPETITION AGREEMENT",
+   "stratum": "fits",
+   "context_sha256": "d148e0be306beafca1731bbda95efdd7d3fa21be087c5b1a56bdd51b3433f9aa",
+   "n_chars": 16402,
+   "n_segments": 112,
+   "est_prompt_tokens": 5036,
+   "gold_pairs": 5,
+   "gold_empty": false
+  },
+  {
+   "title": "EcoScienceSolutionsInc_20180406_8-K_EX-10.1_11135398_EX-10.1_Sponsorship Agreement",
+   "stratum": "fits",
+   "context_sha256": "a2bbc78780c5eee0b15768c43c3dd8b15181d714d98273f4a6c4f2478e76a02d",
+   "n_chars": 8052,
+   "n_segments": 27,
+   "est_prompt_tokens": 2694,
+   "gold_pairs": 3,
+   "gold_empty": false
+  },
+  {
+   "title": "HarpoonTherapeuticsInc_20200312_10-K_EX-10.18_12051356_EX-10.18_Development Agreement",
+   "stratum": "over_window",
+   "context_sha256": "bb355fb1c969bf79632147aa2235f3b539ed0854ed7dc63aebefc0465e633685",
+   "n_chars": 249551,
+   "n_segments": 825,
+   "est_prompt_tokens": 65463,
+   "gold_pairs": 23,
+   "gold_empty": false
+  },
+  {
+   "title": "Monsanto Company - SECOND A_R EXCLUSIVE AGENCY AND MARKETING AGREEMENT ",
+   "stratum": "over_window",
+   "context_sha256": "23efebbaa834db98f870bf4659ac32f37fe481ddddd32dee560f343aefc8c270",
+   "n_chars": 221382,
+   "n_segments": 1001,
+   "est_prompt_tokens": 58948,
+   "gold_pairs": 36,
+   "gold_empty": false
+  },
+  {
+   "title": "GOOSEHEADINSURANCE,INC_04_02_2018-EX-10.6-Franchise Agreement",
+   "stratum": "over_window",
+   "context_sha256": "0c6be355977150d83d8f1ee5dd30f176e637a4e02df72b731131860b079f1b41",
+   "n_chars": 300768,
+   "n_segments": 497,
+   "est_prompt_tokens": 77283,
+   "gold_pairs": 29,
+   "gold_empty": false
+  },
+  {
+   "title": "GRANTIERRAENERGYINC_05_07_2012-EX-10.6-TRANSPORTATION CONTRACT",
+   "stratum": "over_window",
+   "context_sha256": "4ec387ff502a51ad3a0768c4578497809805b32a8b23620e10c1b8347b9734ef",
+   "n_chars": 229670,
+   "n_segments": 572,
+   "est_prompt_tokens": 59734,
+   "gold_pairs": 8,
+   "gold_empty": false
+  },
+  {
+   "title": "DovaPharmaceuticalsInc_20181108_10-Q_EX-10.2_11414857_EX-10.2_Promotion Agreement",
+   "stratum": "over_window",
+   "context_sha256": "7bda458cd689faa8bcde9f8f3e625ecb93b04de3a772d95988aba4f803d04900",
+   "n_chars": 175580,
+   "n_segments": 582,
+   "est_prompt_tokens": 46241,
+   "gold_pairs": 14,
+   "gold_empty": false
+  }
+ ]
+}
