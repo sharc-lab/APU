@@ -98,3 +98,33 @@ profile.
 Which recorded runs kept server logs: only the demo runs (`results/demo_live_logs/`: detector_check,
 detector_check_v2, acceptance). The B3 v2 real run (`results/x2_evalset_tasks_real_v2.jsonl`) kept no server logs.
 The own-compaction and own-config-probe runs recorded detector v2 verdicts per turn but did not commit the logs.
+
+## One-page report (MVP, added 2026-10-29; due 2026-12-15)
+
+`apu_bench/onepage.py`, from the audit result: one page in Markdown and HTML with the hidden failure rate per setting
+(ground truth from the runtime's own cut-off log, or PREDICTED), the cloud cost of the same sessions and the
+escalation cost per 100 tasks, and a recommended setting (window and KV type) chosen by a stated rule: among settings
+with log ground truth and within an optional cost bound on escalation cost per 100 tasks, the lowest hidden failure
+rate; ties by lower wrong rate, then lower escalation cost, then larger window. The page prints "wrong without a cut"
+next to every rate, because a hidden failure rate of 0 does not mean the tasks were right.
+
+    py -3.12 -m apu_bench audit --profile <device.json> --sessions <s.jsonl> --out <dir> --onepage [--cost-bound USD]
+    py -3.12 -m apu_bench examples --out reports/apu_audit_onepage
+
+Tested on our own recorded runs (`tests/test_apu_audit_onepage.py`; generated pages in `reports/apu_audit_onepage/`):
+the demo detector check v2 (raw logs replayed) and the own-compaction runs (recorded verdicts). On the
+own-compaction runs the rule picks own_compaction_8192 (0 hidden failures, tied with client_trim_8192 and broken by
+wrong 24/150 against 30/150), and the page shows that every one of those wrong tasks had no cut: the rate does not
+catch them.
+
+Remaining for 2026-12-15 (estimates):
+
+| item | hours |
+|---|---|
+| KV type recorded per setting: read it from the server log (Ollama prints the KV type) instead of "not recorded" | 3 |
+| Completion tokens in the cost: the adapters record none, so cost is input only; read them where the logs have them | 2 |
+| A device-profile field for local cost (machine hours) so the rule can compare local plus escalation against all-cloud | 4 |
+| A run with outcomes and logs together on more than one window and KV setting (the demo has 2 windows, 5 tasks each; the own-compaction runs kept no logs) | 6 offline after a run exists; the run itself needs machine time and a pre-registration |
+| An external-format adapter (OpenAI-style request logs and a plain Ollama debug log with no harness records) | 6 |
+| Page layout check in a browser and print to one sheet; wording review | 2 |
+| total | 23 |

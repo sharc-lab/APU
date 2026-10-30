@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APU audit: own compaction and client trim (evo-x2, qwen3:14b)</title>
+<style>body{font:14px/1.45 system-ui,sans-serif;margin:24px auto;max-width:1100px;padding:0 16px;color:#1b1b1b;background:#fff}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #ccc;padding:3px 6px;text-align:left}th{background:#f2f2f2}.rec{border-left:4px solid #2a6;padding:6px 10px;background:#f4fbf6}.wrap{overflow-x:auto}@media print{body{margin:0}}</style></head><body>
+<h1>APU audit: own compaction and client trim (evo-x2, qwen3:14b)</h1>
+<ul>
+<li><b>Logs:</b> results/x2_own_compaction_v1_a.jsonl and _b.jsonl (detector v2 verdicts recorded per turn; logs not kept)</li>
+<li><b>Device:</b> AMD Ryzen AI Max+ 395</li>
+<li><b>Runtime:</b> ollama 0.34.4</li>
+<li><b>Model:</b> qwen3:14b</li>
+<li><b>Cloud model priced:</b> claude-haiku-5-5</li>
+<li><b>Token basis for cost:</b> calibrated estimate of the final call as sent</li>
+<li><b>Cost bound:</b> none</li>
+</ul>
+<p class="rec"><b>Recommended setting.</b> window 8192, KV not recorded (config own_compaction_8192): lowest hidden failure rate (0.0%), tied with 1 other setting(s), broken by the rule&#x27;s tie order; hidden failure rate 0.0%, wrong 24/150, escalation USD 0.0000 per 100 tasks</p>
+<p><i>Rule:</i> Among settings with runtime cut-off ground truth (server log, or verdict recorded from it), within the cost bound on escalation cost per 100 tasks if one is given: lowest hidden failure rate; ties by lower wrong rate, then lower escalation cost, then larger window, then config name.</p>
+<div class="wrap"><table><thead><tr><th>config</th><th>window</th><th>KV</th><th>ground truth</th><th>tasks</th><th>hidden failures</th><th>hidden rate</th><th>wrong</th><th>wrong with hidden cut</th><th>wrong without a cut</th><th>cloud USD floor</th><th>cloud USD upper</th><th>cloud USD billed</th><th>escalation USD per 100 tasks</th></tr></thead><tbody>
+<tr><td>client_trim_4096</td><td>4096</td><td>not recorded</td><td>recorded_verdict</td><td>150</td><td>8</td><td>5.3%</td><td>36/150</td><td>6</td><td>30</td><td>0.0261</td><td>0.1730</td><td>n/a</td><td>0.0009</td></tr>
+<tr><td>own_compaction_4096</td><td>4096</td><td>not recorded</td><td>recorded_verdict</td><td>150</td><td>8</td><td>5.3%</td><td>35/150</td><td>6</td><td>29</td><td>0.0261</td><td>0.1729</td><td>n/a</td><td>0.0009</td></tr>
+<tr><td>client_trim_8192</td><td>8192</td><td>not recorded</td><td>recorded_verdict</td><td>150</td><td>0</td><td>0.0%</td><td>30/150</td><td>0</td><td>30</td><td>0.0252</td><td>0.1684</td><td>n/a</td><td>0.0000</td></tr>
+<tr><td>own_compaction_8192</td><td>8192</td><td>not recorded</td><td>recorded_verdict</td><td>150</td><td>0</td><td>0.0%</td><td>24/150</td><td>0</td><td>24</td><td>0.0253</td><td>0.1691</td><td>n/a</td><td>0.0000</td></tr>
+</tbody></table></div>
+<ul>
+<li>Hidden failure: the runtime cut the context (its own cut-off log line) while the client saw HTTP 200 and no error; a task is a hidden failure when any of its requests is. PREDICTED rows come from the chars/4 estimate, not a log, and are never recommended.</li>
+<li>A hidden failure rate of 0 does not mean the tasks were right: see &quot;wrong without a cut&quot;.</li>
+<li>Cloud cost: the same sessions priced on the committed price tables (floor = best caching, upper = no caching; billed only when provider usage was recorded). Escalation cost = hidden failure rate x mean floor cost per task x 100. Where completion tokens were not recorded, cost is input only.</li>
+</ul>
+</body></html>

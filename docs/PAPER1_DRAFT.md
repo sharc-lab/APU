@@ -28,7 +28,8 @@ and below, no session of three 8B to 14B models kept its full history <!-- R2-re
 up to 70B lose history once the window is exceeded <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss
 appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and
 not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->.
-History loss appears in all of them. On a tool-using task workload, qwen3:14b's wrong-task rate rises from 11.3% (17/150) at
+History loss appears in all of them. These cross-model results are R2 rule-following evidence, not B3 task accuracy.
+On a tool-using task workload (B3), where qwen3:14b is the one model that passed validation, its wrong-task rate rises from 11.3% (17/150) at
 its default window to 42.0% (63/150) at 4096 on Ollama, and every wrong task is silent <!-- x2-evalset-tasks-real-v2-wrong-rate -->;
 on llama-server the 4096 effect replicates (+92.0 points, 95% CI +88.7 to +94.7) but no wrong task is silent <!-- xruntime-llamacpp-wrong-rate -->.
 Runtime defaults decide how often this happens: an unmodified install loaded a 4096-token window on an Intel CPU
@@ -86,7 +87,11 @@ turn 15 (intact 5/5/0/0/0/0/0/0 of 5 for each model <!-- R2-real-v1b-survival --
 model-dependent. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096)
 <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict -->
 <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict -->
-<!-- H-scale-family-verdict -->. We do not claim rule loss in general. Third, the cost is concrete: qwen3:14b's share of
+<!-- H-scale-family-verdict -->. We do not claim rule loss in general. These first two parts are R2 rule-following
+evidence across models, not B3 task accuracy. Third, the cost is concrete: on the B3 task workload, where qwen3:14b is
+the one model that passed validation (mistral-small3.2:24b, llama3.3:70b and qwen3:8b failed it
+<!-- x2-evalset-tasks-val-v2-mistral-small32-gates --> <!-- x2-evalset-tasks-val-v2-llama33-70b-gates -->
+<!-- x2-evalset-tasks-val-v2-qwen3-8b-gates -->), qwen3:14b's share of
 tasks ending in a wrong state rises from 11.3% (17/150) at the default window to 42.0% (63/150) at 4096, every wrong
 task silent on Ollama
 <!-- x2-evalset-tasks-real-v2-wrong-rate -->, while llama-server at 4096 fails loudly, with HTTP errors <!-- xruntime-llamacpp-wrong-rate -->. Fourth, the runtime's defaults and backend decide how often this happens:
@@ -427,6 +432,32 @@ native window. The simulated-constraint version, with the window capped at 8192 
 <!-- pending row: b5-sim-constraint, no number cited -->, and the constrained platforms have not run this comparison
 <!-- b5-verdict -->.
 
+**What the KV setting loads, and whether output changes.** For qwen3:14b at its 40960 window we checked that each
+setting loaded what it names. The server log reported K and V types f16, q8_0 and q4_0 for the f16 with flash
+attention, q8_0 and q4_0 settings, with the KV variable in the config line; the default setting's log names no KV
+type, but its `/api/ps` size equals that of f16 with flash attention to the byte <!-- kv-precision-evidence -->. The
+`/api/ps` sizes at load were 15511.5, 12511.6 and 10911.6 MiB for f16, q8_0 and q4_0; their differences give KV
+buffers of 6400, 3400 and 1800 MiB, consistent with 16, 8.5 and 4.5 bits per element (the two f16 estimates differ by
+2.7e-05 relative) <!-- kv-precision-evidence -->. The buffer is derived from these sizes, since no committed log
+holds the runtime's KV size line. Per seed, the median prefill rate rose from 170.8 to 189.6 tok/s at f16 to 2886.5
+to 3316.3 tok/s at q8_0 and 2991.9 to 3037.5 tok/s at q4_0, and the median decode rate from 8.23 to 8.87 tok/s to
+13.69 to 14.20 and 15.76 to 15.83 tok/s <!-- kv-precision-evidence -->. The q8_0 and q4_0 session means agree at one
+decimal (75.4 min), but per seed they differ (74.7, 81.1 and 70.2 against 68.7, 76.5 and 80.9 min) with different
+completion-token counts, so the match is a coincidence of three-seed means, not a cap or a copied value
+<!-- kv-precision-evidence -->. Under greedy decoding, over turns whose first-call prompt was identical on both
+sides, f16 and f16 with flash attention matched exactly on 120/120 turns; f16 and q8_0 matched exactly on 103/105
+comparable turns (98.1%), with tool calls agreeing on 104/105 (99.0%) and a first divergence at turn 30 and turn 35
+in two seeds and none in the third <!-- kv-output-agreement -->. q4_0 changed the trajectory early: against f16 only
+5 of 120 turns were comparable, with the first divergence at turn 1 or 2 in every seed, and 2/5 matched exactly
+<!-- kv-output-agreement -->. On this workload q8_0 left the output nearly unchanged and q4_0 did not.
+
+**Planned: KV precision and flash attention on llama-server.** Ollama cannot run a quantized KV cache with flash
+attention off, so the KV by flash-attention square above has an empty cell. A pre-registered follow-up on
+llama-server, which sets the K type, the V type and flash attention separately, fills it with a K-only quantized
+cell (that build requires flash attention for a quantized V cache) at the same 40960 window, over the 24-turn prefix
+of the same sessions <!-- design: harness/kv_fa_llamacpp.py -->. It has not run, and we cite no result from it
+<!-- pending row: kv-fa-interaction-llamacpp, no number cited -->.
+
 **Install path and first-call stall.** Two further runtime choices change behaviour without changing the
 weights. Installing qwen3-4b-2507 from a bare model file instead of with the library template changed native tool
 calls on the first call from 11/30 to 2/30, while task-tool correctness stayed at 5/30
@@ -506,6 +537,20 @@ independent, are +14.7 to +33.3 at 8192 and +21.3 to +40.0 at 4096 <!-- x2-evals
 reached the task end state on 80/90 <!-- x2-evalset-val-v2-gates --> validation turns, below the bar, so absolute
 wrong rates include baseline errors.
 
+**Replication on llama-server.** We repeated the protocol check for qwen3:14b on a stock llama-server (llama.cpp),
+five sessions per arm, at the server's default window, at 4096 and at an explicit 40960
+<!-- xruntime-llamacpp-wrong-rate -->. The default loaded 40960. Wrong task turns were 8.0% (12/150) at the default
+and at 40960, and 100.0% (150/150) at 4096, +92.0 points over the default (95% CI +88.7 to +94.7, session bootstrap)
+<!-- xruntime-llamacpp-wrong-rate -->. At 4096 no wrong turn was silent: by the server's log, 60 were rejected as
+over the window, 3 stopped at the context limit and 87 ended in another error, and 3.3% of task turns completed a
+tool round, against 97.3% at the default <!-- xruntime-llamacpp-wrong-rate -->. The log-event classifier did not pass
+both of its validation probes (the generation-over-window probe produced no event), so we count silence by the
+harness's definition, a wrong turn with no HTTP error on any call: 0 at 4096 and 12 at the default
+<!-- xruntime-llamacpp-wrong-rate -->. With the window fixed at 40960, llama-server matches Ollama's default-window
+rate, -3.3 points against Ollama's default tier (95% CI -6.7 to +0.0, 5 vs 5 sessions), with 0/150 context-event
+turns <!-- xruntime-default-fixed -->. The window effect replicates across the two runtimes; the silence at 4096 is
+Ollama's.
+
 **Scope: scale and family.** The pre-registered H-scale hypothesis stated that both R2 findings, rule loss at 4096
 and history loss with rules intact at 32768 <!-- H-scale-verdict -->, hold from 30B to 70B, with three seeds per
 cell. qwen3:32b lost rules at 4096 in 2/3 <!-- H-scale-verdict --> sessions but showed history loss with rules intact
@@ -515,6 +560,24 @@ late, at turns 24, 25 and 26 <!-- x2-scale-real-default-tier -->. llama3.3:70b l
 <!-- H-scale-verdict --> at 32768, the pre-registered alternative "resists rule loss" <!-- H-scale-verdict -->. Overall the verdict is mixed: H-scale is not supported
 <!-- H-scale-verdict -->. mistral-small3.2:24b, from another family, also resisted rule loss (0/3 at 4096
 <!-- H-scale-family-verdict -->, history loss 2/3 at 32768) <!-- H-scale-family-verdict -->. Within what we tested: Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. We do not claim rule loss in general.
+Every cross-model result in this subsection is R2 rule-following evidence, not B3 task accuracy. That includes the
+10-seed R2 extensions: for llama3.1:8b, 10/10 sessions failed silently after the window at 4096 against 0/10 at the
+default (excess +1.000), with an excess of +0.500 (95% CI +0.200 to +0.800) at 8192 and none shown at 16384
+<!-- R2-v1b-excess-10seed -->, and the qwen3:8b cell above <!-- R2-qwen3-8b-reversal-10seed -->. B3 task accuracy has
+one valid model, qwen3:14b; mistral-small3.2:24b, llama3.3:70b and qwen3:8b failed its validation
+<!-- x2-evalset-tasks-val-v2-mistral-small32-gates --> <!-- x2-evalset-tasks-val-v2-llama33-70b-gates -->
+<!-- x2-evalset-tasks-val-v2-qwen3-8b-gates -->, so B3 accuracy on three or more models is not met.
+
+**Long tasks, inside the window.** A second workload asks how long tasks fare locally when the window is not
+exceeded. We ran 20 synthetic long-horizon tasks whose trace lengths are matched to public agent traces (10 to
+SWE-Gym step quantiles and 10 to OpenHands traces on nebius-rebench; the tasks are ours, not from those suites) with
+qwen3:14b on the AMD APU, three seeds each <!-- long-task-local-accuracy -->. At the Ollama default (loaded window
+40960) it completed 5/60 tasks (8.3%, Wilson 95% 3.6% to 18.1%), and with a q8_0 KV cache 4/60 (6.7%, 2.6% to
+15.9%); every wrong task was silent, with no step-cap stop and no HTTP error, and the OpenHands-matched stratum was
+0/30 under both settings <!-- long-task-local-accuracy -->. The estimated median final prompt was 5774 and 1578
+tokens in the two strata at the default, well inside the loaded window, so these failures are not window overflow;
+they measure local accuracy on long tasks on this device, and the q8_0 difference (-1.7 points) is descriptive, with
+no test <!-- long-task-local-accuracy -->.
 
 **Table R2-gated and figure spec.**
 
@@ -665,6 +728,18 @@ accepts a stated accuracy gap, or where configuration closes it, which the per-d
 4.5 address and the policy runs on the constrained platforms will test. Step-level escalation stays a narrow middle
 case, since window overflow does not pick out the wrong steps (Section 4.7p).
 
+**Rolling back executed actions before the redo (stand-in).** The 28 tasks that needed a repair of earlier state can
+be addressed by snapshotting the environment and rolling it back before the cloud redo. In a cascaded rollback,
+every earlier wrong task turn of the session is rolled back and replaced by its reference calls, and the cloud model
+then redoes the task: it fixed 28/28 (95% Wilson CI [87.9%, 100.0%]) against a pre-registered target of 25/28, at
+USD 0.8926 billed for the 28 <!-- own-rollback-redo -->. Combined with the full-history redo, 195/197 wrong local
+tasks were fixed (99.0%, 95% Wilson CI [96.4%, 99.7%]); the 2 still wrong were the cloud model's own errors
+<!-- cloud-rescue-combined -->. Replacing earlier turns by their reference calls is a stand-in for a successful
+escalation of each earlier turn, so these 28 are fixed under that assumption, not in a live hybrid deployment
+<!-- own-rollback-redo --> <!-- cloud-rescue-combined -->.
+
+<!-- placeholder: post-run check. Its register rows were not VERIFIED on 2026-10-29; add it here with row IDs once they are. -->
+
 #### 4.7p The runtime's shift rule and the window flag, characterized
 
 **The runtime's context-shift trigger, characterized.** The step that discards the system prompt at the smallest window
@@ -734,8 +809,10 @@ seeds <!-- cost-cut-config-time -->.
 claim here. The tools-on-every-call task workload rests on qwen3:14b alone, under a deviation declared before the data:
 its task end state was 80/90 <!-- x2-evalset-val-v2-gates --> at validation, below the 90% bar, and we proceeded with
 that model only. qwen3:8b (65/90 <!-- x2-evalset-tasks-val-v2-qwen3-8b-gates -->) and llama3.1:8b (72/90
-<!-- x2-evalset-tasks-real-v2-wrong-rate -->) were refused by their gates. A second model, mistral-small3.2:24b, is in
-validation for this workload and has no result yet.
+<!-- x2-evalset-tasks-real-v2-wrong-rate -->) were refused by their gates, and mistral-small3.2:24b and llama3.3:70b
+also failed validation for this workload <!-- x2-evalset-tasks-val-v2-mistral-small32-gates -->
+<!-- x2-evalset-tasks-val-v2-llama33-70b-gates -->. B3 task accuracy therefore has one valid model; the cross-model
+results are R2 rule-following evidence, not B3 task accuracy.
 
 **Cost figures.** Cloud cost per real agent task is priced from traces, not executed <!-- cloud-cost-per-real-task -->,
 and its caching case is an assumption. The hybrid comparison prices an escalated task at the measured full-history redo cost for the mid-tier
@@ -755,7 +832,7 @@ rate measured the token budget, not the cloud model. We cite no fix rate or cost
 On Ollama, local LLM agents lose context without telling anyone. On every platform we measured, Ollama trims, shifts
 or cuts a conversation that outgrows the window, and the request still succeeds. A stock llama-server at a 4096 window
 instead fails loudly, with an HTTP error on every wrong task turn, while the 4096 effect on wrong tasks replicates
-there (+92.0 points, 95% CI +88.7 to +94.7) <!-- xruntime-llamacpp-wrong-rate -->. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss depends on the model as well as the window, and we do not claim it in general. The window is often not the user's
+there (+92.0 points, 95% CI +88.7 to +94.7) <!-- xruntime-llamacpp-wrong-rate -->. Rule loss appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and not in llama3.3:70b or mistral-small3.2:24b (0 of 3 each) <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. History loss appears in all of them <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss depends on the model as well as the window, and we do not claim it in general. These cross-model results are R2 rule-following evidence, not B3 task accuracy, which rests on qwen3:14b alone. The window is often not the user's
 choice: the runtime picks it from the detected device, and an unmodified install on an Intel CPU ran agents at 4096
 tokens <!-- t2s-r2-real-cpu -->. That is the window at which, on the AMD APU, qwen3:14b ended 42.0% (63/150) of tasks in a wrong
 state against 11.3% (17/150) at its default, all silently on Ollama 0.34.4 <!-- x2-evalset-tasks-real-v2-wrong-rate -->. Running locally removes

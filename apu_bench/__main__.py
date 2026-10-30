@@ -34,7 +34,18 @@ def main(argv=None) -> int:
     a.add_argument("--server-log", action="append", default=[], metavar="WINDOW=PATH")
     a.add_argument("--cloud-model", default=None)
     a.add_argument("--calib", type=float, default=1.0, help="estimate mode: tokenizer calibration on chars/4")
+    a.add_argument("--onepage", action="store_true", help="also write onepage.md and onepage.html (apu_bench/onepage.py)")
+    a.add_argument("--cost-bound", type=float, default=None, help="one-page rule: escalation USD per 100 tasks")
+    e = sub.add_parser("examples", help="one-page audit report on this repo's own recorded runs (offline)")
+    e.add_argument("--out", required=True)
+    e.add_argument("--cost-bound", type=float, default=None)
     args = ap.parse_args(argv)
+    if args.cmd == "examples":
+        from apu_bench import onepage as OP
+        done = OP.examples(REPO, args.out, args.cost_bound)
+        for name, p in done.items():
+            print(name + ": " + (p["md"].split("**Recommended setting.** ")[1].split("\n")[0]))
+        return 0
     if args.cmd == "run":
         res = B.run(args.profile, args.subset, args.out, args.runtime, args.execute, args.rules_from,
                     argv=sys.argv if argv is None else argv)
@@ -50,6 +61,11 @@ def main(argv=None) -> int:
     out.mkdir(parents=True, exist_ok=True)
     (out / "audit.json").write_text(json.dumps(res, indent=1, default=str) + "\n", encoding="utf-8")
     (out / "audit.md").write_text(A.report_md(res) + "\n", encoding="utf-8")
+    if args.onepage:
+        from apu_bench import onepage as OP
+        p = OP.page(res, args.cost_bound, source=args.sessions)
+        (out / "onepage.md").write_text(p["md"], encoding="utf-8")
+        (out / "onepage.html").write_text(p["html"], encoding="utf-8")
     print(A.report_md(res))
     return 0
 
