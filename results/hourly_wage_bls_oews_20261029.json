@@ -1,0 +1,27 @@
+{
+ "record": "external_input",
+ "label": "EXTERNAL INPUT (published BLS figure, not a measurement from this repo)",
+ "quantity": "Mean hourly wage, Software Developers (SOC 15-1252), national, all industries",
+ "units": "USD per hour",
+ "value_usd_per_hour": 71.20,
+ "mean_annual_wage_usd": 148100,
+ "median_hourly_wage_usd": 65.38,
+ "employment": 1687890,
+ "reference_period": "May 2025 (OEWS annual estimate, period A01 of year 2025)",
+ "source": "U.S. Bureau of Labor Statistics, Occupational Employment and Wage Statistics (OEWS), national estimates",
+ "series": {
+  "OEUN000000000000015125203": "Hourly mean wage (datatype 03) = 71.20",
+  "OEUN000000000000015125204": "Annual mean wage (datatype 04) = 148100",
+  "OEUN000000000000015125208": "Hourly median wage (datatype 08) = 65.38",
+  "OEUN000000000000015125201": "Employment (datatype 01) = 1687890"
+ },
+ "url": "https://api.bls.gov/publicAPI/v2/timeseries/data/OEUN000000000000015125203",
+ "series_title_raw": "OEUN000000000000015125203 U N 000000 151252 03 00 0000000 00--01 Hourly mean wage for Software Developers in All Industries in the United States 2025 A01 2025 A01 (https://download.bls.gov/pub/time.series/oe/oe.series)",
+ "series_code_definitions_url": "https://download.bls.gov/pub/time.series/oe/oe.datatype",
+ "occupation_code_definition": "https://download.bls.gov/pub/time.series/oe/oe.occupation: 151252 Software Developers",
+ "human_readable_page": "https://www.bls.gov/oes/current/oes151252.htm (returned HTTP 403 to a script on 2026-10-29; the BLS public API above served the same OEWS series)",
+ "raw_api_response_03": "{\"seriesID\":\"OEUN000000000000015125203\",\"data\":[{\"year\":\"2025\",\"period\":\"A01\",\"periodName\":\"Annual\",\"latest\":\"true\",\"value\":\"71.20\"}]}",
+ "consistency_check": "71.20 x 2080 h = 148,096, matching the published annual mean 148,100 to rounding",
+ "fetched_utc_date": "2026-10-29",
+ "note": "Differs from row impact-hour-value (USD 64.44/h, OOH 2025 median pay for the combined group Software Developers, Quality Assurance Analysts, and Testers). This file is the OEWS mean for SOC 15-1252 alone."
+}

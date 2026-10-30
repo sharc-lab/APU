@@ -2688,3 +2688,92 @@ Stand-ins for A and C exist only in tests (tests/test_hybrid_full_pipeline.py); 
   or by moving a staged entry (B5 / B6) or into the next confirmed window. It must not displace the staged plan
   without the operator's say. The AMD run fits on evo-x2 between jobs (under 1 h at the high case).
 - Before either run: A and C committed, row hybrid-full-pipeline-v1 computed by replay, and the operator's go.
+
+## PRE-REGISTRATION (2026-10-29): bigger, broader numbers (F1 to F5) and the device database (G1)
+
+**Status: pre-registered, nothing run, nothing queued, no cloud call.** This section is committed before any of the
+rows it names is computed. Targets are fixed here. Every hours and spend figure is an ESTIMATE row computed after
+this commit from existing result files; the row text is the source, never this section.
+
+### F1. hybrid-long-tasks (row `hybrid-long-tasks`, PENDING; estimate row `hybrid-long-tasks-estimate`)
+
+- Question: cloud USD saved by the full hybrid pipeline (route at start, post-run check, rollback, budget) at equal
+  accuracy against all-cloud, on the 20 long-horizon synthetic tasks (harness/longtask_env.py, never SWE-Gym) x
+  seeds 20260901, 20260902, 20260903 = 60 tasks.
+- Arms. (A) all-cloud: claude-haiku-5-5 runs all 60 tasks fresh (row long-task-cloud-priced-vs-billed measured only
+  5 tasks on seed 20260901: Haiku 5/5, Sonnet 3/5). (B) hybrid: qwen3:14b at the Ollama default window
+  (x2_longtask_local_v1 arm ollama_default, recorded, row long-task-local-accuracy) is the local phase, replayed from
+  the recorded file (no new evo-x2 run); the pipeline's route rule and post-run check (built by other agents) are
+  applied to each task; a routed or flagged task is rolled back to its start state and its cost and correctness are
+  those of arm (A)'s fresh run of the same task (a rollback to the start state is a fresh run); a budget cap of
+  USD 2 per job stops new cloud work when reached and counts every unstarted task as wrong.
+- Primary outcome: savings = 1 - (B) cloud billed USD / (A) cloud billed USD, same 60 tasks; accuracy = correct /
+  60 by the long-task deterministic grader.
+- **Target (fixed now):** savings >= 20% AND (B) accuracy >= (A) accuracy - 3 points. MET iff both hold.
+- PENDING until `results/hybrid_long_tasks_v1.jsonl` exists with `run_end`: arm (A) has not been run on 60 tasks and
+  the pipeline's check is not built yet.
+- Estimate row: projected spend (arm A, the only new spend), projected hours, and the savings ceiling (a perfect
+  check that flags exactly the locally wrong tasks) from the recorded local per-task correctness and the all-cloud
+  per-task cost interpolated on reference steps (harness/plan_execute.py::interp, the own-plan-execute-estimate
+  method).
+
+### F2. cuad-pipeline (row `cuad-pipeline`, PENDING; rows `cuad-licence`, `cuad-pipeline-estimate`)
+
+- Operator decision: CUAD for document review, deterministic graders. Licence recorded with its source in
+  `results/cuad_licence_20261029.json` (row cuad-licence).
+- Task material stays out of the repo. Only `results/cuad_manifest_v1.json` is committed: contract titles, the
+  sha256 of each contract text and of the source zip, segment counts, gold pair counts. No clause text, no contract
+  text. The data zip lives outside the repo (stated in the manifest's `local_copy_note`).
+- Subset (harness/cuad_review.py): CUAD v1 test split (102 contracts), 10 categories fixed now: Governing Law,
+  Expiration Date, Renewal Term, Termination For Convenience, Anti-Assignment, Exclusivity, Non-Compete, Cap On
+  Liability, Audit Rights, License Grant. Contracts ordered by sha256("20261029:" + title); the first 40 whose
+  estimated prompt fits 30,000 tokens and the first 10 whose estimated prompt exceeds 40,960 tokens (fewer if the
+  split has fewer; the manifest states how many).
+- Task: the contract is split into numbered segments (non-empty lines, harness/cuad_review.py::segment); the model
+  answers a JSON list of {"category", "segment"}. Gold = every (category, segment) pair whose segment overlaps a
+  CUAD gold answer span of that category.
+- **Grader (deterministic):** a contract is correct iff the recorded set of (category, segment) equals the gold set
+  exactly (an empty gold set requires an empty answer). Secondary: pair-level precision, recall, F1.
+- Arms: (L) local qwen3:14b at the Ollama default window, all contracts; (P) pipeline: route to cloud at start when
+  the estimated prompt exceeds the loaded window, else local, then the post-run shape check (answer parses, every
+  category in the list, every segment id in range) sends failures to cloud, budget cap USD 2; (C) cloud
+  claude-haiku-5-5, all contracts.
+- **Target (fixed now):** (P) exact-set accuracy >= (C) - 5 points at (P) cloud billed USD <= 50% of (C). MET iff
+  both hold. Secondary descriptive: (L) - (C) and the over-window stratum's (L) accuracy.
+- PENDING until `results/cuad_pipeline_v1.jsonl` exists with `run_end`. Not built beyond the grader and manifest.
+
+### F3. xmodel-wrong-rate (row `xmodel-wrong-rate`)
+
+- The operator's words: "repeat the core 4096-vs-default result on at least two more models (qwen3:8b,
+  mistral-small3.2 or llama3.3:70b where data exists)." Labelling, the operator's words: "label it as R2
+  rule-following evidence for the other models, not B3 task accuracy, in the register, paper and
+  pitch-savings-table. Note that '3+ models on B3' is not met."
+- Assembled from existing files only: the B3 v2 qwen3:14b excess (row x2-evalset-tasks-real-v2-wrong-rate), the R2
+  4096-vs-default excess per model pooled over every R2 real file (rows R2-v1b-excess-10seed,
+  R2-qwen3-8b-reversal-10seed), and the refused B3 v2 runs (llama3.1:8b, qwen3:8b, mistral-small3.2:24b,
+  llama3.3:70b). The R2 figure is a gated silent rule-failure session rate, not a wrong-task rate.
+- **Target (fixed now, stated after the source rows were already VERIFIED):** at least 2 models other than
+  qwen3:14b whose 4096-vs-default excess 95% CI excludes 0 on the positive side, on any valid workload (R2 counts,
+  labelled as R2 rule-following evidence). Separately: "3+ models on B3" (B3 v2 valid on 3 or more models) is
+  reported as NOT MET while fewer than 3 models have a valid B3 v2 run.
+- New run, not run here: the only model that passed R2 validation without a valid 4096 excess is qwen3:8b (already
+  10 seeds). A B3 v2 run on another model needs that model to pass B3 v2 validation first; none of the four tried
+  did. Hours of a further R2 run are in the row's text (from measured R2 session minutes).
+
+### F4. time-dollar-value (row `time-dollar-value`)
+
+- USD per task and per run from measured wall time: waiting cost = wall time x the BLS OEWS May 2025 national mean
+  hourly wage for Software Developers (SOC 15-1252), recorded in `results/hourly_wage_bls_oews_20261029.json` (row
+  bls-oews-hourly-wage); machine cost per session = reference list price (row impact-ref-machine-price) / 3-year
+  life (ASSUMPTION, as impact-v2-P2) / sessions per day at 24 h/day and at 8 h/day from the measured session
+  minutes (row cost-cut-config-time). No target (a conversion, not a test).
+
+### F5. pitch-savings-table (row `pitch-savings-table`)
+
+- Per 1,000 tasks/day: cloud USD saved, waiting time, hardware avoided; each cell marked measured or projected with
+  its source rows. Cross-model cells carry the F3 label. No target.
+
+### G1. Device database (analysis/device_db.py, results/device_db.json, docs/DEVICE_DB.md, row `device-db-coverage`)
+
+- One schema: device, runtime, version, model, window, KV, backend, measured ceiling, wrong rate, s/task, each value
+  with its source row or file; missing is null, never guessed. No target.

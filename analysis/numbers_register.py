@@ -8275,6 +8275,440 @@ def compute_kv_fa_interaction_llamacpp_hours(repo):
             "n": "15 sessions"}
 
 
+# ── F1-F5 and G1 (2026-10-29; docs/EXPERIMENTS.md "PRE-REGISTRATION (2026-10-29): bigger, broader numbers (F1 to
+# F5) and the device database (G1)"). Targets were fixed in that section before these rows were computed. Result rows
+# (hybrid-long-tasks, cuad-pipeline) are PENDING until their files exist with run_end; the other rows assemble
+# existing files only. ──
+HLT_FILE = "results/hybrid_long_tasks_v1.jsonl"
+HLT_TARGET_SAVINGS = 0.20
+HLT_TARGET_POINTS = 3.0
+HLT_HIGH_FACTOR = 1.5        # ASSUMPTION, as the other hours rows
+CUAD_FILE = "results/cuad_pipeline_v1.jsonl"
+CUAD_MANIFEST = "results/cuad_manifest_v1.json"
+CUAD_LICENCE = "results/cuad_licence_20261029.json"
+CUAD_TARGET_POINTS = 5.0
+CUAD_TARGET_COST = 0.50
+CUAD_SHAPE_FAIL = {"point": 0.10, "high": 0.30}   # ASSUMPTION: share of locally run contracts failing the shape check
+BLS_OEWS_FILE = "results/hourly_wage_bls_oews_20261029.json"
+R2_SCALE_VALIDATION = "results/x2_r2_scale_validation.jsonl"
+XMODEL_R2_FILES = [R2_REAL_V1_FILE, R2_REAL_V1B_FILE, "results/x2_r2_v1b_seeds_06_10.jsonl",
+                   "results/x2_r2_qwen3_8b_seeds_06_10.jsonl", X2_SCALE_REAL,
+                   "results/x2_r2_family_mistral_small32_real.jsonl"]
+XMODEL_R2_VALIDATION = [R2_VALIDATION_V2_FILE, R2_VALIDATION_V2B_FILE, R2_SCALE_VALIDATION,
+                        "results/x2_r2_family_mistral_small32_validation.jsonl"]
+XMODEL_B3_REFUSED = {   # model -> its B3 v2 real file (each refused at the strict preflight)
+    "llama3.1:8b": X2_EVALSET_TASKS_REAL_V2,
+    "qwen3:8b": "results/x2_evalset_tasks_real_v2_qwen3_8b.jsonl",
+    "mistral-small3.2:24b": "results/x2_evalset_tasks_real_v2_mistral_small32.jsonl",
+    "llama3.3:70b": "results/x2_evalset_tasks_real_v2_llama33_70b.jsonl",
+}
+XMODEL_R2_LABEL = "R2 rule-following evidence (gated silent rule-failure sessions), not B3 task accuracy"
+XMODEL_PROPOSAL_MODEL = "qwen3:32b"
+XMODEL_PROPOSAL_EXTRA = 2    # extra sessions per arm (default, 4096) to reach 5 vs 5
+PER_DAY = 1000
+
+
+def _harness_mod(repo, name):
+    import importlib
+    import sys as _sys
+    _r2_agent_module()
+    p = str(Path(repo) / "harness")
+    if p not in _sys.path:
+        _sys.path.insert(0, p)
+    return importlib.import_module(name)
+
+
+def hybrid_long_tasks_estimate_data(repo) -> dict:
+    """Per-task all-cloud billed USD and seconds (interpolated on reference steps from the 5 measured Haiku tasks), the
+    recorded local per-task outcome (ollama_default arm), and the projected savings, accuracy and target per case."""
+    lt, xl = _longtask_modules()
+    pe = _harness_mod(repo, "plan_execute")
+    cloud = _read_jsonl(repo / LONGTASK_CLOUD_FILE)
+    local = _finished_attempt_rows(_read_jsonl(repo / LONGTASK_LOCAL_FILE))
+    m = pe.measured_inputs(cloud, local)
+    specs = pe.task_specs()
+    table = json.loads((repo / ANTHROPIC_PRICES).read_text(encoding="utf-8"))
+    e = pe.cost_estimate(m, specs, pe.model_rates(table, pe.PLANNER), 0.0)
+    haiku = [r for r in cloud if r.get("record") == "longtask_cloud_task" and r["model_id"] == pe.BASELINE]
+    wall_pts = sorted((r["ref_steps"], r["task_wall_s"], r["task_wall_s"]) for r in haiku)
+    tr = {(r["task_id"], r["seed"]): r for r in xl.task_rows(local, xl.ARMS["ollama_default"]["arm_id"])}
+    tasks = []
+    for tid, seed, s, _n in specs:
+        r = tr.get((tid, seed))
+        if r is None:
+            raise ValueError(f"no local row for {tid} seed {seed}")
+        tasks.append({"task_id": tid, "seed": seed, "ref_steps": s, "usd": pe.interp(m["points"], s, 1),
+                      "cloud_s": pe.interp(wall_pts, s, 1), "local_ok": bool(r["correct"]),
+                      "local_s": r["task_wall_s"], "flag": bool(r.get("over_loaded_window")),
+                      "stratum": r["stratum"]})
+    tot = sum(t["usd"] for t in tasks)
+    n = len(tasks)
+    cloud_acc = sum(1 for r in haiku if r["correct"]) / len(haiku)
+
+    def case(keep):
+        kept = [t for t in tasks if keep(t)]
+        saved = sum(t["usd"] for t in kept) / tot
+        # kept tasks take the local outcome; the rest take all-cloud's (projected at the measured Haiku accuracy)
+        acc = (sum(1 for t in kept if t["local_ok"]) + cloud_acc * (n - len(kept))) / n
+        pts = 100 * (acc - cloud_acc)
+        return {"kept": len(kept), "kept_ok": sum(1 for t in kept if t["local_ok"]), "savings": saved,
+                "accuracy": acc, "points": pts,
+                "target": "MET" if saved >= HLT_TARGET_SAVINGS and pts >= -HLT_TARGET_POINTS else "MISSED"}
+    cases = {"perfect check (ceiling: flags exactly the locally wrong tasks)": case(lambda t: t["local_ok"]),
+             "window-overflow flag only (the measured detector's signal)": case(lambda t: not t["flag"]),
+             "no check (all local)": case(lambda t: True)}
+    cloud_h = sum(t["cloud_s"] for t in tasks) / 3600
+    return {"tasks": tasks, "n": n, "all_cloud_usd_point": tot, "est": e, "cases": cases, "cloud_acc": cloud_acc,
+            "n_haiku": len(haiku), "cloud_h": cloud_h, "local_h": sum(t["local_s"] for t in tasks) / 3600,
+            "n_local_ok": sum(1 for t in tasks if t["local_ok"]), "n_flag": sum(1 for t in tasks if t["flag"]),
+            "ok_strata": sorted({t["stratum"] for t in tasks if t["local_ok"]}), "model": pe.BASELINE}
+
+
+def compute_hybrid_long_tasks_estimate(repo):
+    """ESTIMATE and PROJECTION, not a measurement: hybrid-long-tasks' projected cloud spend (arm A, the only new spend),
+    hours, and the projected savings and accuracy target per check case, from recorded files."""
+    d = hybrid_long_tasks_estimate_data(repo)
+    e = d["est"]
+    pa, hi = e["point"]["all_cloud"], e["high"]["all_cloud"]
+    cs = "; ".join(f"{k}: kept local {c['kept']}/{d['n']} ({c['kept_ok']} correct), savings {100 * c['savings']:.1f}%, "
+                   f"projected accuracy {100 * c['accuracy']:.1f}% ({c['points']:+.1f} points vs all-cloud), target "
+                   f"{c['target']}" for k, c in d["cases"].items())
+    return {"value": (
+        f"ESTIMATE and PROJECTION, not a measurement (nothing run); 20 long-horizon synthetic tasks x 3 seeds = "
+        f"{d['n']} tasks; new cloud spend = arm (A) all-cloud {d['model']} on {d['n']} tasks: billed USD "
+        f"{pa['billed']:.4f}, upper bound USD {pa['upper']:.4f} (high: USD {hi['upper']:.4f}), per-job limit USD 2 "
+        + ("not exceeded" if hi["upper"] <= 2.0 else "exceeded in the high case")
+        + f"; arm (B) adds no cloud spend (a rolled-back task reuses arm A's fresh run of it) and no evo-x2 time (local "
+        f"phase replayed from x2_longtask_local_v1 ollama_default); hours: cloud wall {d['cloud_h']:.2f} h (high "
+        f"{d['cloud_h'] * HLT_HIGH_FACTOR:.2f} h, x {HLT_HIGH_FACTOR} ASSUMPTION) from Haiku task seconds interpolated "
+        f"on reference steps ({d['n_haiku']} measured tasks); a live local re-run would add {d['local_h']:.2f} h of "
+        f"evo-x2 (sum of recorded task_wall_s); local correct {d['n_local_ok']}/{d['n']} (strata "
+        f"{', '.join(d['ok_strata'])}), window-overflow flags {d['n_flag']}/{d['n']}; all-cloud accuracy projected at "
+        f"the measured Haiku {100 * d['cloud_acc']:.0f}% ({d['n_haiku']} tasks, seed 20260901); target (savings >= "
+        f"{100 * HLT_TARGET_SAVINGS:.0f}% at accuracy >= all-cloud - {HLT_TARGET_POINTS:.0f} points) per case: {cs}; "
+        f"savings use all-cloud billed USD per task interpolated on reference steps (sum point USD "
+        f"{d['all_cloud_usd_point']:.4f}, warm-up excluded)"),
+        "n": f"{d['n']} tasks (estimate)"}
+
+
+def compute_hybrid_long_tasks(repo):
+    """hybrid-long-tasks result (PENDING until results/hybrid_long_tasks_v1.jsonl has run_end): savings and accuracy of
+    arm (B) hybrid against arm (A) all-cloud on the same tasks, and the pre-registered target."""
+    rows = _finished_attempt_rows(_read_jsonl(repo / HLT_FILE))
+    tr = [r for r in rows if r.get("record") == "hybrid_long_task"]
+    a = [r for r in tr if r["arm"] == "all_cloud"]
+    b = [r for r in tr if r["arm"] == "hybrid"]
+    if not a or not b:
+        raise ValueError("missing arm rows")
+    ua, ub = sum(r["usd_billed"] for r in a), sum(r["usd_billed"] for r in b)
+    aa, ab = sum(r["correct"] for r in a) / len(a), sum(r["correct"] for r in b) / len(b)
+    sv, pts = 1 - ub / ua, 100 * (ab - aa)
+    ok = sv >= HLT_TARGET_SAVINGS and pts >= -HLT_TARGET_POINTS
+    return {"value": f"all-cloud {sum(r['correct'] for r in a)}/{len(a)}, billed USD {ua:.4f}; hybrid "
+                     f"{sum(r['correct'] for r in b)}/{len(b)}, billed USD {ub:.4f}; savings {100 * sv:.1f}%, accuracy "
+                     f"{pts:+.1f} points; target {'MET' if ok else 'MISSED'}", "n": f"{len(a) + len(b)} task runs"}
+
+
+def compute_cuad_licence(repo):
+    """EXTERNAL INPUT: the CUAD licence as recorded from its official source."""
+    d = json.loads((repo / CUAD_LICENCE).read_text(encoding="utf-8"))
+    return {"value": f"EXTERNAL INPUT: {d['dataset']}, {d['publisher']}: licence {d['licence']} ({d['licence_url']}); "
+                     f"official source {d['official_source']}: {d['official_source_finding']}; second source "
+                     f"{d['second_source']}: {d['second_source_finding']}; {d['github_repo_finding']}; obligations: "
+                     f"{d['obligations']}; fetched {d['fetched_utc_date']}", "n": "1"}
+
+
+def cuad_estimate_data(repo) -> dict:
+    cr = _harness_mod(repo, "cuad_review")
+    pe = _harness_mod(repo, "plan_execute")
+    man = json.loads((repo / CUAD_MANIFEST).read_text(encoding="utf-8"))
+    table = json.loads((repo / ANTHROPIC_PRICES).read_text(encoding="utf-8"))
+    kv = _analysis_module(repo, "kv_evidence")
+    ev = kv.evidence(repo)
+    a = [v for (p, _s), v in ev["ev"].items() if p == "a"]
+    pre = sum(v["prefill_p90"] for v in a) / len(a)
+    dec = sum(v["decode_median"] for v in a) / len(a)
+    est = cr.estimate(man, pe.model_rates(table, pe.BASELINE), pre, dec)
+    return {"man": man, "est": est, "prefill": pre, "decode": dec, "n_sessions": len(a), "cr": cr,
+            "model": pe.BASELINE}
+
+
+def compute_cuad_pipeline_estimate(repo):
+    """ESTIMATE, not a measurement: cuad-pipeline's cloud USD (upper bound) and evo-x2 hours per arm from the committed
+    manifest's token estimates, the Anthropic price table and the measured qwen3:14b prefill / decode rates."""
+    d = cuad_estimate_data(repo)
+    man, est, cr = d["man"], d["est"], d["cr"]
+    parts = []
+    for c in ("point", "high"):
+        x = est[c]
+        fit_usd = x["cloud_arm_usd"] - x["pipeline_routed_usd"]
+        p_usd = x["pipeline_routed_usd"] + CUAD_SHAPE_FAIL[c] * fit_usd
+        parts.append(f"{c}: (C) cloud arm USD {x['cloud_arm_usd']:.4f}; (P) pipeline cloud USD {p_usd:.4f} (routed "
+                     f"{x['pipeline_routed_usd']:.4f} + shape-check failures at share {CUAD_SHAPE_FAIL[c]} ASSUMPTION), "
+                     f"(P)/(C) {p_usd / x['cloud_arm_usd']:.3f}; total new spend USD "
+                     f"{x['cloud_arm_usd'] + p_usd:.4f}; evo-x2 (L) arm {x['local_arm_h']:.2f} h ((P)'s local part "
+                     f"{x['pipeline_local_h']:.2f} h is replayed from (L), no extra time)")
+    return {"value": (
+        f"ESTIMATE, not a measurement (nothing run, no cloud call); CUAD v1 test split, {est['n']} contracts in "
+        f"{CUAD_MANIFEST} ({est['n'] - est['n_over']} fit {man['fit_tokens']} est tokens, {est['n_over']} over the "
+        f"{man['window']} window; the split has {man['n_over_window_in_split']} over-window contracts of "
+        f"{man['n_contracts_in_split']}), {len(man['categories'])} categories, one call per contract per arm; cloud "
+        f"{d['model']} upper bound (all input uncached), {man['token_estimate']}, output {cr.OUTPUT_TOKENS['point']} "
+        f"(high {cr.OUTPUT_TOKENS['high']}) tokens ASSUMPTION; local qwen3:14b prompt capped at the window, measured "
+        f"prefill {d['prefill']:.1f} tok/s (B5 policy (a) per-session p90, mean of {d['n_sessions']} sessions, row "
+        f"kv-precision-evidence; high = half, ASSUMPTION) and decode {d['decode']:.2f} tok/s (median); "
+        + "; ".join(parts) + f"; gold pairs in the subset {sum(c['gold_pairs'] for c in man['contracts'])}, empty-gold "
+        f"contracts {sum(1 for c in man['contracts'] if c['gold_empty'])}"),
+        "n": f"{est['n']} contracts (estimate)"}
+
+
+def compute_cuad_pipeline(repo):
+    """cuad-pipeline result (PENDING until results/cuad_pipeline_v1.jsonl has run_end): exact-set accuracy and billed
+    USD per arm (L, P, C), and the pre-registered target."""
+    rows = _finished_attempt_rows(_read_jsonl(repo / CUAD_FILE))
+    tr = [r for r in rows if r.get("record") == "cuad_contract"]
+    arms = {a: [r for r in tr if r["arm"] == a] for a in ("local", "pipeline", "cloud")}
+    if not all(arms.values()):
+        raise ValueError("missing arm rows")
+    acc = {a: sum(r["correct"] for r in g) / len(g) for a, g in arms.items()}
+    usd = {a: sum(r.get("usd_billed", 0.0) for r in g) for a, g in arms.items()}
+    pts = 100 * (acc["pipeline"] - acc["cloud"])
+    ratio = usd["pipeline"] / usd["cloud"] if usd["cloud"] else float("inf")
+    ok = pts >= -CUAD_TARGET_POINTS and ratio <= CUAD_TARGET_COST
+    return {"value": "; ".join(f"{a}: exact-set {sum(r['correct'] for r in g)}/{len(g)}, billed USD {usd[a]:.4f}"
+                               for a, g in arms.items())
+                     + f"; pipeline - cloud {pts:+.1f} points, cost ratio {ratio:.3f}; target {'MET' if ok else 'MISSED'}",
+            "n": f"{len(tr)} contract runs"}
+
+
+def xmodel_data(repo) -> dict:
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    ev = _harness_mod(repo, "x2_r2_evalset")
+    ag = _r2_agent_module()
+    rep = rr.build_combined([repo / f for f in XMODEL_R2_FILES], validation_paths=[repo / f for f in XMODEL_R2_VALIDATION])
+    x = rr.excess_over_default(rep)
+    r2 = {}
+    for m, v in x["per_tier"]["num_ctx_4096"].items():
+        if m == "overall":
+            continue
+        lo, hi = v["ci95"]
+        r2[m] = {"k": round(v["rate"] * v["n_tier"]), "n": v["n_tier"], "k0": round(v["default_rate"] * v["n_default"]),
+                 "n0": v["n_default"], "excess": v["excess"], "lo": lo, "hi": hi,
+                 "excludes_0": lo is not None and lo > 0}
+    no_default = sorted(k.split("|")[1] for k in rep["table"] if k.startswith("num_ctx_4096|")
+                        and k.split("|")[1] not in r2)
+    o = ev.tasks_real_v2_outcome(ev.ag.read_rows(repo / X2_EVALSET_TASKS_REAL_V2), models=(V2_PROTOCOL_MODEL,))
+    b3 = o["models"][V2_PROTOCOL_MODEL]
+    b3x = b3["excess_over_default"]["per_tier"]["ollama_ctx_4096"]
+    refused = {}
+    for m, f in XMODEL_B3_REFUSED.items():
+        rows = ev.ag.read_rows(repo / f)
+        om = ev.tasks_real_v2_outcome(rows, models=(m,))["models"].get(m) or {}
+        refused[m] = om.get("refused", False)
+    b3_valid = [V2_PROTOCOL_MODEL] if b3["valid"] else []
+    b3_valid += [m for m, r in refused.items() if not r]
+    # proposed further R2 run: measured qwen3:32b session hours per arm in the scale run
+    srows = ag.read_rows(repo / X2_SCALE_REAL)
+    hours = {}
+    for arm in ("ollama_default_call2_notools", "ollama_ctx_4096_call2_notools"):
+        hs = []
+        for s in ag.completed_sessions(srows):
+            if s["model_id"] == XMODEL_PROPOSAL_MODEL and s["arm_id"] == arm:
+                t = [r for r in srows if r.get("record") == "r2a_turn" and r.get("attempt_id") == s["attempt_id"]]
+                hs.append(sum(r.get("turn_wall_s") or 0 for r in t) / 3600)
+        hours[arm] = hs
+    others = {m: v for m, v in r2.items() if m != V2_PROTOCOL_MODEL}
+    met = sum(1 for v in others.values() if v["excludes_0"])
+    return {"r2": r2, "no_default": no_default, "b3": b3, "b3x": b3x, "refused": refused, "b3_valid": b3_valid,
+            "hours": hours, "met": met, "target": "MET" if met >= 2 else "MISSED"}
+
+
+def compute_xmodel_wrong_rate(repo):
+    """The core 4096-vs-default result per model from existing files: qwen3:14b on B3 v2 (wrong-task rate), every
+    other model as R2 rule-following evidence (gated silent sessions), the refused B3 v2 runs, the pre-registered
+    target, '3+ models on B3', and the hours of the proposed further R2 run (not run)."""
+    d = xmodel_data(repo)
+    b3, x = d["b3"], d["b3x"]
+    t4, t0 = b3["tiers"]["ollama_ctx_4096"], b3["tiers"]["ollama_default"]
+    lo, hi = x["ci95"]
+    segs = [f"B3 v2 task accuracy (wrong-task rate, 5 seeds), {V2_PROTOCOL_MODEL} only: 4096 {_frac(t4['wrong'], t4['n_task_turns'])} "
+            f"vs default {_frac(t0['wrong'], t0['n_task_turns'])}, excess {100 * x['excess']:+.1f} points (95% CI "
+            f"{100 * lo:+.1f} to {100 * hi:+.1f}), valid {b3['valid']}"]
+    r2s = []
+    for m, v in sorted(d["r2"].items()):
+        r2s.append(f"{m} 4096 {v['k']}/{v['n']} vs default {v['k0']}/{v['n0']} sessions, excess {v['excess']:+.3f} "
+                   f"(95% CI {v['lo']:+.3f} to {v['hi']:+.3f}), " + ("CI excludes 0" if v["excludes_0"] else
+                                                                     "CI includes 0, no excess shown"))
+    segs.append(f"{XMODEL_R2_LABEL}, R2 workload (40-turn sessions; qwen3:32b from the H-scale run, 3 seeds; llama3.3:70b and mistral-small3.2:24b from the H-scale and family runs): "
+                + "; ".join(r2s))
+    if d["no_default"]:
+        segs.append("R2 4096 sessions but no default-tier session (no excess computable): " + ", ".join(d["no_default"]))
+    segs.append("no valid B3 v2 run (refused at the strict preflight, rows x2-evalset-tasks-real-v2-*): "
+                + ", ".join(m for m, r in d["refused"].items() if r))
+    others = [m for m in d["r2"] if m != V2_PROTOCOL_MODEL]
+    segs.append(f"target (at least 2 models other than {V2_PROTOCOL_MODEL} with a 4096 excess CI excluding 0, R2 "
+                f"counts): {d['met']} of {len(others)} ({', '.join(m for m in others if d['r2'][m]['excludes_0']) or 'none'})"
+                f", target {d['target']}")
+    segs.append(f"3+ models on B3: {'MET' if len(d['b3_valid']) >= 3 else 'NOT MET'} ({len(d['b3_valid'])} model with a "
+                f"valid B3 v2 run: {', '.join(d['b3_valid'])})")
+    h0, h4 = d["hours"]["ollama_default_call2_notools"], d["hours"]["ollama_ctx_4096_call2_notools"]
+    if h0 and h4:
+        pt = XMODEL_PROPOSAL_EXTRA * (sum(h0) / len(h0) + sum(h4) / len(h4))
+        hh = XMODEL_PROPOSAL_EXTRA * (max(h0) + max(h4))
+        segs.append(f"proposed further run (not run, not queued): R2 {XMODEL_PROPOSAL_MODEL} +{XMODEL_PROPOSAL_EXTRA} seeds "
+                    f"at default and at 4096 (to 5 vs 5), ESTIMATE {pt:.1f} h of evo-x2 (high {hh:.1f} h, the largest "
+                    f"measured session per arm) from measured session hours (default {', '.join(f'{h:.2f}' for h in h0)}"
+                    f"; 4096 {', '.join(f'{h:.2f}' for h in h4)})")
+    return {"value": "; ".join(segs), "n": f"{len(d['r2'])} models on R2, 1 on B3 v2"}
+
+
+def compute_bls_oews_hourly_wage(repo):
+    """EXTERNAL INPUT: the BLS OEWS mean hourly wage for Software Developers, as recorded with its source."""
+    d = json.loads((repo / BLS_OEWS_FILE).read_text(encoding="utf-8"))
+    return {"value": f"EXTERNAL INPUT (not measured): USD {d['value_usd_per_hour']:.2f}/h, "
+                     f"{d['quantity']}; {d['reference_period']}; annual mean USD {d['mean_annual_wage_usd']:,}, median "
+                     f"hourly USD {d['median_hourly_wage_usd']:.2f}; {d['source']}; series "
+                     f"{', '.join(d['series'])}; {d['url']}; fetched {d['fetched_utc_date']}", "n": "1"}
+
+
+def time_dollar_data(repo) -> dict:
+    im = _impact()
+    wage = json.loads((repo / BLS_OEWS_FILE).read_text(encoding="utf-8"))["value_usd_per_hour"]
+    machine = im.ref_machine(repo)["usd"]
+    lat = im.task_latency_by_policy(repo)
+    cc = cost_cut_config_time_data(repo)["models"]
+    lt, xl = _longtask_modules()
+    local = _finished_attempt_rows(_read_jsonl(repo / LONGTASK_LOCAL_FILE))
+    ltl = [r["task_wall_s"] for r in xl.task_rows(local, xl.ARMS["ollama_default"]["arm_id"])]
+    cloud = [r for r in _read_jsonl(repo / LONGTASK_CLOUD_FILE) if r.get("record") == "longtask_cloud_task"]
+    ltc = {m: [r["task_wall_s"] for r in cloud if r["model_id"] == m] for m in sorted({r["model_id"] for r in cloud})}
+    usd_day = machine / (im.MACHINE_LIFE_YEARS * 365.0)
+    sess = {}
+    for model, x in cc.items():
+        for lab, mins in (("default (a)", x["default_min"]), (f"({x['best']}) {x['best_name']}", x["best_min"])):
+            sess[(model, lab)] = {"min": mins, "per_day_24": 24 * 60 / mins, "per_day_8": 8 * 60 / mins,
+                                  "wait_usd": mins / 60 * wage}
+    return {"wage": wage, "machine": machine, "life": im.MACHINE_LIFE_YEARS, "usd_day": usd_day, "lat": lat,
+            "lt_local": ltl, "lt_cloud": ltc, "sess": sess}
+
+
+def compute_time_dollar_value(repo):
+    """USD per task and per run from measured wall time: waiting at the BLS OEWS mean hourly wage, and machine cost
+    per session from the reference list price over an ASSUMED 3-year life at 24 h/day and 8 h/day."""
+    d = time_dollar_data(repo)
+    w = d["wage"]
+    tasks = []
+    lat = d["lat"]
+    if lat.get("status") == "VERIFIED":
+        for r in lat["all_cloud"]:
+            tasks.append(f"B3 v2 all-cloud {r['model']} median {r['median_s']:.2f} s = USD {r['median_s'] / 3600 * w:.4f}")
+        for r in lat["local"]:
+            tasks.append(f"B3 v2 local qwen3:14b {r['tier']} median {r['median_s']:.2f} s = USD "
+                         f"{r['median_s'] / 3600 * w:.4f}")
+    ml = sum(d["lt_local"]) / len(d["lt_local"])
+    tasks.append(f"long task local qwen3:14b ollama_default mean {ml:.1f} s = USD {ml / 3600 * w:.4f} "
+                 f"(n={len(d['lt_local'])})")
+    for m, xs in d["lt_cloud"].items():
+        mc = sum(xs) / len(xs)
+        tasks.append(f"long task {m} mean {mc:.1f} s = USD {mc / 3600 * w:.4f} (n={len(xs)}, 5 tasks of seed 20260901, not the local 60-task mix)")
+    runs = []
+    for (model, lab), s in d["sess"].items():
+        runs.append(f"evo-x2 {model} {lab}: {s['min']:.1f} min per R2 session = waiting USD {s['wait_usd']:.2f}; "
+                    f"{s['per_day_24']:.2f} sessions/machine/day at 24 h/day = machine USD "
+                    f"{d['usd_day'] / s['per_day_24']:.2f} per session; {s['per_day_8']:.2f} at 8 h/day = USD "
+                    f"{d['usd_day'] / s['per_day_8']:.2f} per session")
+    return {"value": (
+        f"CONVERSION of measured wall time (no new measurement); waiting cost at USD {w:.2f}/h (row "
+        f"bls-oews-hourly-wage, BLS OEWS May 2025 mean, Software Developers) applies only when a person waits; machine "
+        f"USD {d['machine']:,.0f} (row impact-ref-machine-price, list price) / {d['life']:.0f}-year life (ASSUMPTION) = "
+        f"USD {d['usd_day']:.2f}/machine/day, one session at a time, no power, no support; per task (rows "
+        f"task-latency-by-policy, long-task-local-accuracy, long-task-cloud-priced-vs-billed): " + "; ".join(tasks)
+        + "; per run (row cost-cut-config-time): " + " / ".join(runs)),
+        "n": f"{len(tasks)} task cells, {len(runs)} run cells"}
+
+
+def pitch_data(repo) -> dict:
+    im = _impact()
+    h = im.hybrid_savings(repo, _impact_v2(repo)["rows"]["P2"])
+    hl = hybrid_long_tasks_estimate_data(repo)
+    td = time_dollar_data(repo)
+    xm = xmodel_data(repo)
+    return {"h": h, "hl": hl, "td": td, "xm": xm}
+
+
+def compute_pitch_savings_table(repo):
+    """Per 1,000 tasks/day: cloud USD saved, waiting time and hardware avoided, each cell marked measured or projected
+    with its source rows; the cross-model cell carries the operator's R2 label."""
+    d = pitch_data(repo)
+    h, hl, td, xm = d["h"], d["hl"], d["td"], d["xm"]
+    cells = []
+    if h.get("status") == "VERIFIED":
+        for c in h["cells"]:
+            if c["device"] != "evo-x2" or c["label"] != "measured":
+                continue
+            p = c["policies"]
+            cells.append(
+                f"[measured] B3 v2 short tasks, evo-x2 {c['tier']} vs {c['model']}: all-cloud USD "
+                f"{p['all_cloud']['usd_task'] * PER_DAY:.2f}/day; hybrid with the measured flag saves USD "
+                f"{p['hybrid_flag']['savings_task'] * PER_DAY:.2f}/day at {p['hybrid_flag']['delta_points']:+.1f} points "
+                f"(not equal accuracy); [projected] perfect-check ceiling saves USD "
+                f"{p['hybrid_perfect']['savings_task'] * PER_DAY:.2f}/day at {p['hybrid_perfect']['delta_points']:+.1f} "
+                f"points (no such detector) (row hybrid-savings-v1)")
+    ce = hl["cases"]["perfect check (ceiling: flags exactly the locally wrong tasks)"]
+    per_task = hl["all_cloud_usd_point"] / hl["n"]
+    cells.append(f"[projected] long tasks vs {hl['model']}: all-cloud USD {per_task * PER_DAY:.2f}/day (interpolated); "
+                 f"perfect-check ceiling saves {100 * ce['savings']:.1f}% = USD {ce['savings'] * per_task * PER_DAY:.2f}"
+                 f"/day, target {ce['target']} (row hybrid-long-tasks-estimate)")
+    lat = td["lat"]
+    if lat.get("status") == "VERIFIED":
+        cl = {r["model"]: r["median_s"] for r in lat["all_cloud"]}
+        lo = {r["tier"]: r["median_s"] for r in lat["local"]}
+        for m, s in cl.items():
+            dh = (lo["ollama_default"] - s) * PER_DAY / 3600
+            cells.append(f"[measured] waiting, B3 v2 local qwen3:14b ollama_default vs {m}: {dh:+.2f} h/day "
+                         f"(medians {lo['ollama_default']:.2f} vs {s:.2f} s) = USD {dh * td['wage']:+.2f}/day if a person "
+                         f"waits (rows task-latency-by-policy, bls-oews-hourly-wage)")
+    ml = sum(td["lt_local"]) / len(td["lt_local"])
+    for m, xs in td["lt_cloud"].items():
+        dh = (ml - sum(xs) / len(xs)) * PER_DAY / 3600
+        cells.append(f"[measured, unequal task mix: local mean over 60 tasks, cloud mean over 5 tasks of seed 20260901] waiting, long tasks local vs {m}: {dh:+.2f} h/day (rows "
+                     "long-task-local-accuracy, long-task-cloud-priced-vs-billed)")
+    for model in sorted({k[0] for k in td["sess"]}):
+        ss = [v for k, v in td["sess"].items() if k[0] == model]
+        a, b = ss[0], ss[1]
+        ma, mb = -(-PER_DAY // a["per_day_24"]), -(-PER_DAY // b["per_day_24"])
+        cells.append(f"[measured minutes, ASSUMED one session at a time and {td['life']:.0f}-year life] hardware, per "
+                     f"1,000 R2 sessions/day on {model}: {ma:.0f} machines at the default vs {mb:.0f} at the fastest "
+                     f"setting, {ma - mb:.0f} avoided = USD {(ma - mb) * td['machine']:,.0f} list price, USD "
+                     f"{(ma - mb) * td['usd_day']:,.2f}/day (rows cost-cut-config-time, impact-ref-machine-price)")
+    others = [m for m in xm["r2"] if m != V2_PROTOCOL_MODEL]
+    cells.append(f"[measured, scope] the 4096 hazard beyond qwen3:14b is {XMODEL_R2_LABEL}: excess CI excludes 0 for "
+                 f"{', '.join(m for m in others if xm['r2'][m]['excludes_0']) or 'none'} of {', '.join(others)}; 3+ "
+                 f"models on B3: {'MET' if len(xm['b3_valid']) >= 3 else 'NOT MET'} (row xmodel-wrong-rate)")
+    return {"value": f"per {PER_DAY:,} tasks/day, each cell marked: " + "; ".join(cells), "n": f"{len(cells)} cells"}
+
+
+DEVICE_DB_JSON = "results/device_db.json"
+
+
+def compute_device_db_coverage(repo):
+    """G1 device database (analysis/device_db.py): entries, devices, runtimes, models and how many entries carry each
+    schema field (null = not measured or not sourced), rebuilt from the result files; and whether the committed
+    results/device_db.json matches the rebuild."""
+    ddb = _analysis_module(repo, "device_db")
+    db = ddb.build(repo)
+    cov = ddb.coverage(db)
+    committed = json.loads((repo / DEVICE_DB_JSON).read_text(encoding="utf-8"))
+    same = json.loads(json.dumps(db, default=str)) == committed
+    return {"value": f"{cov['n']} entries; devices {', '.join(cov['devices'])}; runtimes {', '.join(cov['runtimes'])}; "
+                     f"models {', '.join(cov['models'])}; fields filled (of {cov['n']}): "
+                     + ", ".join(f"{k} {v}" for k, v in cov["filled"].items())
+                     + f"; not included: {'; '.join(db['not_included'])}; committed {DEVICE_DB_JSON} matches the "
+                     f"rebuild: {same}", "n": f"{cov['n']} entries"}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -9667,6 +10101,61 @@ NUMBER_ENTRIES = [
      "compute": compute_kv_fa_interaction_llamacpp_hours,
      "data_files": [B5_X2_FILE, B5_FA_FILE, XRT_FILE, X2_EVALSET_TASKS_REAL_V2],
      "script_function": "harness/kv_fa_llamacpp.py::hours_estimate"},
+    {"claim_id": "hybrid-long-tasks", "description": "Full hybrid pipeline (route, post-run check, rollback, budget) "
+     "vs all-cloud claude-haiku-5-5 on the 20 long-horizon synthetic tasks x 3 seeds: savings at equal accuracy; "
+     "target savings >= 20% at accuracy >= all-cloud - 3 points; PENDING until the file has run_end (arm A not run on "
+     "60 tasks, pipeline check not built)",
+     "compute": compute_hybrid_long_tasks, "data_files": [HLT_FILE, LONGTASK_LOCAL_FILE], "pending_ok": True,
+     "require_run_end": [HLT_FILE], "script_function": "analysis/numbers_register.py::compute_hybrid_long_tasks"},
+    {"claim_id": "hybrid-long-tasks-estimate", "description": "ESTIMATE and PROJECTION, not a measurement: "
+     "hybrid-long-tasks' projected spend and hours and the projected savings and target per check case, from the "
+     "long-task cloud and local files and the own-plan-execute interpolation",
+     "compute": compute_hybrid_long_tasks_estimate,
+     "data_files": [LONGTASK_CLOUD_FILE, LONGTASK_LOCAL_FILE, ANTHROPIC_PRICES],
+     "script_function": "analysis/numbers_register.py::hybrid_long_tasks_estimate_data"},
+    {"claim_id": "cuad-licence", "description": "EXTERNAL INPUT: CUAD v1 licence from its official source",
+     "compute": compute_cuad_licence, "data_files": [CUAD_LICENCE],
+     "script_function": "analysis/numbers_register.py::compute_cuad_licence"},
+    {"claim_id": "cuad-pipeline-estimate", "description": "ESTIMATE, not a measurement: cuad-pipeline cloud USD and "
+     "evo-x2 hours per arm from the committed manifest, the price table and measured qwen3:14b rates",
+     "compute": compute_cuad_pipeline_estimate, "data_files": [CUAD_MANIFEST, ANTHROPIC_PRICES, B5_X2_FILE, B5_FA_FILE],
+     "script_function": "harness/cuad_review.py::estimate"},
+    {"claim_id": "cuad-pipeline", "description": "CUAD contract review, deterministic exact-set grader: local "
+     "qwen3:14b vs pipeline vs cloud claude-haiku-5-5; target pipeline >= cloud - 5 points at <= 50% of cloud billed "
+     "USD; PENDING until the file has run_end (not built beyond grader and manifest)",
+     "compute": compute_cuad_pipeline, "data_files": [CUAD_FILE, CUAD_MANIFEST], "pending_ok": True,
+     "require_run_end": [CUAD_FILE], "script_function": "analysis/numbers_register.py::compute_cuad_pipeline"},
+    {"claim_id": "xmodel-wrong-rate", "description": "The 4096-vs-default result per model from existing files: "
+     "qwen3:14b B3 v2 task accuracy, every other model as R2 rule-following evidence, refused B3 v2 runs, the "
+     "pre-registered target and '3+ models on B3'",
+     "compute": compute_xmodel_wrong_rate,
+     "data_files": XMODEL_R2_FILES + XMODEL_R2_VALIDATION + sorted(set(XMODEL_B3_REFUSED.values())),
+     "script_function": "analysis/numbers_register.py::xmodel_data"},
+    {"claim_id": "bls-oews-hourly-wage", "description": "EXTERNAL INPUT: BLS OEWS May 2025 mean hourly wage, "
+     "Software Developers (SOC 15-1252)",
+     "compute": compute_bls_oews_hourly_wage, "data_files": [BLS_OEWS_FILE],
+     "script_function": "analysis/numbers_register.py::compute_bls_oews_hourly_wage"},
+    {"claim_id": "time-dollar-value", "description": "USD per task and per run from measured wall time: waiting at "
+     "the BLS OEWS hour value, machine cost per session at 24 h/day and 8 h/day",
+     "compute": compute_time_dollar_value,
+     "data_files": [BLS_OEWS_FILE, "results/hardware_price_evox2_20261021.json", B5_X2_FILE, LONGTASK_LOCAL_FILE,
+                    LONGTASK_CLOUD_FILE] + ROUTE_MEASURED_FILES,
+     "script_function": "analysis/numbers_register.py::time_dollar_data"},
+    {"claim_id": "pitch-savings-table", "description": "Per 1,000 tasks/day: cloud USD saved, waiting time, hardware "
+     "avoided, each cell measured or projected with its source rows",
+     "compute": compute_pitch_savings_table,
+     "data_files": sorted(set(HYBRID_SAVINGS_FILES) | set(_IMPACT_V2_FILES) | {LONGTASK_CLOUD_FILE, LONGTASK_LOCAL_FILE,
+                                                                             BLS_OEWS_FILE}),
+     "script_function": "analysis/numbers_register.py::pitch_data"},
+    {"claim_id": "device-db-coverage", "description": "G1 device database coverage: entries, devices, runtimes, "
+     "models, fields filled; every value sourced, missing null (docs/DEVICE_DB.md, results/device_db.json)",
+     "compute": compute_device_db_coverage,
+     "data_files": [DEVICE_DB_JSON, X2_EVALSET_TASKS_REAL_V2, B5_X2_FILE, B5_FA_FILE, XRT_FILE, OWN_PROBE_FILE,
+                    SPILL32_FILE, LONGTASK_LOCAL_FILE, "results/t2s_r2_real_cpu_v1.jsonl",
+                    "results/t2s_r2_real_igpu_v1.jsonl", "results/t2s_r2_validation_cpu_v1.jsonl",
+                    "results/t2s_r2_validation_igpu_v1.jsonl", "results/x2_r2_v1b_seeds_06_10.jsonl",
+                    "results/x2_r2_qwen3_8b_seeds_06_10.jsonl"] + R2_V1B_DATA + AMD_BOUNDARY_FILES,
+     "script_function": "analysis/device_db.py::build"},
 ]
 
 
