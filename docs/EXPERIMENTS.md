@@ -2517,3 +2517,17 @@ at max(billed, upper bound, reserved)) must stay within the per-task cap, else n
 never loosens either. Test: a fake completion function in a forced retry loop; pass condition: the wrapper stops at
 the first call whose reservation would pass the cap, the task's counted spend never exceeds the cap, and the outcome
 and ledger record are written. Row `per-task-budget-check` from the test-written results file.
+
+### Deviations and notes after the pre-registration (2026-10-29)
+
+- L3 bug fix after the first replay: the "information task answers with a digit" check counted the digits of the
+  session code (every answer must end with it, rule 5), so it could not fire on an answer that carried only the code.
+  Found by a unit test (tests/test_post_run_check.py::test_l3_pass_and_each_rule), fixed to strip the session code
+  first, as the pre-registered wording intends; the replay was rerun and the rows read the rerun file only. No other
+  L3 check, threshold, target or grading rule was changed after the first replay.
+- The replay module is analysis/post_run_check_replay.py (renamed from the planned analysis/post_run_check.py so its
+  module name does not collide with src/dse/post_run_check.py).
+- Live job: not built, not queued. Its plan is the "Live part" above; projected spend and hours are in row
+  `post-run-check-live-estimate`. If that projection is over USD 2 for the job, the job needs the operator's own
+  approval at their console (src/cloud/console_gate.py, `--operator-approval`); splitting it per tier does not change
+  the requirement for any tier whose own projection is over USD 2.
