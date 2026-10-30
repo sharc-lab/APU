@@ -61,6 +61,7 @@ import x2_r2_agent as ag  # noqa: E402
 import x2_r2_evalset as EV  # noqa: E402
 from cloud import client as cc  # noqa: E402
 from cloud import console_gate  # noqa: E402
+from cloud import task_budget as TB  # noqa: E402
 
 SOURCE = REPO / "results" / "x2_evalset_tasks_real_v2.jsonl"
 OUT = REPO / "results" / "cloud_redo_v1.jsonl"
@@ -664,8 +665,11 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
         old_limit: int = LOCAL_MAX_TOKENS, rollback: str | None = None, only_keys: set | None = None,
         projection_rows: list[dict] | None = None, pre_job_gate: bool = False,
         console_freshness_h: float | None = None, client_cap_total: float | None = None,
-        operator_approval: str | None = None) -> list[dict]:
-    """thinking_off: send THINKING_OFF[model] on every call and stop the run at the first call that ends at max_tokens
+        operator_approval: str | None = None, task_cap: float | None = None) -> list[dict]:
+    """task_cap: per-task USD cap (src/cloud/task_budget.py, operator item C): checked before every cloud call on
+    the call's upper-bound reservation; on hit no further call or retry for that task, its row has outcome
+    budget_exhausted (graded not fixed) and the run continues with the next task. Never loosens the client cap or
+    the Console gate. thinking_off: send THINKING_OFF[model] on every call and stop the run at the first call that ends at max_tokens
     with nothing visible. job_cap (live): refuse up front when the projection (from executed_file if it holds an
     executed run of these tasks, else from the local token counts; ledger basis) exceeds it. Rows are written as they
     are made, so a stop or a cap leaves every finished task on disk.
@@ -743,6 +747,7 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
         "resume_kept_tasks": len(kept), "resume_superseded_tasks": len(sup), "resume_old_limit": old_limit,
         "projection_calibration": calib,
         "rollback": rollback, "only_keys_n": None if only_keys is None else len(only_keys),
+        "task_cap_usd": task_cap,
     }
     meas = None
     if projection_rows is not None:
@@ -814,6 +819,7 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
         try:
             if live:
                 emit(warmup(client, model_id, thinking))
+            lane = TB.BudgetedClient(client, task_cap) if (live and task_cap is not None) else None
             cache: dict = {}
             for r in wrong:
                 es = build_session_for(r, cache)
@@ -844,7 +850,18 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
                                  "history_truncated_messages": cb["history_truncated_messages"],
                                  "rebuilt_messages": len(cb["messages"])})
                     built = cb
-                if live:
+                if live and task_cap is not None:
+                    lane.start_task(f"{base['tier']}:{r['seed']}:{r['turn_idx']}:{r['task_id']}")
+                    try:
+                        res = live_turn(lane, model_id, es, built, rates, max_tokens, thinking)
+                    except TB.TaskBudgetExhausted as e:
+                        spent = lane.task_spent_usd   # calls made before the refused one, counted at upper bound
+                        res = {"outcome": TB.OUTCOME_EXHAUSTED, "cloud_end_state_ok": False, "usd": spent,
+                               "usd_all_uncached": spent, "usd_ledger": spent, "seconds": None,
+                               "usd_basis": "per-task counted spend (upper bound of the calls made)",
+                               "task_budget": e.record}
+                    res = {**res, **lane.task_state()}
+                elif live:
                     res = live_turn(client, model_id, es, built, rates, max_tokens, thinking)
                 else:
                     res = {**price_turn(local_call_tokens(r), rates), "n_calls": len(r.get("calls") or []),
@@ -905,6 +922,9 @@ def main(argv=None) -> int:
                          "cascaded: every earlier wrong task turn also rolled back and replaced by its reference calls "
                          "(rebuild_cascaded, the stand-in for a successful escalation). Default out "
                          "results/own_rollback_redo_v1.jsonl; projection = the same tasks' measured billed USD")
+    ap.add_argument("--task-cap-usd", type=float, default=None,
+                    help="per-task USD cap (src/cloud/task_budget.py): a task whose next call's upper-bound "
+                         "reservation would pass it stops (outcome budget_exhausted); under the job cap, never above")
     ap.add_argument("--console-freshness-hours", type=float, default=None,
                     help=f"console check: a SHORTER freshness window than the confirmed "
                          f"{console_gate.FRESHNESS_HOURS_DEFAULT:g} h (a longer one is refused)")
@@ -966,7 +986,8 @@ def main(argv=None) -> int:
                ledger_total_at_start=total0, executed_file=V1_EXECUTED if a.thinking_off and not a.rollback else None,
                max_tokens=a.max_tokens, resume_from=part_files(a.resume_from) if a.resume else None,
                pre_job_gate=a.live, console_freshness_h=a.console_freshness_hours,
-               client_cap_total=a.client_cap_total, operator_approval=a.operator_approval, **rb)
+               client_cap_total=a.client_cap_total, operator_approval=a.operator_approval,
+               task_cap=a.task_cap_usd, **rb)
     return 0 if rows[-1].get("stopped") is None else 4
 
 

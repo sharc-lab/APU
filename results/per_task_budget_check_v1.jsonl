@@ -1,0 +1,6 @@
+{"client": "src/cloud/client.py CloudClient(mode=real) with a fake completion_fn (no network)", "harness": "tests/test_task_budget.py::test_forced_retry_loop_stops_at_cap", "max_tokens": 1024, "model_id": "claude-sonnet-5-5", "record": "run_start", "reservation_usd": 0.01424, "task_cap_usd": 0.04984, "wrapper": "src/cloud/task_budget.py BudgetedClient"}
+{"billed_usd": 0.0072, "call_idx": 0, "record": "budget_call", "reservation_usd": 0.01424, "task_counted_usd": 0.01424, "upper_bound_usd": 0.0072}
+{"billed_usd": 0.0072, "call_idx": 1, "record": "budget_call", "reservation_usd": 0.01424, "task_counted_usd": 0.02848, "upper_bound_usd": 0.0072}
+{"billed_usd": 0.0072, "call_idx": 2, "record": "budget_call", "reservation_usd": 0.01424, "task_counted_usd": 0.04272, "upper_bound_usd": 0.0072}
+{"ledger_records_written": 1, "next_call_reservation_usd": 0.01424, "outcome": "budget_exhausted", "provider_requests_sent": 3, "record": "budget_refusal", "refused_call_idx": 3, "task_counted_usd_at_refusal": 0.04272}
+{"billed_within_cap": true, "next_task_fresh_budget": true, "outcome_recorded": true, "record": "run_end", "retry_after_refusal_sent": false, "stopped_at_expected_call": true, "task1_counted_usd": 0.04272, "task1_counted_within_cap": true}
