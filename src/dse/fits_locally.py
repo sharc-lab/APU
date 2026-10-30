@@ -19,6 +19,14 @@ ceiling. With margin 0 that is "projected <= window", the rule of hybrid-route-a
 route_at_start.MARGIN it is route_at_start.fits. tests/test_fits_locally.py checks both register rows compute
 identically through the interface.
 
+SessionGrowthPredictor (row fit-predictor-v1, docs/EXPERIMENTS.md "PRE-REGISTRATION (2026-10-29): fit-predictor-v1")
+is the session-start form: from the first k turns' prompt sizes it projects the history's growth to a later turn and
+compares that with the device's ceiling, which is the measured ceiling where the device profile has one
+("measured_ceiling", e.g. llama-server's n_ctx) and the loaded window otherwise. A ceiling model (Zach's) plugs in as
+ceiling_model: anything with ceiling(device_profile) -> int.
+  task_context    "first_turns": [(turn_idx, prompt_tokens), ...] (the first k recorded turns, in order) and
+                  "target_turn": the turn index to project to; or "projected_tokens" when there is nothing left to grow.
+
 ZachCeilingPredictor is a placeholder only: it raises NotImplementedError until Zach's files are in the repo. Do not
 implement his formula without them (operator, 2026-10-26).
 """
@@ -72,10 +80,65 @@ class ProjectionBaseline:
         return {"fits": p <= c, "projected_tokens": p, "ceiling_tokens": c, "source": self.source}
 
 
+GROWTH_SOURCE = "session-growth-k3"
+GROWTH_K = 3
+
+
+def device_ceiling(device_profile: dict, margin: float = 0.0) -> int:
+    """The measured ceiling where the profile records one, else the loaded window; less an optional margin."""
+    c = device_profile.get("measured_ceiling")
+    if c is None:
+        c = device_profile.get("window")
+    if c is None:
+        raise ValueError("device_profile needs window (the loaded num_ctx) or measured_ceiling")
+    return math.floor(int(c) * (1 - margin))
+
+
+def project_growth(first_turns, target_turn: int, k: int = GROWTH_K) -> int:
+    """Linear projection from the first k turns only: g = max(0, (p_last - p_first) / (t_last - t_first)),
+    projected = p_last + g x (target_turn - t_last). Fewer than k turns: ValueError."""
+    ft = list(first_turns)[:k]
+    if len(ft) < k:
+        raise ValueError(f"need the first {k} turns, got {len(ft)}")
+    (t0, p0), (t1, p1) = ft[0], ft[-1]
+    g = max(0.0, (p1 - p0) / (t1 - t0)) if t1 != t0 else 0.0
+    return int(round(p1 + g * max(0, target_turn - t1)))
+
+
+class SessionGrowthPredictor:
+    """Session-start "will this task overflow": the first k turns' prompts projected to the task's turn, against the
+    device's measured ceiling (else the loaded window). ceiling_model, when given, supplies the ceiling instead."""
+
+    source = GROWTH_SOURCE
+
+    def __init__(self, k: int = GROWTH_K, margin: float = 0.0, ceiling_model=None):
+        self.k, self.margin, self.ceiling_model = k, margin, ceiling_model
+
+    def projected(self, task_context: dict) -> int:
+        if task_context.get("first_turns") is not None:
+            return project_growth(task_context["first_turns"], int(task_context["target_turn"]), self.k)
+        if task_context.get("projected_tokens") is not None:
+            return int(task_context["projected_tokens"])
+        raise ValueError("task_context needs first_turns and target_turn, or projected_tokens")
+
+    def ceiling(self, device_profile: dict) -> int:
+        if self.ceiling_model is not None:
+            return int(self.ceiling_model.ceiling(device_profile))
+        return device_ceiling(device_profile, self.margin)
+
+    def predict(self, task_context: dict, device_profile: dict) -> FitsResult:
+        p, c = self.projected(task_context), self.ceiling(device_profile)
+        return {"fits": p <= c, "projected_tokens": p, "ceiling_tokens": c, "source": self.source}
+
+
 class ZachCeilingPredictor:
-    """Placeholder for Zach's ceiling formula. Not implemented: awaiting his files (operator, 2026-10-26)."""
+    """Placeholder for Zach's ceiling formula. Not implemented: awaiting his files (operator, 2026-10-26). Usable as
+    SessionGrowthPredictor(ceiling_model=...) once ceiling() exists."""
 
     source = "zach-ceiling"
+
+    def ceiling(self, device_profile: dict) -> int:
+        raise NotImplementedError("awaiting Zach's files")
 
     def predict(self, task_context: dict, device_profile: dict) -> FitsResult:
         raise NotImplementedError("awaiting Zach's files")

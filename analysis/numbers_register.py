@@ -7723,6 +7723,46 @@ def compute_hybrid_route_at_start_v2(repo):
     return {"value": cs.hybrid_v2_text(d), "n": f"{len(d['cells'])} tier x policy cells x 90 tasks"}
 
 
+# ── fit-predictor-v1, hybrid-full-pipeline-v1 and the E design hours (operator brief 2026-10-29; docs/EXPERIMENTS.md
+# "PRE-REGISTRATION (2026-10-29): fit-predictor-v1" and "... hybrid-full-pipeline-v1"). The pipeline row is PENDING
+# (pending_reason) until the post-run check (A) and the per-task budget (C) provide their factories. ──
+def _fp_modules(repo):
+    import sys as _sys
+    _r2_agent_module()
+    for sub in ("analysis", "harness", "scripts", ""):
+        p = str(repo / sub) if sub else str(repo)
+        if p not in _sys.path:
+            _sys.path.insert(0, p)
+    import fit_predictor as fp
+    import hybrid_full_pipeline as hfp
+    return fp, hfp
+
+
+def compute_fit_predictor_v1(repo):
+    fp, _h = _fp_modules(repo)
+    d = fp.fit_predictor_v1(repo)
+    return {"value": fp.fit_predictor_v1_text(d), "n": f"{d['n_units']} units in {d['n_sessions']} sessions"}
+
+
+def compute_hybrid_full_pipeline_v1(repo):
+    _fp, hfp = _fp_modules(repo)
+    d = hfp.hybrid_full_pipeline(repo)
+    if d["status"] != "VERIFIED":
+        raise ValueError(hfp.hybrid_full_pipeline_text(d))
+    return {"value": hfp.hybrid_full_pipeline_text(d), "n": f"{len(d['cells'])} configs x 90 tasks"}
+
+
+def compute_hybrid_live_hours(repo):
+    _fp, hfp = _fp_modules(repo)
+    d = hfp.live_hours(repo)
+    return {"value": hfp.live_hours_text(d), "n": "estimate, 2 runs x 90 tasks"}
+
+
+def _hfp_pending_reason(repo):
+    _fp, hfp = _fp_modules(repo)
+    return hfp.pending_reason(repo)
+
+
 # ── own-profiler-probe (operator item 3, 2026-10-23; docs/EXPERIMENTS.md "own-profiler-probe"): the measured probe job
 # x2_own_profiler_probe_v1 (harness/x2_own_profiler_probe.py). The result row is PENDING until the driver file has
 # run_end; the hours row is an ESTIMATE. ──
@@ -9330,6 +9370,33 @@ NUMBER_ENTRIES = [
      "data_files": list(OC_PARTS.values()) + list(OC_PROBES.values()), "pending_ok": True,
      "require_run_end": list(OC_PARTS.values()) + list(OC_PROBES.values()),
      "script_function": "analysis/own_config_search.py::hybrid_v2"},
+    {"claim_id": "fit-predictor-v1", "description": "Session-start 'will this task overflow the device window': the "
+     "first 3 turns' prompts projected linearly to the task's turn vs the measured ceiling (else the loaded window), "
+     "precision and recall with Wilson CIs by device, window, ground-truth kind and run family, next to the current "
+     "per-task estimate; pre-registered target (proposed by the agent) precision >= 0.90 and recall >= 0.90",
+     "compute": compute_fit_predictor_v1,
+     "data_files": ["results/x2_evalset_tasks_real_v2.jsonl", "results/x2_own_compaction_v1_a.jsonl",
+                    "results/x2_own_compaction_v1_b.jsonl", "results/x2_own_config_probe_q8_15360.jsonl",
+                    "results/x2_own_config_probe_q4_28928.jsonl", "results/x2_own_profiler_probe_v1_*.jsonl",
+                    "results/x2_r2_real_v1.jsonl", "results/x2_r2_real_v1b.jsonl", "results/t2s_r2_real_cpu_v1.jsonl",
+                    "results/t2s_r2_real_igpu_v1.jsonl", "results/xruntime_llamacpp_qwen3_14b.jsonl",
+                    "results/x2_longtask_local_v1.jsonl", "results/demo_detector_check_v2.jsonl"],
+     "script_function": "analysis/fit_predictor.py::fit_predictor_v1"},
+    {"claim_id": "hybrid-full-pipeline-v1", "description": "Replay of route at start (fit-predictor-v1) + local run + "
+     "post-run check (A) + rollback + cloud under the per-task budget (C), B3 v2 qwen3:14b, primary config q4_0 at "
+     "28928, vs claude-sonnet-5-5 all-cloud and naive local; target >= 50/90 kept local at >= 97%",
+     "compute": compute_hybrid_full_pipeline_v1, "pending_reason": _hfp_pending_reason,
+     "data_files": ["results/x2_own_config_probe_q4_28928.jsonl", "results/x2_own_config_probe_q8_15360.jsonl",
+                    "results/x2_evalset_tasks_real_v2.jsonl"],
+     "script_function": "analysis/hybrid_full_pipeline.py::hybrid_full_pipeline"},
+    {"claim_id": "hybrid-live-hours", "description": "ESTIMATE, not a measurement: hours and cloud spend (billed and "
+     "upper bound) of the E design, hybrid-live-amd on evo-x2 and hybrid-live-intel on evo-t2s, 3 seeds each, and "
+     "where the Intel run could fit in the evo-t2s window; not queued",
+     "compute": compute_hybrid_live_hours,
+     "data_files": ["results/x2_own_config_probe_q4_28928.jsonl", "results/x2_evalset_tasks_real_v2.jsonl",
+                    "results/t2s_r2_real_igpu_v1.jsonl", "results/x2_r2_real_v1.jsonl", "results/x2_r2_real_v1b.jsonl",
+                    ALL_CLOUD_B3_V1, CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2],
+     "script_function": "analysis/hybrid_full_pipeline.py::live_hours"},
     {"claim_id": "cost-cut-config-time", "description": "MEASURED: per model, session minutes saved per 40-turn R2 "
      "session on evo-x2 by the fastest measured non-router setting (B5 policies b-h, plus the flash-attention control "
      "once synced) against the runtime default (B5 policy a), with both settings' rule pass rate and history recall",
@@ -9633,6 +9700,10 @@ def build_register():
             })
             continue
         partial = _incomplete(entry)
+        if not partial and entry.get("pending_reason"):   # registered ahead of a component, e.g. "awaiting ... (A)"
+            why = entry["pending_reason"](REPO)
+            if why:
+                partial = [why]
         if partial:
             rows.append({
                 "claim_id": entry["claim_id"], "status": "PENDING",

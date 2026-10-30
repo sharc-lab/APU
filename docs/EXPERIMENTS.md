@@ -2526,3 +2526,34 @@ Stand-ins for A and C exist only in tests (tests/test_hybrid_full_pipeline.py); 
 - A's precision decides the result: a task kept local and wrong is silent unless A flags it. The local accuracy of
   the primary config is below 97% before any escalation (own-config-search), so the target needs A to catch most
   wrong tasks while letting at least 50 tasks through.
+
+## DESIGN (2026-10-29, not queued, not deployed): E, hybrid-live-amd (evo-x2) and hybrid-live-intel (evo-t2s)
+
+**Status: design only.** Nothing is deployed or queued by this commit. Hours and spend are the ESTIMATE row
+`hybrid-live-hours`; the numbers below are pasted from it.
+
+- What: the hybrid-full-pipeline-v1 stages run live instead of by replay: route at start (fit-predictor-v1's rule,
+  k = 3), the local run, the post-run check (A), rollback to the pre-task snapshot, and claude-sonnet-5-5 under the
+  per-task budget (C). B3 v2 tasks, qwen3:14b, 3 seeds (20260901-03, 90 tasks) per device. Same target as the replay
+  (>= 50/90 kept local at >= 97%), reported against all-cloud and naive local on the same seeds.
+- hybrid-live-amd: evo-x2, Ollama, KV q4_0 at num_ctx 28928 (own-config-search's best measured). Row: "0.32 h (high
+  0.68 h); point = the measured x2_own_config_probe_q4_28928 sessions (4.3, 4.5, 7.2 min) plus 60 s per session start
+  (ASSUMED); high = 3 x the slowest session plus 180 s starts plus every task escalated at the mean full-history redo
+  time 6.5 s".
+- hybrid-live-intel: evo-t2s iGPU (OLLAMA_IGPU_ENABLE=1, default window 32768; the CPU at 4096 keeps 0/90 local by
+  projection, row own-config-search). Row: "1.04 h (high 2.45 h); local part from row t2s-evalset-tasks-hours
+  (t2s_o26_b3_real_igpu ...)". Blocker found in the synced files: the staged evo-t2s B3 v2 real runs refused qwen3:14b
+  at the strict preflight (`refused_model` records in results/t2s_evalset_tasks_real_v2_cpu.jsonl: "task end-state
+  gate failed (80/90 < 90%)", and results/t2s_evalset_tasks_real_v2_igpu.jsonl: "negative control failed (canary
+  misses 1 at num_ctx 131072)", "task end-state gate failed (79/90 < 90%)"). The Intel run under the same harness
+  would refuse the same way; whether to run it with that gate, or a different one, is the operator's decision.
+- Cloud spend per run (row): "billed (cache-priced) USD 0.04091 per escalated task (highest tier-mean full-history
+  redo), USD 3.68 if all 90 escalate (all-cloud billed reference USD 0.92); upper bound (no cache, largest recorded
+  full-history redo task USD 0.23572) USD 21.21; both runs together upper bound USD 42.43". Both the billed worst case
+  and the upper bound are over USD 2, so each run needs the operator's cloud approval before it starts.
+- Where the Intel run could fit (row): "staged entries end 280.5 h after the window opened plus the start allowance
+  ... projected 11-08 18:09Z, 9.8 h before no-launch; the Intel run at its high case fits after the staged queue with
+  the 24 h slack: False; without the slack: True". So it fits only after the B6 validations and inside the 24 h slack,
+  or by moving a staged entry (B5 / B6) or into the next confirmed window. It must not displace the staged plan
+  without the operator's say. The AMD run fits on evo-x2 between jobs (under 1 h at the high case).
+- Before either run: A and C committed, row hybrid-full-pipeline-v1 computed by replay, and the operator's go.
