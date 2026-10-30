@@ -2531,3 +2531,160 @@ and ledger record are written. Row `per-task-budget-check` from the test-written
   `post-run-check-live-estimate`. If that projection is over USD 2 for the job, the job needs the operator's own
   approval at their console (src/cloud/console_gate.py, `--operator-approval`); splitting it per tier does not change
   the requirement for any tier whose own projection is over USD 2.
+
+## PRE-REGISTRATION (2026-10-29): fit-predictor-v1, "will this task overflow the device window" at session start
+
+**Status: pre-registered before any number is computed.** Written and committed before the scoring code is run.
+Row `fit-predictor-v1`. Offline replay of committed result files only; no machine time, no cloud call.
+
+The operator's brief, verbatim: "predict whether a task will overflow the device window (prompt + projected history
+growth from the first turns vs the device's measured ceiling). Interface ready for Zach's ceiling model; baseline =
+current estimate. Report precision/recall of 'will overflow'. Row: fit-predictor-v1."
+
+### Predictor (fixed now)
+
+- Interface: `src/dse/fits_locally.py`, `SessionGrowthPredictor`, a `FitsLocallyPredictor` like the others, so
+  `ZachCeilingPredictor` can supply the ceiling once his files are in the repo (still a stub; not implemented here).
+- k = 3: the first 3 recorded turns of the session (turn order as recorded) are observed. Their per-turn prompt sizes
+  p_0, p_1, p_2 at turn indices t_0, t_1, t_2 are the only run data the predictor reads.
+- Projection rule (linear, from the first turns only): growth g = max(0, (p_2 - p_0) / (t_2 - t_0)); projected prompt
+  at a later turn t is p_2 + g x (t - t_2). Predict "will overflow" iff the projection is above the ceiling.
+- Ceiling: the device's measured ceiling where the run records one (llama-server `server_n_ctx`), else the loaded
+  window (`loaded_context` / `num_ctx` of the run). Margin 0. No row in the domain records a measured ceiling below
+  the loaded window today; the slot is there for Zach's ceiling model.
+- Per-turn prompt size (the series the predictor reads): the prompt the client sent to the device,
+  `sent_final_prompt_proj` where the run records it (the own-compaction and client-trim arms), else
+  `final_call_prompt_tokens_calibrated`; for the long tasks, each call's `prompt_tokens_est` x 1.20
+  (`x2_longtask.PROJ_CALIB`, the same calibration as its `over_loaded_window`).
+
+### Units and ground truth (fixed now)
+
+- Units: every scored turn after the first k of a session: task turns (`item_kind` task) where the run has them, all
+  turns in the R2 sessions (no task items). A long task is one unit: its first k calls observed, projected to its own
+  last call; a long task with k calls or fewer is excluded and counted. The demo detector check sends one prompt with
+  the history already in it, so its "projection" is its recorded `projected_prompt` (nothing left to grow); its
+  default arm is excluded (the run does not record that server's window).
+- Ground truth "did overflow": detector v2 where the run records it (`cut_v2_flagged` on the own-compaction runs, the
+  own-config probes and the own-profiler probes; `flagged_v2` on demo_detector_check_v2; on the llama-server run the
+  turn's `context_event` in {flagged_reject, silent_cut, ctx_stop}, with `error_other` turns excluded as
+  indeterminate and counted); else `over_loaded_window` (v1). Turns with neither are excluded.
+- Data (files with run_end only): B3 v2 (`results/x2_evalset_tasks_real_v2.jsonl`), the own-compaction parts, the
+  own-config probes, the own-profiler probes, the R2 real sessions (`x2_r2_real_v1`, `x2_r2_real_v1b`,
+  `t2s_r2_real_cpu_v1`, `t2s_r2_real_igpu_v1`), the long-task local run (`x2_longtask_local_v1`), the llama-server run
+  (`xruntime_llamacpp_qwen3_14b`) and `demo_detector_check_v2`. The evo-t2s B3 v2 files hold no turns yet and are not
+  read. Blade 14 has no R2 session with turns (blade_r2_real_v1 refused) and is not read.
+
+### Baseline (the current per-task estimate, fixed now)
+
+- `ProjectionBaseline` (margin 0) on the task-definition projection the routers use today: B3 v2-design sessions
+  (B3 v2, own-compaction, own-config probes, own-profiler probes, llama-server run): `impact_model.
+  projected_task_prompts(seed)` for the task; demo: `projected_prompt`. The R2 sessions and long tasks have no
+  per-task estimate in the repo; their baseline cell reads "no current estimate". The baseline is scored on the same
+  units and ground truth.
+
+### Measures and target (fixed now)
+
+- Precision and recall of "will overflow" with 95% Wilson intervals: pooled, by device, by device x ceiling, and by
+  ground-truth kind (v2 vs v1). Confusion counts in every cell. Baseline in the same cells where it exists.
+- Target (proposed by the agent, following the operator's example; not set by the operator): pooled precision >= 0.90
+  and pooled recall >= 0.90 for the session-start predictor (point estimates). MET iff both hold; otherwise MISSED.
+
+### Validity flags (stated before the run)
+
+- Where the ground truth is v1, it is `final_call_prompt_tokens_calibrated > loaded`, the same series the predictor
+  extrapolates, so v1 cells measure only how well 3 turns project the growth; the v2 cells are the independent check.
+- Units are turns within sessions, not independent draws; Wilson intervals treat them as independent and are too
+  narrow. Sessions repeat seeds across windows.
+- At windows the first turns already exceed (llama-server and Ollama at 4096), the prediction is trivial.
+- On the client-policy arms the client keeps the sent prompt under its trigger after turn k, so a linear projection of
+  the sent prompt is expected to over-predict there.
+
+## PRE-REGISTRATION (2026-10-29): hybrid-full-pipeline-v1 (route + check + rollback + budget), replay
+
+**Status: pre-registered; the replay code is committed, the row is PENDING with the reason "awaiting post-run-check
+(A)".** The post-run check (A) and the per-task budget (C) are being built by another agent; this entry fixes how
+they are consumed, not what they are. Nothing is run, queued or deployed by this commit.
+
+The operator's brief, verbatim: "finish own-compaction and own-config-search, then hybrid-route-at-start-v2 with
+A+B+C in the loop. Target >= 50/90 kept local at >= 97% accuracy. Row: hybrid-full-pipeline-v1 (route + check +
+rollback + budget), reported vs all-cloud and naive local."
+
+Rows it builds on (VERIFIED, pasted in part): `own-config-search` "best measured setting q4_0 28928: kept local 90/90
+(before 21/90)"; `hybrid-route-at-start-v2` "8192 config: kept local 90/90, accuracy 79/90 (87.8%) ... target met
+False" (every v2 cell missed); `own-compaction-4096` and `own-compaction-8192` "pre-registered target ... NOT met".
+
+### Pipeline (fixed now; analysis/hybrid_full_pipeline.py)
+
+Per task (seed, task_id), B3 v2 tasks, qwen3:14b local, claude-sonnet-5-5 cloud, seeds 20260901-03 (90 tasks):
+1. Route at start (B): the session's first k = 3 turns run local; each later task turn goes to the cloud from its
+   first call iff `SessionGrowthPredictor` (fit-predictor-v1's rule) predicts overflow of the config's ceiling.
+2. Local run: the recorded outcome of the task at the candidate config.
+3. Post-run check (A), consumed through `PostRunCheck.check(task_record) -> {"escalate": bool, "reason": str}`. The
+   record is the local turn row with the grader's fields removed (`GRADER_FIELDS`: end_state_ok, end_state_diff,
+   state_ok, answer_ok, task_tool_ok and the other per-task scoring fields), so A cannot read the answer key. A lands
+   by providing `analysis/post_run_check.py` with `make_post_run_check(repo)`; until then the row is PENDING.
+4. Rollback: an escalated task's environment is restored to its pre-task snapshot (local snapshots, USD 0), then
+   the cloud redoes it. Escalation outcome and cache-priced USD, in order: the own-rollback redo row, else the
+   full-history redo row of the same tier, seed and task (only for configs those redo runs cover: f16 8192 and f16
+   4096), else IMPUTED: the claude-sonnet-5-5 all-cloud outcome of the task at the highest tier-mean full-history
+   redo USD, labelled.
+5. Cloud under the per-task budget (C), consumed through `TaskBudget.allow(task_key, usd_estimate) ->
+   {"allow": bool, "cap_usd": float}`, asked before every cloud use (route or escalation) with that use's USD. A
+   refused route runs local at the config; a refused escalation keeps the local result. C lands by providing
+   `analysis/task_budget.py` with `make_task_budget(repo)`; until then the row is PENDING.
+
+Stand-ins for A and C exist only in tests (tests/test_hybrid_full_pipeline.py); the register row never uses them.
+
+### Configs
+
+- Primary: q4_0 KV at num_ctx 28928 (own-config-search's best measured, `results/x2_own_config_probe_q4_28928.jsonl`).
+- Secondary, reported with no target: q8_0 at 15360 (probe file), f16 at 8192 and at 4096 (B3 v2 tiers).
+
+### Measures and target (fixed now)
+
+- Kept local (tasks whose final outcome is local), accuracy (correct / 90), cloud USD per task (billed, cache-priced),
+  escalated, routed, budget refusals, wrong-and-kept-local count.
+- References: claude-sonnet-5-5 all-cloud (row `all-cloud-b3-quality`, cost row `all-cloud-b3-cost`) and naive local
+  (the config's local outcomes, every task kept, no route, check, rollback or cloud).
+- Target (the operator's): at least 50/90 kept local at >= 97% accuracy (>= 88/90 correct) on the primary config.
+  MET iff both hold.
+
+### Validity flags (stated before the run)
+
+- Replay: a routed or escalated task's cloud outcome comes from a recorded cloud session with its own history, not
+  from a live mixed session.
+- Imputed escalations (no redo exists for the q4_0 28928 history) use the all-cloud outcome and a tier-mean USD.
+- A's precision decides the result: a task kept local and wrong is silent unless A flags it. The local accuracy of
+  the primary config is below 97% before any escalation (own-config-search), so the target needs A to catch most
+  wrong tasks while letting at least 50 tasks through.
+
+## DESIGN (2026-10-29, not queued, not deployed): E, hybrid-live-amd (evo-x2) and hybrid-live-intel (evo-t2s)
+
+**Status: design only.** Nothing is deployed or queued by this commit. Hours and spend are the ESTIMATE row
+`hybrid-live-hours`; the numbers below are pasted from it.
+
+- What: the hybrid-full-pipeline-v1 stages run live instead of by replay: route at start (fit-predictor-v1's rule,
+  k = 3), the local run, the post-run check (A), rollback to the pre-task snapshot, and claude-sonnet-5-5 under the
+  per-task budget (C). B3 v2 tasks, qwen3:14b, 3 seeds (20260901-03, 90 tasks) per device. Same target as the replay
+  (>= 50/90 kept local at >= 97%), reported against all-cloud and naive local on the same seeds.
+- hybrid-live-amd: evo-x2, Ollama, KV q4_0 at num_ctx 28928 (own-config-search's best measured). Row: "0.32 h (high
+  0.68 h); point = the measured x2_own_config_probe_q4_28928 sessions (4.3, 4.5, 7.2 min) plus 60 s per session start
+  (ASSUMED); high = 3 x the slowest session plus 180 s starts plus every task escalated at the mean full-history redo
+  time 6.5 s".
+- hybrid-live-intel: evo-t2s iGPU (OLLAMA_IGPU_ENABLE=1, default window 32768; the CPU at 4096 keeps 0/90 local by
+  projection, row own-config-search). Row: "1.04 h (high 2.45 h); local part from row t2s-evalset-tasks-hours
+  (t2s_o26_b3_real_igpu ...)". Blocker found in the synced files: the staged evo-t2s B3 v2 real runs refused qwen3:14b
+  at the strict preflight (`refused_model` records in results/t2s_evalset_tasks_real_v2_cpu.jsonl: "task end-state
+  gate failed (80/90 < 90%)", and results/t2s_evalset_tasks_real_v2_igpu.jsonl: "negative control failed (canary
+  misses 1 at num_ctx 131072)", "task end-state gate failed (79/90 < 90%)"). The Intel run under the same harness
+  would refuse the same way; whether to run it with that gate, or a different one, is the operator's decision.
+- Cloud spend per run (row): "billed (cache-priced) USD 0.04091 per escalated task (highest tier-mean full-history
+  redo), USD 3.68 if all 90 escalate (all-cloud billed reference USD 0.92); upper bound (no cache, largest recorded
+  full-history redo task USD 0.23572) USD 21.21; both runs together upper bound USD 42.43". Both the billed worst case
+  and the upper bound are over USD 2, so each run needs the operator's cloud approval before it starts.
+- Where the Intel run could fit (row): "staged entries end 280.5 h after the window opened plus the start allowance
+  ... projected 11-08 18:09Z, 9.8 h before no-launch; the Intel run at its high case fits after the staged queue with
+  the 24 h slack: False; without the slack: True". So it fits only after the B6 validations and inside the 24 h slack,
+  or by moving a staged entry (B5 / B6) or into the next confirmed window. It must not displace the staged plan
+  without the operator's say. The AMD run fits on evo-x2 between jobs (under 1 h at the high case).
+- Before either run: A and C committed, row hybrid-full-pipeline-v1 computed by replay, and the operator's go.
