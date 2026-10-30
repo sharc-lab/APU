@@ -1,7 +1,8 @@
-"""Server death mid-session (docs/METHODOLOGY.md, "Server death mid-session", defined 2026-10-27): a call that fails at
-the connection level (no HTTP status) raises x2_r2_agent.SessionIncomplete with no retry and no recover(); the session
-gets one incomplete row with the error and no completion row, so no analysis counts it; the run stops without run_end
-and the register reads the file as partial. Fake servers only; no network, no process launch, no queue."""
+"""Server death mid-session (docs/METHODOLOGY.md, "Server death mid-session"; defined 2026-10-27, revised by the operator
+2026-10-29 to exactly ONE recorded retry): a call that fails at the connection level (no HTTP status) triggers one
+recover() and one retry, recorded on the call row. If the retry also fails, x2_r2_agent.SessionIncomplete is raised; the
+session gets one incomplete row with both attempts and no completion row, so no analysis counts it; the run stops
+without run_end and the register reads the file as partial. Fake servers only; no network, no process launch, no queue."""
 from __future__ import annotations
 
 import json
@@ -44,11 +45,11 @@ class DyingRuntime:
 
 
 def _check_incomplete(rows, rt, alive_calls):
-    assert rt.n_chat == alive_calls + 1, "exactly one failed call: no retry"
-    assert rt.n_recover == 0, "recover() is never called"
+    assert rt.n_chat == alive_calls + 2, "the failed call plus exactly one retry"
+    assert rt.n_recover == 1, "recover() once, before the one retry"
     inc = [r for r in rows if r.get("record") == "r2a_session_incomplete"]
-    assert len(inc) == 1 and inc[0]["incomplete"] is True and inc[0]["retried"] is False
-    assert "connection refused" in inc[0]["error"]
+    assert len(inc) == 1 and inc[0]["incomplete"] is True and inc[0]["retried"] is True
+    assert "connection refused" in inc[0]["error"] and "connection refused" in inc[0]["first_attempt"]["error"]
     assert not any(r.get("record") == "r2a_session" for r in rows)
     assert ag.completed_sessions(rows) == []
     assert all(c["retried_after_connection_error"] is False
@@ -56,7 +57,7 @@ def _check_incomplete(rows, rt, alive_calls):
     return inc[0]
 
 
-def test_r2_session_marked_incomplete_without_retry():
+def test_r2_session_incomplete_after_one_recorded_retry():
     rt, rows = DyingRuntime(alive_calls=3), []
     with pytest.raises(ag.SessionIncomplete):
         ag.run_session(rt, "qwen3:14b", "ollama_ctx_131072_call2_notools", ag.SEEDS[0], 10, rows.append,
@@ -67,7 +68,7 @@ def test_r2_session_marked_incomplete_without_retry():
     assert inc["attempt_id"] == turns[0]["attempt_id"]
 
 
-def test_b3_v2_evalset_session_marked_incomplete_without_retry():
+def test_b3_v2_evalset_session_incomplete_after_one_recorded_retry():
     rt, rows = DyingRuntime(alive_calls=2), []
     with pytest.raises(ag.SessionIncomplete):
         ev.run_session(rt, "qwen3:14b", "ollama_ctx_131072_call2_notools", 20260901, 6, rows.append, lambda m: None,
@@ -128,9 +129,9 @@ def test_xruntime_llamaserver_death_mid_session(tmp_path):
     with pytest.raises(ag.SessionIncomplete):
         X.run_arm_session("fixed", 20260901, tmp_path / "o.jsonl", rows.append, lambda m: None, server_factory=factory,
                           post=post, settle_s=0)
-    assert n["post"] == 5 and holder["s"].restarts == 0
+    assert n["post"] == 6 and holder["s"].restarts == 1   # one restart (recover) and one retry, both recorded
     kinds = [r["record"] for r in rows]
-    assert "r2a_session_incomplete" in kinds and "r2a_session" not in kinds and "server_restart" not in kinds
+    assert "r2a_session_incomplete" in kinds and "r2a_session" not in kinds and kinds.count("server_restart") == 1
     assert kinds[-1] == "server_stop"   # run_arm_session's finally still stops the server
 
 
@@ -142,7 +143,7 @@ def test_own_compaction_summarizer_death_is_incomplete():
             {"role": "assistant", "content": "done a"}]
     with pytest.raises(ag.SessionIncomplete):
         oc._summarize("qwen3:14b", 40960, False, msgs, [[1, 2]], [1], [0])
-    assert rt.n_chat == 1 and rt.n_recover == 0
+    assert rt.n_chat == 2 and rt.n_recover == 1
 
 
 def test_longtask_main_task_incomplete_and_run_stops(tmp_path):
@@ -165,8 +166,8 @@ def test_longtask_main_task_incomplete_and_run_stops(tmp_path):
     kinds = [r["record"] for r in rows]
     assert note.startswith("stopped:") and "run_end" not in kinds and "longtask_task" not in kinds
     inc = [r for r in rows if r["record"] == "longtask_task_incomplete"]
-    assert len(inc) == 1 and inc[0]["retried"] is False and inc[0]["task_id"] == "lt_swegym_01"
-    assert rt.k == 4 and tq.notes == [note] and srv.stopped == 1
+    assert len(inc) == 1 and inc[0]["retried"] is True and inc[0]["task_id"] == "lt_swegym_01"
+    assert rt.k == 5 and tq.notes == [note] and srv.stopped == 1
 
 
 def test_register_reads_the_stopped_run_as_partial_until_resumed(tmp_path):
@@ -182,3 +183,26 @@ def test_register_reads_the_stopped_run_as_partial_until_resumed(tmp_path):
         f.write(json.dumps({"record": "run_start", "mode": "real"}) + "\n")
         f.write(json.dumps({"record": "run_end"}) + "\n")
     assert NR.run_file_incomplete(tmp_path, "results/r.jsonl") is None
+
+
+class FlakyRuntime(DyingRuntime):
+    """One connection-level failure at call `fail_at`, then healthy again."""
+
+    def __init__(self, fail_at):
+        super().__init__(alive_calls=10 ** 6)
+        self.fail_at = fail_at
+
+    def chat(self, model, messages, num_ctx, tools, think, extra=None):
+        self.n_chat += 1
+        return dict(DEAD) if self.n_chat == self.fail_at else dict(OK)
+
+
+def test_one_recorded_retry_that_succeeds_completes_the_session():
+    """Operator decision 2026-10-29: the retry is recorded, never silent, and the session completes."""
+    rt, rows = FlakyRuntime(fail_at=3), []
+    ag.run_session(rt, "qwen3:14b", "ollama_ctx_131072_call2_notools", ag.SEEDS[0], 3, rows.append, lambda m: None,
+                   "real")
+    assert rows[-1]["record"] == "r2a_session" and rt.n_recover == 1
+    calls = [c for r in rows if r.get("record") == "r2a_turn" for c in r["calls"]]
+    retried = [c for c in calls if c["retried_after_connection_error"]]
+    assert len(retried) == 1 and "connection refused" in retried[0]["first_attempt"]["error"]

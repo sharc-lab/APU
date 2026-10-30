@@ -274,10 +274,18 @@ class OwnCompactionRuntime:
                 smsgs = summarizer_messages(self.summary, [texts[ch[0]][:keep]])
             t0 = self.clock()
             resp = self.inner.chat(model, smsgs, num_ctx, None, think)
-            if resp.get("outcome") == "error" and resp.get("status") is None:   # server gone: session incomplete
-                import x2_r2_agent as ag
-                raise ag.SessionIncomplete(resp.get("error"), {"kind": "summary", "error": resp.get("error"),
-                                                               "turns_folded": [nums[i] for i in ch]})
+            first = None
+            if resp.get("outcome") == "error" and resp.get("status") is None:   # server gone: one recorded retry
+                first = {"error": str(resp.get("error"))[:400], "duration_s": resp.get("duration_s")}
+                recover = getattr(self.inner, "recover", None)
+                if callable(recover):
+                    recover()
+                resp = self.inner.chat(model, smsgs, num_ctx, None, think)
+                if resp.get("outcome") == "error" and resp.get("status") is None:   # retry failed: incomplete
+                    import x2_r2_agent as ag
+                    raise ag.SessionIncomplete(resp.get("error"), {"kind": "summary", "error": resp.get("error"),
+                                                                   "turns_folded": [nums[i] for i in ch]},
+                                               first_attempt=first)
             text = (resp.get("message") or "").strip()
             ok = resp.get("outcome", "ok") == "ok" and bool(text)
             if ok:
@@ -287,6 +295,7 @@ class OwnCompactionRuntime:
                 self.summary = ((self.summary or "") + f"\n(turns {lost}: summary failed, details lost)").strip()
             self.folded = sorted(set(self.folded) | set(ch))
             calls.append({"kind": "summary", "turns_folded": [nums[i] for i in ch], "ok": ok,
+                          "retried_after_connection_error": first is not None, "first_attempt": first,
                           "prompt_proj": self._proj(smsgs, None), "prompt_eval_count": resp.get("prompt_eval_count"),
                           "eval_count": resp.get("eval_count"), "duration_s": resp.get("duration_s"),
                           "wall_s": self.clock() - t0, "summary_chars": len(self.summary or ""),

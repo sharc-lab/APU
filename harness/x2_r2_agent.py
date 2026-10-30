@@ -1024,34 +1024,59 @@ def _call_tokens(rec: dict) -> int:
 
 class SessionIncomplete(RuntimeError):
     """A call failed at the connection level (no HTTP status: the server died, refused the connection, reset it or
-    timed out). Defined behaviour of 2026-10-27 (docs/METHODOLOGY.md, "Server death mid-session"): _do_call raises
-    this with NO retry; run_session (and x2_r2_evalset._run_session_body) emit one r2a_session_incomplete row with the
-    error and no r2a_session row, so the session is not completed for any analysis (completed_sessions), then
+    timed out) on both its attempts. Defined behaviour (docs/METHODOLOGY.md, "Server death mid-session"):
+    2026-10-27 no retry; operator decision 2026-10-29: exactly ONE recorded retry. _do_call recovers the server
+    (runtime.recover() when the runtime has it) and retries the call once; the retry is never silent (the call row
+    carries retried_after_connection_error True and the first attempt's error and duration). If the retry also fails,
+    _do_call raises this; run_session (and x2_r2_evalset._run_session_body) emit one r2a_session_incomplete row with
+    both attempts and no r2a_session row, so the session is not completed for any analysis (completed_sessions), then
     re-raise, so the run stops without run_end (the register reads the file as partial) and a resume reruns the
     session. An HTTP error with a status (4xx/5xx) is not this: it is recorded on the call row and scored as before."""
 
-    def __init__(self, error, call: dict | None = None):
-        super().__init__(f"connection-level error, session incomplete, no retry: {error!r}")
-        self.error, self.call = error, call or {}
+    def __init__(self, error, call: dict | None = None, first_attempt: dict | None = None):
+        super().__init__(f"connection-level error on the call and its one recorded retry, session incomplete: "
+                         f"{error!r}")
+        self.error, self.call, self.first_attempt = error, call or {}, first_attempt
 
 
 def incomplete_row(base: dict, rows: list, exc: "SessionIncomplete", n_turns_planned=None) -> dict:
     """The r2a_session_incomplete row for a session stopped by SessionIncomplete (no r2a_session row is written)."""
     return {**base, "record": "r2a_session_incomplete", "incomplete": True, "error": str(exc.error)[:400],
-            "failed_call": exc.call, "n_turns_completed": len(rows), "n_turns_planned": n_turns_planned,
-            "retried": False, "ts_utc": utc_iso()}
+            "failed_call": exc.call, "first_attempt": getattr(exc, "first_attempt", None),
+            "n_turns_completed": len(rows), "n_turns_planned": n_turns_planned,
+            "retried": getattr(exc, "first_attempt", None) is not None, "ts_utc": utc_iso()}
+
+
+def _chat_once(runtime, model, messages, num_ctx, tools, think, extra):
+    if extra:
+        return runtime.chat(model, messages, num_ctx, tools, think, extra=extra)
+    return runtime.chat(model, messages, num_ctx, tools, think)
+
+
+def _is_connection_error(resp: dict) -> bool:
+    return resp.get("outcome") == "error" and resp.get("status") is None
 
 
 def _do_call(runtime, model, messages, num_ctx, tools, think, log, extra=None):
-    if extra:
-        resp = runtime.chat(model, messages, num_ctx, tools, think, extra=extra)
-    else:
-        resp = runtime.chat(model, messages, num_ctx, tools, think)
-    if resp.get("outcome") == "error" and resp.get("status") is None:
-        log(f"  connection-level error ({resp.get('error')!r}); session incomplete, no retry")
-        raise SessionIncomplete(resp.get("error"), _call_record(resp, messages, tools, extra))
+    resp = _chat_once(runtime, model, messages, num_ctx, tools, think, extra)
+    first = None
+    if _is_connection_error(resp):
+        first = {"error": str(resp.get("error"))[:400], "duration_s": resp.get("duration_s"), "ts_utc": utc_iso()}
+        log(f"  connection-level error ({resp.get('error')!r}); recovering the server and retrying once (recorded)")
+        recover = getattr(runtime, "recover", None)
+        if callable(recover):
+            try:
+                recover()
+            except Exception as e:  # noqa: BLE001 - a failed recover is recorded; the retry then fails and stops
+                first["recover_error"] = repr(e)[:300]
+        resp = _chat_once(runtime, model, messages, num_ctx, tools, think, extra)
+        if _is_connection_error(resp):
+            log(f"  retry also failed ({resp.get('error')!r}); session incomplete")
+            raise SessionIncomplete(resp.get("error"), _call_record(resp, messages, tools, extra), first_attempt=first)
     rec = _call_record(resp, messages, tools, extra)
-    rec["retried_after_connection_error"] = False   # kept for the row schema; no call is ever retried
+    rec["retried_after_connection_error"] = first is not None
+    if first is not None:
+        rec["first_attempt"] = first
     return resp, rec
 
 

@@ -36,7 +36,8 @@ def test_optional_window_override_entry_is_staged_outside_the_week_queue():
     cmd = opt[0]["cmd"]
     assert cmd[0] == wq.T2S_PY and cmd[1] == "window_override_methods.py" and (REPO / "harness" / cmd[1]).exists()
     a = wom.build_arg_parser().parse_args(cmd[2:])
-    assert a.queue is True and Path(a.out).name.startswith("t2s_") and not (REPO / a.out).exists()
+    # the output now exists in results/ (the 2026-10-26 window ran window_override_methods), so only its name is checked
+    assert a.queue is True and Path(a.out).name.startswith("t2s_")
     joined = " ".join(cmd).lower()
     assert not any(bad in joined for bad in ("ritz", "evo-x2", "100.118.33.76"))
 

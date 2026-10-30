@@ -17,7 +17,10 @@ def test_oct26_file_matches_builder_and_dry_run_passes():
     items = json.loads(wq.OCT26_PATH.read_text(encoding="utf-8"))
     assert items == wq.build_oct26()
     rep = wq.dry_run(items, prefix=wq.OCT26_PREFIX)
-    assert rep["ok"], [e for e in rep["entries"] if not e["ok"]]
+    # The window was loaded on 2026-10-28 and its outputs now sync into results/; "already exists" is expected for
+    # entries that have run, so only other problems fail the staged file.
+    bad = [(e["id"], p) for e in rep["entries"] for p in e.get("problems", []) if "already exists" not in p]
+    assert not bad, bad
 
 
 def test_oct26_is_separate_from_the_week_and_gated_on_its_own_preflight():

@@ -694,17 +694,23 @@ def load_window(queue_jsons, tq=None) -> list[str]:
         tq.clear_pause()
 
 
-def requeue(entry_id, why, tq=None) -> dict:
+def requeue(entry_id, why, tq=None, allow_running=False) -> dict:
     """Sets one finished-with-error entry back to pending (same position), keeping its old note under
     "previous_runs", as one read-modify-write under the queue pause (cleared in finally). Refuses while anything is
-    running or if the entry is not in error/crashed/failed_max_attempts."""
+    running, unless allow_running (operator decision 2026-10-29, to requeue the B5 CPU cell while the iGPU cell runs
+    for days): then it still refuses if the entry itself is running, and the running job is never touched. The one
+    write is milliseconds long; t2s_queue.advance() does not honour the pause, so a clash needs the running job to end
+    inside that write. Refuses if the entry is not in error/crashed/failed_max_attempts."""
     if tq is None:
         import t2s_queue as tq
     tq.set_pause(LOAD_PAUSE_REASON.replace("load-window", "requeue"))
     try:
         cur = tq.read_queue()
-        if any(it.get("status") == "running" for it in cur):
+        running = [it.get("id") for it in cur if it.get("status") == "running"]
+        if running and not allow_running:
             raise SystemExit("refusing to requeue: an entry is running")
+        if entry_id in running:
+            raise SystemExit(f"refusing to requeue {entry_id!r}: it is running")
         it = next((x for x in cur if x["id"] == entry_id), None)
         if it is None or it.get("status") not in ("error", "crashed", "failed_max_attempts"):
             raise SystemExit(f"refusing to requeue {entry_id!r}: status {it and it.get('status')!r}")
@@ -761,7 +767,9 @@ def main(argv=None):
         ids = load(argv[1])
         print(f"loaded {len(ids)} pending entries: {ids}")
     elif cmd == "requeue":
-        it = requeue(argv[1], " ".join(argv[2:]) or "requeued")
+        allow = "--allow-running" in argv
+        rest = [x for x in argv[2:] if x != "--allow-running"]
+        it = requeue(argv[1], " ".join(rest) or "requeued", allow_running=allow)
         print(f"requeued {it['id']} as pending: {it['requeue_reason']}")
     elif cmd == "load-window":
         ids = load_window(argv[1:])

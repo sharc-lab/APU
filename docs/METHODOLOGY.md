@@ -199,6 +199,15 @@ files by their last part (numbers_register.py:9378 to 9395).
 
 ### Server death mid-session
 
+**Revised 2026-10-29 (operator decision): exactly ONE recorded retry.** The no-retry rule below (2026-10-27) stopped
+the evo-t2s B5 Intel CPU llama3.1:8b cell on 2026-10-28 13:39Z after 3 sessions, when one router-policy call hit the
+900 s client timeout. Now `_do_call` (and the own-compaction summarizer) calls `runtime.recover()` and retries the
+call once. The retry is never silent: the call row carries `retried_after_connection_error: true` and a
+`first_attempt` object (error, duration, any recover error). If the retry also fails, `SessionIncomplete` is raised
+and the `r2a_session_incomplete` row (or `longtask_task_incomplete`) carries both attempts with `retried: true`; the
+run then stops as described below. Tests: tests/test_server_death_mid_session.py, including a retry that succeeds.
+The text below describes the 2026-10-27 rule it replaces.
+
 **What happened before 2026-10-27 (all harnesses, through `_do_call`).** A call with no HTTP status covers a
 refused connection, a reset or a 900 s timeout (`CALL_TIMEOUT_S`, x2_r2_agent.py:431). Such a call:
 

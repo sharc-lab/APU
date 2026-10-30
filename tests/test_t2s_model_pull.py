@@ -161,6 +161,20 @@ def test_requeue_refuses_while_running_or_on_a_done_entry():
     assert fq.log == ["pause", "clear"] and fq2.log == ["pause", "clear"]
 
 
+def test_requeue_allow_running_requeues_another_entry_but_never_the_running_one():
+    """Operator 2026-10-29: requeue the B5 CPU cell while the iGPU cell runs; the running entry is never touched."""
+    import pytest
+    fq = FakeQueue([{"id": "cpu", "status": "error", "note": "stopped: SessionIncomplete"},
+                    {"id": "igpu", "status": "running", "pid": 7}, {"id": "q", "status": "pending"}])
+    it = wq.requeue("cpu", "one recorded retry", tq=fq, allow_running=True)
+    assert it["status"] == "pending" and fq.items[1] == {"id": "igpu", "status": "running", "pid": 7}
+    assert fq.log == ["pause", "write", "clear"]
+    fq2 = FakeQueue([{"id": "igpu", "status": "running"}])
+    with pytest.raises(SystemExit):
+        wq.requeue("igpu", "", tq=fq2, allow_running=True)
+    assert fq2.log == ["pause", "clear"]
+
+
 def test_load_window_refuses_with_a_live_old_entry_and_still_clears():
     import pytest
     fq = FakeQueue([{"id": "old", "status": "pending"}])

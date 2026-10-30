@@ -468,11 +468,12 @@ def main(argv=None, advance=True, deps=None) -> str:
                         break
                     try:
                         row = run_long_task(rt, MODEL, cfg["num_ctx"], ag.MODELS.get(MODEL), task, env, log)
-                    except ag.SessionIncomplete as e:   # no longtask_task row, no retry; the run stops, no run_end
+                    except ag.SessionIncomplete as e:   # failed after its one recorded retry; the run stops, no run_end
+                        first = getattr(e, "first_attempt", None)
                         emit({"record": "longtask_task_incomplete", "incomplete": True, "harness": HARNESS,
                               "model_id": MODEL, "arm_id": cfg["arm_id"], "arm": a, "seed": s,
                               "task_id": task.task_id, "error": str(e.error)[:400], "failed_call": e.call,
-                              "retried": False, "ts_utc": utc_iso()})
+                              "first_attempt": first, "retried": first is not None, "ts_utc": utc_iso()})
                         raise
                     loaded = rt.loaded_context(MODEL)
                     row.update({"record": "longtask_task", "harness": HARNESS, "model_id": MODEL,
