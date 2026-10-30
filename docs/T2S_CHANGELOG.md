@@ -164,3 +164,16 @@ digest). Nothing of Zach's found, so the staged order went ahead.
 **Why:** operator go 2026-10-27, docs/T2S_WEEK_PLAN.md staged order.
 **Revert:** at the deadline the queue pauses itself (handover). To stop sooner: `Disable-ScheduledTask
 APU-QueueWatchdog`, and on the controller stop the open-window process and delete `.sync_host_window.json`.
+
+## 2026-10-30 -- B5 Intel CPU llama3.1:8b requeued with one recorded retry
+
+**What:** the cell `t2s_o26_b5_cpu_llama31_8b` stopped on 2026-10-28 13:39Z after 3 completed sessions: one router
+(policy d) call, seed 20260901, hit the 900 s client timeout, and the 2026-10-27 no-retry rule stopped the run.
+Operator decision 2026-10-29: one recorded retry. Deployed `x2_r2_agent.py`, `own_compaction.py`, `x2_longtask.py`
+and `t2s_week_queue.py` at 17347c5, then `t2s_week_queue.py requeue t2s_o26_b5_cpu_llama31_8b --allow-running ...`
+(one read-modify-write under the queue pause, cleared in finally; the running iGPU cell was not touched). The entry is
+pending at its old position, so it runs after the iGPU cell and before the qwen3:14b CPU cell. policy_compare skips
+completed sessions, so the 3 finished sessions are kept and the incomplete one is rerun; both attempts stay in
+results/t2s_policy_compare_cpu_llama31_8b_v1.jsonl, and the first attempt's note is under the entry's previous_runs.
+**Note:** the running iGPU cell loaded the old module at its start, so it still runs under the no-retry rule.
+**Revert:** none needed; to drop the rerun, mark the entry done by hand under a pause with a reason.
