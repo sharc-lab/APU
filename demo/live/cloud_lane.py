@@ -45,6 +45,7 @@ from demo.dashboard import escalate as ES  # noqa: E402
 SESSION_LIMIT_USD = ES.DEMO_SESSION_LIMIT_USD
 JOB_ID = "demo_live_session"
 PROJECTION_SAFETY = 1.5
+TASK_CAP_USD = 0.25   # per-task cap (src/cloud/task_budget.py, operator item C); under the session limit, never above
 PRICES = REPO / "results" / "cloud_prices_anthropic_20261014.json"
 
 
@@ -62,10 +63,14 @@ def projected_ledger_usd(task: dict, model: str, calls: int = 3) -> float:
     return round(PROJECTION_SAFETY * calls * (prompt * r["input"] + 2048 * r["output"]) / 1e6, 6)
 
 
+def lane_key(task: dict) -> str:
+    return f"{task.get('seed')}:{task.get('task_id')}"
+
+
 class CloudLane:
     def __init__(self, env=None, ledger: Path = ES.LEDGER, client_factory=None, session_limit: float = SESSION_LIMIT_USD,
                  all_cloud_rows=None, operator_approval: str | None = None, gate_fn=None, context_fn=None,
-                 confirm_fn=None):
+                 confirm_fn=None, task_cap_usd: float = TASK_CAP_USD):
         from src.cloud import console_gate as CG  # noqa: PLC0415
         # a session limit above USD 3 needs the operator's approval (raises JobApprovalRefused before anything runs);
         # an approval is accepted only from an interactive console, confirmed there at startup (never from automation)
@@ -80,6 +85,7 @@ class CloudLane:
         self.ledger = Path(ledger)
         self.factory = client_factory or ES._default_client_factory
         self.session_limit = session_limit
+        self.task_cap_usd = float(min(task_cap_usd, session_limit))
         self.client = None
         self.all_cloud = all_cloud_rows if all_cloud_rows is not None else L.read_jsonl(
             REPO / "results" / L.ALL_CLOUD_FILE)
@@ -142,7 +148,19 @@ class CloudLane:
             if proj > self.budget_left():   # again, on the opened shared session (another process may have spent)
                 return self.replay(task, model, f"projected ${proj:.4f} is above the session budget left "
                                                 f"(${self.budget_left():.4f})")
-            res = L.run_cloud(self.client, task, model, rates_for(model))
+            from src.cloud import task_budget as TB  # noqa: PLC0415
+            tbc = TB.BudgetedClient(self.client, self.task_cap_usd, ledger_path=self.ledger)
+            tbc.start_task(f"{lane_key(task)}:{model}")
+            try:
+                res = L.run_cloud(tbc, task, model, rates_for(model))
+            except TB.TaskBudgetExhausted as e:
+                # hand-off, not a retry: the task stops on the cloud lane and is shown as such
+                self.log.append({"lane": lane, "seed": task["seed"], "task_id": task["task_id"], "model": model,
+                                 "usd_ledger": tbc.task_spent_usd, "projected": proj,
+                                 "outcome": TB.OUTCOME_EXHAUSTED})
+                return {"route": "cloud", "model": model, "label": "BUDGET EXHAUSTED", "end_state_ok": None,
+                        "outcome": TB.OUTCOME_EXHAUSTED, "handed_off": True, "task_budget": e.record,
+                        "reason": str(e)}
         except Exception as e:
             return self.replay(task, model, f"live call failed: {type(e).__name__}: {ES._scrub(e, self.env)}")
         self.log.append({"lane": lane, "seed": task["seed"], "task_id": task["task_id"], "model": model,

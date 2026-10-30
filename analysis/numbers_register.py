@@ -4694,6 +4694,87 @@ def compute_hybrid_local_first_rollback(repo):
             else "0"}
 
 
+POST_RUN_CHECK_FILE = "results/post_run_check_replay_v1.jsonl"
+POST_RUN_CHECK_LIVE_FILE = "results/x2_post_run_check_live_v1.jsonl"
+POST_RUN_CHECK_L4_FILE = "results/x2_post_run_check_l4_v1.jsonl"
+PER_TASK_BUDGET_FILE = "results/per_task_budget_check_v1.jsonl"
+POST_RUN_CHECK_DATA = [POST_RUN_CHECK_FILE, "results/x2_evalset_tasks_real_v2.jsonl",
+                       "results/own_rollback_redo_v1.jsonl", "results/cloud_redo_full_context_v1.jsonl",
+                       "results/cloud_redo_full_context_v1_part2.jsonl", "results/cloud_redo_full_context_v1_part3.jsonl",
+                       "results/all_cloud_b3_v1.jsonl", "results/x2_own_compaction_v1_a.jsonl",
+                       "results/x2_own_compaction_v1_b.jsonl"]
+
+
+def _post_run_check():
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "analysis"))
+    import post_run_check_replay as prc
+    return prc
+
+
+def _compute_post_run_check_tier(repo, tier):
+    prc = _post_run_check()
+    d = prc.load(repo)
+    return {"value": prc.cell_text(d, tier), "n": f"{d['cells'][tier]['headline']['n']} task turns"}
+
+
+def compute_post_run_check_4096(repo):
+    return _compute_post_run_check_tier(repo, "ollama_ctx_4096")
+
+
+def compute_post_run_check_8192(repo):
+    return _compute_post_run_check_tier(repo, "ollama_ctx_8192")
+
+
+def compute_post_run_check_default(repo):
+    return _compute_post_run_check_tier(repo, "ollama_default")
+
+
+def compute_post_run_check_layer_attribution(repo):
+    prc = _post_run_check()
+    d = prc.load(repo)
+    return {"value": prc.attribution_text(d), "n": f"{len(d['tasks'])} B3 v2 task turns; own-compaction "
+                                                  f"{sum(c['n'] for c in d['oc']['arms'].values())} task turns"}
+
+
+def compute_post_run_check_live_estimate(repo):
+    prc = _post_run_check()
+    e = prc.live_estimate(repo)
+    return {"value": prc.live_estimate_text(e), "n": f"{e['n_tasks']} tasks (ESTIMATE)"}
+
+
+def compute_post_run_check_live(repo):
+    raise RuntimeError("live post-run check job not run; this row stays PENDING until its file has run_end")
+
+
+def compute_post_run_check_l4(repo):
+    raise RuntimeError("L4 self-check not run; this row stays PENDING until its file has run_end")
+
+
+def compute_per_task_budget_check(repo):
+    rows = [json.loads(x) for x in (Path(repo) / PER_TASK_BUDGET_FILE).read_text(encoding="utf-8").splitlines()
+            if x.strip()]
+    st = next(r for r in rows if r["record"] == "run_start")
+    calls = [r for r in rows if r["record"] == "budget_call"]
+    ref = next(r for r in rows if r["record"] == "budget_refusal")
+    end = next(r for r in rows if r["record"] == "run_end")
+    ok = all(end[k] for k in ("stopped_at_expected_call", "task1_counted_within_cap", "billed_within_cap",
+                              "outcome_recorded", "next_task_fresh_budget")) and not end["retry_after_refusal_sent"]
+    return {"value": (f"test-produced (tests/test_task_budget.py, {st['client']}, {st['wrapper']}), forced retry loop "
+                      f"on {st['model_id']}, max_tokens {st['max_tokens']}: per-task cap USD {st['task_cap_usd']:.5f} "
+                      f"(3.5 x the per-call upper-bound reservation USD {st['reservation_usd']:.5f}); calls sent "
+                      f"{len(calls)}, the next call (index {ref['refused_call_idx']}) refused before sending "
+                      f"(counted USD {ref['task_counted_usd_at_refusal']:.5f} + reservation "
+                      f"{ref['next_call_reservation_usd']:.5f} > cap); outcome {ref['outcome']}, ledger records "
+                      f"{ref['ledger_records_written']}, provider requests {ref['provider_requests_sent']}; billed "
+                      f"total USD {sum(c['billed_usd'] for c in calls):.5f}, counted (upper bound) USD "
+                      f"{end['task1_counted_usd']:.5f}, both within the cap; a retry after the refusal sent nothing; "
+                      f"the next task got a fresh budget; pass conditions (pre-registered) "
+                      f"{'MET' if ok else 'MISSED'}; the job cap and Console gate are unchanged (a per-task cap "
+                      f"above the job cap is refused by the client's own cap, tested)"),
+            "n": f"{len(calls)} calls + 1 refused"}
+
+
 def compute_impact_p2(repo):
     return _impact_row(repo, "P2")
 
@@ -8958,6 +9039,46 @@ NUMBER_ENTRIES = [
      "naive local",
      "compute": compute_hybrid_local_first_rollback, "data_files": ROUTE_MEASURED_FILES,
      "script_function": "analysis/own_rollback.py::local_first_rollback"},
+    {"claim_id": "post-run-check-4096", "description": "Post-run check (L1/L2 as recorded PROXIES, L3 real) by replay "
+     "of the B3 v2 real run, qwen3:14b, evo-x2 num_ctx 4096: recall on known-wrong, false escalations, final accuracy, "
+     "cloud USD/task, kept local, added latency; pre-registered targets recall >= 80%, false escalations <= 10%, final "
+     "accuracy >= 97%",
+     "compute": compute_post_run_check_4096, "data_files": POST_RUN_CHECK_DATA, "pending_ok": True,
+     "require_run_end": [POST_RUN_CHECK_FILE], "script_function": "analysis/post_run_check_replay.py::cell_text"},
+    {"claim_id": "post-run-check-8192", "description": "Post-run check by replay, as post-run-check-4096, at evo-x2 "
+     "num_ctx 8192",
+     "compute": compute_post_run_check_8192, "data_files": POST_RUN_CHECK_DATA, "pending_ok": True,
+     "require_run_end": [POST_RUN_CHECK_FILE], "script_function": "analysis/post_run_check_replay.py::cell_text"},
+    {"claim_id": "post-run-check-default", "description": "Post-run check by replay, as post-run-check-4096, at "
+     "evo-x2 Ollama default window",
+     "compute": compute_post_run_check_default, "data_files": POST_RUN_CHECK_DATA, "pending_ok": True,
+     "require_run_end": [POST_RUN_CHECK_FILE], "script_function": "analysis/post_run_check_replay.py::cell_text"},
+    {"claim_id": "post-run-check-layer-attribution", "description": "Post-run check: which layer caught what (each "
+     "layer alone, unique catches, L3 alone, L3 checks fired on wrong vs right tasks) on the B3 v2 replay, plus L1 "
+     "real (recorded detector v2) vs L3 on the own-compaction runs (detection only)",
+     "compute": compute_post_run_check_layer_attribution, "data_files": POST_RUN_CHECK_DATA, "pending_ok": True,
+     "require_run_end": [POST_RUN_CHECK_FILE], "script_function": "analysis/post_run_check_replay.py::attribution_text"},
+    {"claim_id": "post-run-check-live-estimate", "description": "ESTIMATE for the live post-run check job on evo-x2 "
+     "(x2_post_run_check_v1): projected cloud spend billed and upper bound, cap ceiling, hours, L4 cost",
+     "compute": compute_post_run_check_live_estimate,
+     "data_files": [POST_RUN_CHECK_FILE, "results/x2_evalset_tasks_real_v2.jsonl", "results/x2_r2_mechanism.jsonl",
+                    "results/cloud_redo_full_context_v1.jsonl", "results/cloud_redo_full_context_v1_part2.jsonl",
+                    "results/cloud_redo_full_context_v1_part3.jsonl"], "pending_ok": True,
+     "require_run_end": [POST_RUN_CHECK_FILE], "script_function": "analysis/post_run_check_replay.py::live_estimate"},
+    {"claim_id": "post-run-check-live", "description": "Live post-run check on evo-x2 (B3 v2 qwen3:14b at 4096, 8192 "
+     "and default, check live, rollback and Sonnet escalation under the per-task cap); pre-registered targets as "
+     "post-run-check-4096; not run, not queued",
+     "compute": compute_post_run_check_live, "data_files": [POST_RUN_CHECK_LIVE_FILE], "pending_ok": True,
+     "require_run_end": [POST_RUN_CHECK_LIVE_FILE], "script_function": "src/dse/post_run_check.py::rollback_and_escalate"},
+    {"claim_id": "post-run-check-l4-self-check", "description": "L4 of the post-run check: cheap self-check by the "
+     "local model, cost and value measured alone; design only (src/dse/post_run_check.L4_DESIGN), not run",
+     "compute": compute_post_run_check_l4, "data_files": [POST_RUN_CHECK_L4_FILE], "pending_ok": True,
+     "require_run_end": [POST_RUN_CHECK_L4_FILE], "script_function": "src/dse/post_run_check.py::l4_design"},
+    {"claim_id": "per-task-budget-check", "description": "Per-task cloud budget (src/cloud/task_budget.py): forced "
+     "retry loop on a fake client; stops at the right call, nothing past the cap, outcome and ledger record written",
+     "compute": compute_per_task_budget_check, "data_files": [PER_TASK_BUDGET_FILE], "pending_ok": True,
+     "require_run_end": [PER_TASK_BUDGET_FILE], "script_function": "tests/test_task_budget.py::"
+     "test_forced_retry_loop_stops_at_cap"},
     {"claim_id": "task-latency-by-policy", "description": "Wall-clock seconds per task, median and p90, by replay of "
      "recorded runs: all-cloud (all_cloud_b3_v1 seconds, each cloud tier), local (x2_evalset_tasks_real_v2 "
      "turn_wall_s, each B3 v2 tier) and the per-task hybrid of hybrid-route-at-start-measured; seeds 20260901-03; "

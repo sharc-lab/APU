@@ -927,6 +927,28 @@ class CloudClient:
         sdk = anthropic.Anthropic(api_key=self.api_key)
         return int(sdk.messages.count_tokens(model=model_id, messages=messages).input_tokens)
 
+    @staticmethod
+    def _reservation(model_id: str, messages: list[dict[str, Any]], expected_output_tokens: int,
+                     kwargs: dict[str, Any]) -> tuple[int, float]:
+        """(input token estimate, upper-bound reservation USD) of one call: the figure prepare() reserves against the
+        cap. Needs a priced model id."""
+        input_tokens = _approx_token_count(messages)
+        if kwargs.get("tools"):
+            input_tokens += max(1, len(json.dumps(kwargs["tools"]).split()))
+        return input_tokens, reservation_cost_usd(
+            model_id, input_tokens, expected_output_tokens,
+            request_cache_ttl(messages, kwargs) if _uses_cache_control(messages, kwargs) else None)
+
+    def projected_cost_usd(self, *, model_id: str, messages: list[dict[str, Any]],
+                           expected_output_tokens: int | None = None, **kwargs: Any) -> float:
+        """The upper-bound reservation prepare() would make for this call (same estimate, same rates), without
+        reserving anything. Used by src/cloud/task_budget.py for the per-task cap check before each call."""
+        if expected_output_tokens is None:
+            expected_output_tokens = int(kwargs.get("max_tokens") or kwargs.get("max_completion_tokens") or 256)
+        if model_id not in MODEL_PRICING:
+            raise UnknownModelError(f"no pricing entry for model '{model_id}'")
+        return CloudClient._reservation(model_id, messages, expected_output_tokens, kwargs)[1]
+
     def prepare(
         self,
         *,
@@ -967,11 +989,7 @@ class CloudClient:
                 f"{self.api_key_source} ({key_provider}); pass that provider's key explicitly"
             )
 
-        if kwargs.get("tools"):
-            input_tokens += max(1, len(json.dumps(kwargs["tools"]).split()))
-        projected_cost = reservation_cost_usd(
-            model_id, input_tokens, expected_output_tokens,
-            request_cache_ttl(messages, kwargs) if _uses_cache_control(messages, kwargs) else None)
+        input_tokens, projected_cost = self._reservation(model_id, messages, expected_output_tokens, kwargs)
 
         with self._lock:
             committed = self._running_total_usd + self._reserved_usd

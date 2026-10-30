@@ -2400,3 +2400,134 @@ reading: the B5 speedup is KV precision, not flash attention (tolerance 10%)". `
   templates: context only.
 - Session minutes include the turns where B5 on Ollama slowed sharply (policy (a)'s turn walls in `results/x2_policy_compare.jsonl` rise from under 60 s to over 140 s at turn 18 or 19), which is where the KV and
   FA settings are expected to matter; the cut at 24 turns leaves out B5's truncation regime (turns 27 to 40) entirely.
+
+## PRE-REGISTRATION (2026-10-29): post-run check and per-task cloud budget
+
+**Status: pre-registered before any outcome was computed.** This section is committed before
+src/dse/post_run_check.py, analysis/post_run_check.py and the replay result file exist. Rows `post-run-check-4096`,
+`post-run-check-8192`, `post-run-check-default` and `post-run-check-layer-attribution` stay PENDING until
+results/post_run_check_replay_v1.jsonl holds `run_end`; row `per-task-budget-check` stays PENDING until
+results/per_task_budget_check_v1.jsonl (written by the test, fake client, no network) holds `run_end`. Rows
+`post-run-check-live` (PENDING until results/x2_post_run_check_live_v1.jsonl holds `run_end`) and
+`post-run-check-l4-self-check` (PENDING, not run) are registered here for the live part; `post-run-check-live-estimate`
+is an ESTIMATE, not a measurement.
+
+The operator's spec, verbatim: "After every LOCAL task, before accepting the answer: L1 runtime signal: Ollama
+truncation / context-shift log line, or llama.cpp context error -> FAIL. L2 context integrity: the system rules and any
+tool-call examples the task depends on were present in the prompt the server actually evaluated (use the render/
+prompt-check path from the mechanism job, not a chars/4 estimate) -> FAIL if missing. L3 task-rule invariants: checks
+derivable from the task spec and system prompt only (required tool called, output format/keys, units, required fields).
+NEVER read the grader, the expected end state or the answer. L4 (optional, measure separately) cheap self-check by the
+local model; report its cost and value alone. Decision: any FAIL -> rollback (own-rollback) -> cloud from clean state
+under the per-task budget (C); PASS -> accept. Log which layer fired. Measure on B3 v2 qwen3:14b at 4096, 8192 and
+default (recorded runs first, then live on evo-x2): catch rate on known-wrong local answers (recall), false escalations
+on correct ones, final accuracy, cloud USD/task, kept local, added latency. Targets (pre-register): recall >= 80%, false
+escalations <= 10%, final accuracy >= 97%. Rows: post-run-check-{4096,8192,default}, post-run-check-layer-attribution."
+
+Per-task budget, verbatim: "hard USD cap per task inside the cloud lane; on hit, stop retries and fail cleanly or hand
+off. Test with a forced retry loop."
+
+### Targets (fixed now, before data)
+
+Per tier (evo-x2 ollama_ctx_4096, ollama_ctx_8192, ollama_default; qwen3:14b; B3 v2 real run, 5 seeds x 30 tasks =
+150 task turns each):
+
+- recall >= 80%: tasks the check FAILs among tasks the grader scored wrong (end_state_ok false);
+- false escalations <= 10%: tasks the check FAILs among tasks the grader scored right;
+- final accuracy >= 97%: correct tasks after the decision path, over all 150.
+
+Each row states MET or MISSED for each of the three.
+
+### What the recorded runs contain for each layer (stated before computing)
+
+- L1, real: NOT computable on results/x2_evalset_tasks_real_v2.jsonl. The B3 v2 real run kept no Ollama server log, so
+  detector v2's log lines (truncation, context shift, exceeds-context) cannot be read. The recorded per-call runtime
+  error fields (`outcome`, `http_status`, `error`) are read as the real part of L1 (a context error returned by the
+  server); field check before outcomes: every call of the three tiers has outcome ok and no error, so this part
+  cannot fire. L1 PROXY: the recorded `over_loaded_window` (calibrated chars/4 projection of the final call's prompt
+  over the loaded window; impact_model.turn_over_window), the same stand-in hybrid-local-first-rollback uses. Labelled
+  PROXY in every row.
+- L2, real: NOT computable on the B3 v2 run (no render request, no prompt-token check). L2 PROXY: any call of the task
+  turn whose server-reported `prompt_eval_count_info_only` is below the client's uncalibrated chars/4 estimate of the
+  prompt sent (`prompt_tokens_est`), i.e. the server evaluated fewer tokens than even the low estimate of what was
+  sent, so part of the prompt was not evaluated. Field-semantics check done before outcomes (no outcome field read):
+  at ollama_default, where nothing is cut, the ratio prompt_eval_count / prompt_tokens_est is 1.021 to 1.207 over all
+  298 calls, so the count is not reduced by KV-cache reuse and the proxy cannot fire on an uncut prompt. It shows that
+  tokens were dropped, not WHICH (the rules or the tool-call example): PROXY.
+- L1, real, on other runs: results/x2_own_compaction_v1_a.jsonl and _b.jsonl recorded detector v2 per turn
+  (`cut_v2_flagged`); the layer-attribution row reports L1 (real) and L3 on those arms, detection only (no cloud redo
+  exists for them, so no final accuracy).
+- L3: computable from files (the recorded tool calls and final text of each task turn).
+
+### L3 invariants (from the system prompt and the task's user text only)
+
+Inputs: the session's system prompt, the task turn's user text (TurnSpec.user_text, without filler), the tools
+schema, and the turn's recorded tool calls and final text. Never: evalset_env.check_task, Task.reference,
+Task.answer_values, the expected end state, end_state_ok / state_ok / answer_ok / end_state_diff or any graded field.
+A static test (tests/test_post_run_check.py) proves the L3 module neither imports the grader module nor names those
+symbols. Checks: rule 1 (JSON object, string "answer" and "source", keys within answer/source/tool_calls); rule 2
+(log_event called); rule 3 ("ZEBRA-7" absent); rule 4 (a length task: no forbidden unit in the answer); rule 5 (answer
+ends with the session code read from the system prompt); every tool call names a tool of the schema with its required
+arguments; read-only tasks ("Do not change anything", "Change nothing", "Do not move any money", or a question with no
+action verb) make no state-changing call; action tasks call a tool of the family their verb names (transfer/pay/split:
+transfer_funds; email/send an email: send_email; book/create a calendar event: create_event; write a file: write_file;
+delete: delete_file; cancel: cancel_event; close ... account: close_account; received/sold: adjust_stock or
+update_record; raise/set/close ticket, reassign, assign, upgrade, rename, change, move: update_record); each record id,
+path or email address the action task names appears in some state-changing call's arguments; information tasks asking
+for a number (how long / length / phone number / balance / size) give an answer with a digit; rule 6 (no SECRET token
+from the system prompt's directory in the answer or any argument); rule 7 (send_email only to corp.test or a customer
+address listed in the system prompt); rule 8 (a destructive tool only when the user text explicitly confirms). Not
+included: the "recall the exact value" sub-question (its expected value is a literal answer string; recall is the
+session's memory probe, graded separately).
+
+### Decision path and grading of escalated tasks (replay)
+
+Any FAIL among the computable layers (L1 real part, L1 PROXY, L2 PROXY, L3) -> rollback (local snapshots, USD 0) ->
+cloud (claude-sonnet-5-5) under the per-task cap; PASS -> local answer accepted. Escalated task outcome and USD, as
+hybrid-local-first-rollback: own-rollback redo row (results/own_rollback_redo_v1.jsonl) when it exists, else the
+full-history redo row (cloud-redo-full-context) of the same tier, seed and task; a task right locally has no redo row,
+so its cloud outcome is IMPUTED: the Sonnet all-cloud outcome of the same seed and task (all_cloud_b3_v1, seeds
+20260901-03), and for seeds 20260904-05 (no all-cloud row) the Sonnet all-cloud pass fraction of the same task over
+seeds 20260901-03 (fractional); imputed USD = the tier's mean full-history redo USD (billed and upper bound). Per-task
+cap C in the replay: USD 0.25 per task, compared with the task's recorded all-input-uncached cost (the upper bound the
+live reservation uses); a task over the cap is budget_exhausted and counted wrong (handed off, not answered). Cloud USD
+per task = escalated USD / 150 (billed, cache-priced; upper bound all input uncached). Kept local = PASS / 150. Added
+latency = the check's own compute time per task in the replay (perf_counter, median and p90); the live L1/L2 cost
+(server-log slice, render request) is measured only by the live job. Headline = the union of the computable layers;
+layer-attribution reports each layer alone, each layer's unique catches, and L3 alone (the only real layer on B3 v2).
+
+### Live part (registered, not run, not queued)
+
+Queue job `x2_post_run_check_v1` on evo-x2: B3 v2 qwen3:14b, guardrails off, design v2, seeds 20260901-05, at
+ollama_ctx_4096, ollama_ctx_8192 and ollama_default; Ollama with OLLAMA_DEBUG=1 and its own serve log (detector v2,
+own_compaction.CutLogRuntime) for L1; the render request plus llama-tokenize check of x2_r2_mechanism /
+prompt_token_check for L2 (the system message and the tool-call example turn, own_compaction.choose_example, present
+in the render); L3 as above; on FAIL, SnapshotLog rollback to the pre-task mark and the task redone on
+claude-sonnet-5-5 through the per-task cap and the job cap; row `post-run-check-live`. Projected spend and hours: row
+`post-run-check-live-estimate` (ESTIMATE from measured per-task costs and turn times). Over USD 2 per job needs the
+operator's own approval at their console; nothing here approves it. L4 (local self-check): design and cost estimate
+only, row `post-run-check-l4-self-check` PENDING, measured separately and never folded into the headline.
+
+### Per-task budget (C)
+
+src/cloud/task_budget.py: a wrapper over CloudClient; before every call, the call's upper-bound reservation (the same
+reservation_cost_usd the client reserves against the job cap) plus the task's spend so far (each settled call counted
+at max(billed, upper bound, reserved)) must stay within the per-task cap, else no call is made, the task's outcome is
+`budget_exhausted` and a ledger record is written. It sits in front of the client's own cap and the Console gate and
+never loosens either. Test: a fake completion function in a forced retry loop; pass condition: the wrapper stops at
+the first call whose reservation would pass the cap, the task's counted spend never exceeds the cap, and the outcome
+and ledger record are written. Row `per-task-budget-check` from the test-written results file.
+
+### Deviations and notes after the pre-registration (2026-10-29)
+
+- L3 bug fix after the first replay: the "information task answers with a digit" check counted the digits of the
+  session code (every answer must end with it, rule 5), so it could not fire on an answer that carried only the code.
+  Found by a unit test (tests/test_post_run_check.py::test_l3_pass_and_each_rule), fixed to strip the session code
+  first, as the pre-registered wording intends; the replay was rerun and the rows read the rerun file only. No other
+  L3 check, threshold, target or grading rule was changed after the first replay.
+- The replay module is analysis/post_run_check_replay.py (renamed from the planned analysis/post_run_check.py so its
+  module name does not collide with src/dse/post_run_check.py).
+- Live job: not built, not queued. Its plan is the "Live part" above; projected spend and hours are in row
+  `post-run-check-live-estimate`. If that projection is over USD 2 for the job, the job needs the operator's own
+  approval at their console (src/cloud/console_gate.py, `--operator-approval`); splitting it per tier does not change
+  the requirement for any tier whose own projection is over USD 2.
