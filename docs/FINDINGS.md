@@ -6374,3 +6374,19 @@ own-plan-execute pilot".
   interaction" iff the q8_0 KV saving with FA off and with FA on differ by at most 1% of the f16 FA-on KV buffer.
 - **Rows:** kv-fa-interaction-llamacpp (PENDING until run_end); kv-fa-interaction-llamacpp-hours (ESTIMATE, see the
   row).
+
+## RESULT (2026-10-29, verdict amended 2026-10-30): fit-predictor-v1 MISSED; q4_0 28928 named operating point; E Intel skipped
+
+- **fit-predictor-v1 (session-start "will this task overflow").** Headline, against the runtime log (detector v2 /
+  llama-server context event), row `fit-predictor-v1`: "precision 0.350 [0.298, 0.404], recall 0.900 [0.833, 0.942]".
+  Verdict MISSED (operator, 2026-10-30). The pooled target (precision and recall >= 0.90) was proposed by the agent,
+  not the operator; the pooled numbers ("precision 0.931 [0.922, 0.939], recall 0.990 [0.985, 0.993]") and the v1
+  numbers are secondary, because v1 ground truth is the same series the predictor extrapolates. Pre-registration and
+  result note: docs/EXPERIMENTS.md "PRE-REGISTRATION (2026-10-29): fit-predictor-v1".
+- **Named operating point q4_0 at 28928** (row `operating-point-q4-28928`, replay of recorded runs, escalations
+  imputed): see the row for kept local, accuracy, cloud USD per task and the share of the all-cloud bill; also a named
+  line in `pitch-savings-table` and the figure docs/figures/operating_point_frontier.png (values parsed from the rows).
+  The pipeline target (row `hybrid-full-pipeline-v1`, >= 50/90 kept local at >= 97%) is MISSED.
+- **E:** hybrid-live-intel SKIPPED (operator 2026-10-30): qwen3:14b fails evo-t2s's strict preflight and the gate is
+  not relaxed. hybrid-live-amd (q4_0 28928) is approved to run once the tuned post-run check exists; it waits on that
+  and is not queued. Row `hybrid-live-hours`.
