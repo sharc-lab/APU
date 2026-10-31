@@ -40,7 +40,7 @@ loudly, with HTTP errors [xruntime-llamacpp-wrong-rate].
   [97.5%, 100.0%] (25 sessions, stratified by memory setting) [headline-ci-session-rescue]. Stand-in caveat: the
   rollback redo replaced every earlier wrong task turn by its reference calls, i.e. it assumes each earlier
   escalation succeeded; it is not a live hybrid [cloud-rescue-combined].
-- **Cost is measured at 20% below all-cloud (19.7%, n = 90 tasks), quality not matched.** Route at start costs USD 0.00819 per task vs
+- **Cost is measured at 20% below all-cloud (19.7%, n = 90 tasks) at 88/90 vs 90/90, quality not matched.** Route at start costs USD 0.00819 per task vs
   all-cloud USD 0.01020, 19.7% lower, at 97.8% (88/90) correct vs 100.0% (90/90) [hybrid-route-at-start-measured];
   session-level 95% CI for the saving [16.8%, 22.4%] over 3 sessions, very coarse [headline-ci-session-hybrid].
   Section 2 gives the setup.
@@ -155,3 +155,27 @@ of section 2.
 Staged, not loaded (docs/T2S_WEEK_PLAN.md): Intel laptop task accuracy on the B3 v2 tasks (qwen3:14b, Intel CPU at its
 4096 default and Intel iGPU at 32768, validation then real run each), then the B5 context-policy cells on the Intel
 CPU and iGPU. These replace the projected Intel figures in section 5 with measured ones.
+
+## 7. Pitch lines, as worded after the number audit (2026-10-31)
+
+The operator approved every pitch fix in docs/AUDIT_20261025.md section 1c on 2026-10-31. These are the pitch's lines
+with the conditions each figure needs; the deck is not in this repo, so copy them from here.
+
+- **Cost-first operating point (replay, not a live run).** qwen3:14b with KV q4_0 at num_ctx 28928 on evo-x2 keeps
+  81/90 tasks local at 94.4% (85/90) accuracy for 40.1% of the claude-sonnet-5-5 all-cloud bill (USD 0.00409 vs
+  0.01020 per task); its 9 escalations are imputed (no redo exists for that history), and it is below the
+  pre-registered 97% [operating-point-q4-28928] [pitch-savings-table].
+- **16x fewer wrong answers at 8192** (the 8192 memory setting): 33 vs 2 of 90, 16.5x
+  [hybrid-route-at-start-measured]; at the default window naive local had 10 wrong of 90 [hybrid-savings-v1].
+- **5.6x faster at 8192**: median 27.27 s naive local vs 4.84 s route at start per task, at 57/90 vs 88/90 correct
+  [task-latency-by-policy] [hybrid-route-at-start-measured]; 8192 is the slowest local tier (default 9.67 s).
+- **20% cheaper at 88/90 vs 90/90**: USD 0.00819 vs 0.01020 per task, 19.7% [hybrid-route-at-start-measured].
+- **Intel laptop: 10/10 vs 0/10 after the window**: gated silent sessions after the window was exceeded, Intel CPU
+  (window 4096) 5/5 + 5/5 vs Intel iGPU (window 32768) 0/5 + 0/5 [t2s-r2-real-cpu] [t2s-r2-real-igpu]; device and
+  window change together.
+- **Cloud cost per long agent task, priced not run** (OpenHands rebench, median 62 steps, ASSUMPTION cache hit rate
+  0.7): claude-sonnet-5-5 $2.53 median, $4.34 at the 90th percentile [cloud-cost-per-real-task]; claude-opus-5-5
+  $5.06 and claude-fable-5-1 $12.21 median [cloud-cost-per-real-task-all-tiers].
+- **About USD 911K per 12 30-day months (USD 923.7K over 365 days), priced not run**: the all-cloud claude-sonnet-5-5
+  bill at 1,000 coding tasks a day at the OpenHands median task size, assumed 0.7 cache hit, USD 75,921.17 a month
+  [pitch-allcloud-bill-year] [hybrid-savings-curve]. It is an all-cloud bill, not a saving.

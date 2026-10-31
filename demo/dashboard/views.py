@@ -454,7 +454,8 @@ def build_device(register: dict, repo: Path = REPO, r2_sessions: dict | None = N
         "t2s_config": parse_t2s_config(val("t2s-config-comparison")),
         "route_at_start": {"text": "not measured for this device and model (row hybrid-route-at-start covers "
                                    "qwen3:14b on evo-x2 and the evo-t2s iGPU)", "label": NOT_MEASURED, "src": None},
-        "routes": parse_route_at_start(val("hybrid-route-at-start")),
+        "routes": intel_savings_from_config(parse_route_at_start(val("hybrid-route-at-start")),
+                                            parse_t2s_config(val("t2s-config-comparison"))),
     }
 
 
@@ -822,8 +823,8 @@ def fix_after_the_fact(fr: dict) -> str:
     with its CI and the inherited-actions caveat."""
     unfixed = fr["n"] - fr["fixed"]
     inherited = fr["classes"].get("earlier_state_repair", 0)
-    return (f"Fix after the fact: about {round(fr['mean_usd'] * 100):.0f} cents (mean USD {fr['mean_usd']:.4f} per "
-            f"task, cache-priced), {fr['pct']:.1f}% fixed (95% Wilson CI {fr['ci_lo']:.1f}% to {fr['ci_hi']:.1f}%), "
+    return (f"Fix after the fact: mean USD {fr['mean_usd']:.4f} per short B3 task (cache-priced; compare it with a "
+            f"fresh run of the same task, row late-escalation-cost-vs-fresh, not with a long task), {fr['pct']:.1f}% fixed (95% Wilson CI {fr['ci_lo']:.1f}% to {fr['ci_hi']:.1f}%), "
             f"but executed actions cannot be undone; decide up front instead. {inherited} of the {unfixed} unfixed "
             f"inherited the local model's earlier executed actions. (Full-history redo on {fr['model']}, up to "
             f"{fr['max_tokens']} output tokens per call; the local run had {fr['local_max_tokens']}.)")
@@ -872,11 +873,33 @@ def parse_t2s_config(value: str) -> dict:
                       r"accuracy\)\) (\d+)/(\d+)", part)
         if not m:
             continue
-        saves = {mm[1]: _num(mm[2]) for mm in re.finditer(r"vs (claude-[\w.-]+): saves USD [-\d.,]+ at 100/day, "
-                                                          r"([-\d.,]+) at 1,000/day", part)}
+        vols = list(re.finditer(r"vs (claude-[\w.-]+): saves USD ([-\d.,]+) at 100/day, ([-\d.,]+) at 1,000/day"
+                                r"(?:, ([-\d.,]+) at 10,000/day)?", part))
+        saves = {mm[1]: _num(mm[3]) for mm in vols}
+        saves_all = {mm[1]: {"100": _num(mm[2]), "1000": _num(mm[3]), "10000": _num(mm[4])}
+                     for mm in vols if mm[4]}
         out[f"{'cpu' if m[2] == 'CPU' else 'igpu'}|{m[3]}"] = {
-            "role": m[1], "window": int(m[4]), "kept": int(m[7]), "n": int(m[8]), "saves_1000": saves}
+            "role": m[1], "window": int(m[4]), "kept": int(m[7]), "n": int(m[8]), "saves_1000": saves,
+            "saves": saves_all}
     return out
+
+
+T2S_STORY_MODEL = "qwen3:14b"   # the model whose R2 pass rate hybrid-route-at-start uses for evo-t2s
+
+
+def intel_savings_from_config(routes: list[dict], t2s_cfg: dict) -> list[dict]:
+    """Audit 2026-10-25 1b (operator approved 2026-10-31): the Intel laptop's monthly saving on the story screens comes
+    from row t2s-config-comparison (recommended Intel iGPU, qwen3:14b: kept-local share x bill less the escalation
+    premium, the row's own number), not from hybrid-route-at-start's naive Intel CPU 4096 savings, which are a different
+    configuration. Entries with no matching config row keep no saving (None) rather than a borrowed one."""
+    cfg = t2s_cfg.get(f"igpu|{T2S_STORY_MODEL}") or {}
+    for r in routes:
+        if not r.get("r2_basis"):
+            continue
+        s = (cfg.get("saves") or {}).get(r["model"])
+        r["saves_local"] = s
+        r["saves_src"] = "t2s-config-comparison" if s else None
+    return routes
 
 
 _ROUTE_RE = re.compile(
@@ -1268,7 +1291,7 @@ def _build_story_details(register: dict, silent: dict, cost: dict, escalation: d
                 "t2s-config-comparison"))
     # The accuracy-tolerance slider (operator 2026-10-22): the decision per local option and cloud tier is computed
     # from row hybrid-route-at-start's inputs; the page re-computes it as the slider moves (route_at, mirrored in JS).
-    routes = parse_route_at_start(val("hybrid-route-at-start"))
+    routes = intel_savings_from_config(parse_route_at_start(val("hybrid-route-at-start")), cfg)
     if routes:
         s3.append(_item("Route local with the recommended setting if local accuracy is at least the cloud tier's "
                         "accuracy minus the tolerance you accept; otherwise the whole session goes to the cloud from "
@@ -1416,19 +1439,23 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
     rc = parse_reconciliation_rule2(val("R2-qwen3-14b-4096-reconciliation"))
     tiles = []
     d3 = list(ev[2]["items"])
+    t4096 = tiers.get("ollama_ctx_4096")
     if st:
-        slow = int(float(st[1]) / float(st[2]))
-        tiles.append(_num_item(f"{slow}x", f"Bigger memory setting: up to {slow}x slower" +
-                               (", or will not start" if fail else ""), MEASURED,
+        # audit 2026-10-25 1b (operator approved 2026-10-31): the default window is the reference arm and the fast
+        # arm is named with its wrong rate; the ratio to one decimal, not truncated
+        slow = f"{float(st[1]) / float(st[2]):.1f}"
+        tiles.append(_num_item(f"{slow}x", f"Default memory setting: {slow}x slower than Tighter" +
+                               (f", which is {round(t4096['pct'])}% wrong" if t4096 else ""), MEASURED,
                                reg_src("impact-session-time-by-window")))
-        if fail:
-            tiles[-1]["also"] = [reg_src("fh1-amd-boundary-qwen3-32b")]
         d3.append(_item(f"qwen3:14b on the AMD workstation: {st[1]} min per 40-turn session at the default memory "
-                        f"setting vs {st[2]} min at 4096 (shown as up to {slow}x)", MEASURED,
+                        f"setting vs {st[2]} min at 4096 ({slow}x); the 4096 setting is the one that is "
+                        + (f"{t4096['pct']:.1f}% wrong on the task run" if t4096 else "wrong most often")
+                        + " (R2 sessions for the time, B3 v2 tasks for the wrong rate)", MEASURED,
                         "impact-session-time-by-window"))
     if fail:
-        d3.append(_item(f"Will not start: qwen3-32b on the AMD workstation first failed to start at a memory setting "
-                        f"of {fail[1]} (exit {fail[2]})", MEASURED, "fh1-amd-boundary-qwen3-32b"))
+        d3.append(_item(f"Will not start (a different model and runtime, not on the main screen): qwen3-32b on "
+                        f"llama-server on the AMD workstation first failed to start at a memory setting of {fail[1]} "
+                        f"(exit {fail[2]}), a single start", MEASURED, "fh1-amd-boundary-qwen3-32b"))
     if nk:
         tiles.append(_num_item(f"{round(nk['pct'])}%", f"The quick fix: still {round(nk['pct'])}% wrong", MEASURED,
                                reg_src("x2-evalset-tasks-real-v2-wrong-rate")))
@@ -1440,17 +1467,20 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
     # 4. what it costs, then the accuracy-tolerance slider
     tc = parse_task_cost(val("cloud-cost-per-real-task"))
     son = (tc.get("models") or {}).get("claude-sonnet-5-5")
-    fr = parse_full_redo(val("cloud-redo-full-context"))
+    le4 = parse_late_escalation(val("late-escalation-cost-vs-fresh"))
     money = []
     if son:
         money.append(_num_item(f"${son['realistic'][0]:.2f}", "per long task in the cloud", PRICED,
                                reg_src("cloud-cost-per-real-task")))
-    if fr:
-        money.append(_num_item(f"about {round(fr['mean_usd'] * 100):.0f} cents",
-                               "Fixing a wrong answer later: about "
-                               f"{round(fr['mean_usd'] * 100):.0f} cents, but actions already taken cannot be undone",
-                               MEASURED, reg_src("cloud-redo-full-context")))
-    routes = parse_route_at_start(val("hybrid-route-at-start"))
+    if le4:
+        # audit 2026-10-25 1b (operator approved 2026-10-31): like for like, a late redo vs a fresh run of the same
+        # task (matched mean), not a short-task redo in cents beside a priced long task
+        money.append(_num_item(f"{le4['matched_mean']:.2f}x",
+                               f"Fixing a wrong answer later costs {le4['matched_mean']:.2f}x a fresh cloud run; "
+                               "actions taken cannot be undone",
+                               MEASURED, reg_src("late-escalation-cost-vs-fresh")))
+    routes = intel_savings_from_config(parse_route_at_start(val("hybrid-route-at-start")),
+                                       parse_t2s_config(val("t2s-config-comparison")))
     for r in routes:
         r["machine"] = MACHINE_NAMES.get(r["device"].split()[0], r["device"])
     d4 = list(ev[4]["items"]) + [_item(f"Slider: {r['machine']} ({r['device']}, {r['setting']}) vs {r['model']}: "
@@ -1467,8 +1497,10 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
     machines = MACHINE_ORDER
     d5 = [_item(f"{r['machine']}: recommended {r['setting']}; vs {r['model']}: local {r['local']} "
                 f"({r['local_pct']:.1f}%, {r['basis']}), cloud {r['cloud']} ({r['cloud_pct']:.1f}%), local saves "
-                f"USD {(r['saves_local'] or {}).get('1000', 0):,.2f} a month at 1,000 tasks a day", MEASURED,
-                "hybrid-route-at-start") for r in routes]
+                f"USD {(r['saves_local'] or {}).get('1000', 0):,.2f} a month at 1,000 tasks a day"
+                + (" (row t2s-config-comparison: kept-local share x bill less the escalation premium, Intel iGPU "
+                   "qwen3:14b)" if r.get("saves_src") else ""), MEASURED,
+                r.get("saves_src") or "hybrid-route-at-start") for r in routes]
     missing = [m for m in machines if m not in {r["machine"] for r in routes}]
     if missing:
         d5.append(_item(", ".join(missing) + ": not measured", NOT_MEASURED))

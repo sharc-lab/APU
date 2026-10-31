@@ -35,7 +35,7 @@ resample whole sessions (10000 resamples, seed 20261014, stratified by memory se
   CI [96.4%, 99.7%] [cloud-rescue-combined], session-level [97.5%, 100.0%] (25 sessions)
   [headline-ci-session-rescue]. Stand-in caveat: the rollback redo replaced every earlier wrong task turn by its
   reference calls, i.e. it assumes each earlier escalation succeeded; it is not a live hybrid [cloud-rescue-combined].
-- **Cost: measured 20% below all-cloud, quality not matched.** Route at start at 8192 costs USD 0.00819 per task vs
+- **Cost: measured 20% below all-cloud at 88/90 vs 90/90, quality not matched.** Route at start at 8192 costs USD 0.00819 per task vs
   all-cloud USD 0.01020, 19.7% lower (n = 90 tasks), at 97.8% (88/90) correct vs 100.0% (90/90)
   [hybrid-route-at-start-measured]; session-level 95% CI for the saving [16.8%, 22.4%] over 3 sessions, very coarse
   [headline-ci-session-hybrid]. Replay of recorded runs; only 23.3% (21/90) tasks were kept local.

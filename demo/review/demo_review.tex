@@ -57,16 +57,17 @@ What the demo shows:
   no call surfaces an error. On evo-x2 the qwen3:14b wrong-task rate rises from the default window to 4096 with every
   wrong result returned as a normal answer (view A, Table~\ref{tab:a}).
 \item \textbf{The obvious fixes do not hold.} num\_keep reduces but does not remove the wrong-task excess; client-side
-  trimming breaks a rule the untrimmed run kept; a bigger memory setting is up to 16x slower or does not start (story
-  step 3).
+  trimming breaks a rule the untrimmed run kept; at the default memory setting a session is 16.6x slower than at
+  4096, the setting that is most often wrong (story step 3).
 \item \textbf{The tool decides at session start, per device and model}: route local only if local accuracy is at least
   all-cloud accuracy minus a stated tolerance, else send the whole session to the cloud from the start; it shows the
   recommended local setting (window, num\_keep, KV precision, flash attention, each labelled) and the tolerance at
   which each device would route local. On evo-x2 the KV q8\_0 / q4\_0 settings are measured and attributed to KV precision by the verified
   flash-attention control; on evo-t2s ``kept local'' is measured by R2 session pass rate, not B3 task accuracy
   (view B, Table~\ref{tab:b}).
-\item \textbf{The money:} story step 4 shows USD 2.53 per long task in the cloud (priced) and about 2 cents to fix a
-  wrong answer later (measured; fix rate, 95\% Wilson CI and the inherited-actions caveat in its Details), then the
+\item \textbf{The money:} story step 4 shows USD 2.53 per long task in the cloud (priced) and that fixing a wrong
+  answer later costs 1.76x a fresh cloud run of the same task (measured; fix rate, 95\% Wilson CI and the
+  inherited-actions caveat in its Details), then the
   accuracy-tolerance slider: how much accuracy gap you accept decides where it runs. Every dollar figure that depends
   on volume says ``at 1,000 tasks a day'' and is tagged projected (measured cost per task times an assumed volume).
   The ``Fix one wrong answer now (live)'' button sends the view D task through the capped client with the
