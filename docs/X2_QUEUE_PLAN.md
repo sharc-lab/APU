@@ -5,7 +5,7 @@
 
 x2_post_run_check_local_v1 (docs/EXPERIMENTS.md amendment 2026-10-31; ESTIMATE 0.38 h, row
 post-run-check-live-8192-estimate) sits at position 96 behind x2_kv_fa_llamacpp (95). Side directory
-`C:pu\ovn\prclive`, queue tool `C:pu\ovn\qfill_prclive`. No cloud call; no pause set.
+`C:\apu\ovn\prclive`, queue tool `C:\apu\ovn\qfill_prclive`. No cloud call; no pause set.
 
 x2_kv_fa_llamacpp is running far past its ESTIMATE (11.94 h, high 17.90 h, row kv-fa-interaction-llamacpp-hours):
 started 10-30 03:03Z; at 10-31 21:37Z it had 9 of 15 sessions done and the 10th at turn 23 of 24. The K-only q8_0 FA off
