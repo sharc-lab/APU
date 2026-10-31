@@ -1,0 +1,61 @@
+{
+ "label": "replay of recorded runs (B3 v2, qwen3:14b local on evo-x2, claude-sonnet-5-5, seeds 20260901-03); escalations of q4_0 28928 imputed (row operating-point-q4-28928)",
+ "x": "cloud USD per task",
+ "y": "accuracy (%)",
+ "points": [
+  {
+   "label": "hybrid q4_0 28928",
+   "accuracy": 94.4,
+   "usd_task": 0.00409,
+   "kept_local": 81,
+   "n": 90,
+   "role": "headline",
+   "row": "operating-point-q4-28928"
+  },
+  {
+   "label": "hybrid f16 8192",
+   "accuracy": 97.8,
+   "usd_task": 0.0084,
+   "kept_local": 26,
+   "n": 90,
+   "role": "headline",
+   "row": "operating-point-q4-28928"
+  },
+  {
+   "label": "claude-sonnet-5-5 all-cloud",
+   "accuracy": 100.0,
+   "usd_task": 0.0102,
+   "kept_local": 0,
+   "n": 90,
+   "role": "headline",
+   "row": "operating-point-q4-28928"
+  },
+  {
+   "label": "naive local q4_0 28928",
+   "accuracy": 87.8,
+   "usd_task": 0.0,
+   "kept_local": 90,
+   "n": 90,
+   "role": "other config",
+   "row": "hybrid-full-pipeline-v1"
+  },
+  {
+   "label": "hybrid q8_0 15360",
+   "accuracy": 94.4,
+   "usd_task": 0.00523,
+   "kept_local": 68,
+   "n": 90,
+   "role": "other config",
+   "row": "hybrid-full-pipeline-v1"
+  },
+  {
+   "label": "hybrid f16 4096",
+   "accuracy": 100.0,
+   "usd_task": 0.01168,
+   "kept_local": 2,
+   "n": 90,
+   "role": "other config",
+   "row": "hybrid-full-pipeline-v1"
+  }
+ ]
+}

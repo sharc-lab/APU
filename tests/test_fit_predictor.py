@@ -74,5 +74,8 @@ def test_session_units_skip_first_k_and_score():
 def test_register_row_computes():
     import numbers_register as nr
     v = nr.compute_fit_predictor_v1(nr.REPO)["value"]
-    assert "pre-registered target" in v and ("MET" in v or "MISSED" in v)
+    # operator decision 2026-10-30: detector-v2 result first, verdict MISSED, pooled target labelled agent-proposed
+    assert v.startswith("HEADLINE (operator 2026-10-30): against the runtime log")
+    assert "verdict MISSED" in v and "(proposed by the agent, not the operator)" in v
+    assert v.index("ground truth detector v2") < v.index("pooled (secondary)")
     assert "baseline (current per-task estimate" in v and "evo-t2s" in v

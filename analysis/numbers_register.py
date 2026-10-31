@@ -7833,9 +7833,65 @@ def compute_fit_predictor_v1(repo):
     return {"value": fp.fit_predictor_v1_text(d), "n": f"{d['n_units']} units in {d['n_sessions']} sessions"}
 
 
+_HFP_CACHE = {}
+
+
+def hfp_data(repo):
+    """hybrid_full_pipeline(repo), computed once per register run (shared by hybrid-full-pipeline-v1,
+    operating-point-q4-28928 and pitch-savings-table)."""
+    key = str(repo)
+    if key not in _HFP_CACHE:
+        _fp, hfp = _fp_modules(repo)
+        _HFP_CACHE[key] = hfp.hybrid_full_pipeline(repo)
+    return _HFP_CACHE[key]
+
+
+OPERATING_POINT = "q4_0 28928"          # operator 2026-10-30: the named operating point
+OPERATING_POINT_FRONTIER = ("f16 8192",)  # plotted beside it, with the all-cloud reference
+
+
+def operating_point_data(repo) -> dict:
+    d = hfp_data(repo)
+    if d["status"] != "VERIFIED":
+        return {"status": "PENDING", "reason": d.get("reason")}
+    cells = {c["config"]: c for c in d["cells"]}
+    allc = d["all_cloud"]
+    op = cells[OPERATING_POINT]
+    return {"status": "VERIFIED", "op": op, "frontier": [cells[k] for k in OPERATING_POINT_FRONTIER],
+            "all_cloud": allc, "pct_bill": 100 * op["usd_task"] / allc["usd_task"], "imputed_usd": d["imputed_usd"],
+            "check": d["check_source"], "budget": d["budget_source"]}
+
+
+def _op_point_text(c, allc) -> str:
+    return (f"{c['config']}: kept local {c['kept_local']}/{c['n']}, accuracy {c['correct']}/{c['n']} "
+            f"({100 * c['accuracy']:.1f}%), cloud USD {c['usd_task']:.5f}/task ({100 * c['usd_task'] / allc['usd_task']:.1f}% "
+            f"of the all-cloud bill)")
+
+
+def compute_operating_point_q4_28928(repo):
+    o = operating_point_data(repo)
+    if o["status"] != "VERIFIED":
+        raise ValueError(f"PENDING: {o['reason']}")
+    c, a = o["op"], o["all_cloud"]
+    return {"value": (
+        f"replay of recorded runs (not a live run), from row hybrid-full-pipeline-v1 (A = {o['check']}, C = "
+        f"{o['budget']}), B3 v2 tasks, qwen3:14b local on evo-x2, claude-sonnet-5-5 cloud, seeds 20260901-03 / named "
+        f"operating point q4_0 28928 (KV q4_0 at num_ctx 28928): kept local {c['kept_local']}/{c['n']}, accuracy "
+        f"{c['correct']}/{c['n']} ({100 * c['accuracy']:.1f}%), cloud USD {c['usd_task']:.5f}/task = {o['pct_bill']:.1f}% "
+        f"of the claude-sonnet-5-5 all-cloud bill (USD {a['usd_task']:.5f}/task, {a['correct']}/{a['n']}); routed "
+        f"{c['routed']}, escalated {c['escalated']} of which IMPUTED {c['imputed_escalations']} (caveat: no redo exists "
+        f"for the q4_0 28928 history, so an escalated task takes the all-cloud outcome at USD {o['imputed_usd']:.5f}, the "
+        f"highest tier-mean full-history redo USD); wrong and kept local {c['wrong_kept_local']}; naive local "
+        f"{c['naive_local']['correct']}/{c['naive_local']['n']} at USD 0 / frontier points (same replay): "
+        + "; ".join(_op_point_text(f, a) for f in o["frontier"])
+        + f"; claude-sonnet-5-5 all-cloud: accuracy {a['correct']}/{a['n']} ({100 * a['correct'] / a['n']:.1f}%), cloud "
+        f"USD {a['usd_task']:.5f}/task (100.0% of the all-cloud bill) / below the pre-registered 97% (row "
+        f"hybrid-full-pipeline-v1: MISSED)"), "n": f"{c['n']} tasks"}
+
+
 def compute_hybrid_full_pipeline_v1(repo):
     _fp, hfp = _fp_modules(repo)
-    d = hfp.hybrid_full_pipeline(repo)
+    d = hfp_data(repo)
     if d["status"] != "VERIFIED":
         raise ValueError(hfp.hybrid_full_pipeline_text(d))
     return {"value": hfp.hybrid_full_pipeline_text(d), "n": f"{len(d['cells'])} configs x 90 tasks"}
@@ -7844,7 +7900,7 @@ def compute_hybrid_full_pipeline_v1(repo):
 def compute_hybrid_live_hours(repo):
     _fp, hfp = _fp_modules(repo)
     d = hfp.live_hours(repo)
-    return {"value": hfp.live_hours_text(d), "n": "estimate, 2 runs x 90 tasks"}
+    return {"value": hfp.live_hours_text(d, hfp.intel_refusals(repo)), "n": "estimate, 1 run x 90 tasks (Intel skipped)"}
 
 
 def _hfp_pending_reason(repo):
@@ -8687,6 +8743,18 @@ def compute_pitch_savings_table(repo):
     cells.append(f"[measured, scope] the 4096 hazard beyond qwen3:14b is {XMODEL_R2_LABEL}: excess CI excludes 0 for "
                  f"{', '.join(m for m in others if xm['r2'][m]['excludes_0']) or 'none'} of {', '.join(others)}; 3+ "
                  f"models on B3: {'MET' if len(xm['b3_valid']) >= 3 else 'NOT MET'} (row xmodel-wrong-rate)")
+    o = operating_point_data(repo)   # operator 2026-10-30: the named operating point, measured (replay)
+    if o["status"] == "VERIFIED":
+        c, a = o["op"], o["all_cloud"]
+        cells.append(f"[measured (replay of recorded runs)] named operating point q4_0 28928, B3 v2 short tasks, evo-x2 "
+                     f"qwen3:14b vs claude-sonnet-5-5: cloud USD {c['usd_task'] * PER_DAY:.2f}/day vs all-cloud USD "
+                     f"{a['usd_task'] * PER_DAY:.2f}/day ({o['pct_bill']:.1f}% of the all-cloud bill), saves USD "
+                     f"{(a['usd_task'] - c['usd_task']) * PER_DAY:.2f}/day; kept local {c['kept_local']}/{c['n']}, "
+                     f"accuracy {100 * c['accuracy']:.1f}% vs {100 * a['correct'] / a['n']:.1f}% all-cloud "
+                     f"({100 * (c['accuracy'] - a['correct'] / a['n']):+.1f} points); escalations imputed "
+                     f"({c['imputed_escalations']} of {c['escalated']}) (row operating-point-q4-28928)")
+    else:
+        cells.append(f"[pending] named operating point q4_0 28928: {o['reason']} (row operating-point-q4-28928)")
     return {"value": f"per {PER_DAY:,} tasks/day, each cell marked: " + "; ".join(cells), "n": f"{len(cells)} cells"}
 
 
@@ -9952,9 +10020,16 @@ NUMBER_ENTRIES = [
      "data_files": ["results/x2_own_config_probe_q4_28928.jsonl", "results/x2_own_config_probe_q8_15360.jsonl",
                     "results/x2_evalset_tasks_real_v2.jsonl"],
      "script_function": "analysis/hybrid_full_pipeline.py::hybrid_full_pipeline"},
+    {"claim_id": "operating-point-q4-28928", "description": "Named operating point (operator 2026-10-30): KV q4_0 at "
+     "num_ctx 28928 on evo-x2 in the full hybrid pipeline, by replay of recorded runs: kept local, accuracy, cloud USD "
+     "per task and share of the claude-sonnet-5-5 all-cloud bill, with f16 8192 and all-cloud as frontier points",
+     "compute": compute_operating_point_q4_28928, "pending_reason": _hfp_pending_reason,
+     "data_files": ["results/x2_own_config_probe_q4_28928.jsonl", "results/x2_evalset_tasks_real_v2.jsonl",
+                    ALL_CLOUD_B3_V1, CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2],
+     "script_function": "analysis/numbers_register.py::operating_point_data"},
     {"claim_id": "hybrid-live-hours", "description": "ESTIMATE, not a measurement: hours and cloud spend (billed and "
-     "upper bound) of the E design, hybrid-live-amd on evo-x2 and hybrid-live-intel on evo-t2s, 3 seeds each, and "
-     "where the Intel run could fit in the evo-t2s window; not queued",
+     "upper bound) of the E design: hybrid-live-amd on evo-x2, 3 seeds, approved once the tuned post-run check "
+     "exists; hybrid-live-intel SKIPPED (operator 2026-10-30, strict preflight not relaxed); not queued",
      "compute": compute_hybrid_live_hours,
      "data_files": ["results/x2_own_config_probe_q4_28928.jsonl", "results/x2_evalset_tasks_real_v2.jsonl",
                     "results/t2s_r2_real_igpu_v1.jsonl", "results/x2_r2_real_v1.jsonl", "results/x2_r2_real_v1b.jsonl",

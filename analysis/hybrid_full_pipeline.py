@@ -324,24 +324,34 @@ def live_hours(repo=REPO) -> dict:
             "fits_after_queue_no_slack": intel["high_h"] <= left_h, "slack_h": ws.SLACK_H}
 
 
-def live_hours_text(d: dict) -> str:
-    a, i, s = d["amd"], d["intel"], d["spend"]
+T2S_B3_REAL = {"CPU": "results/t2s_evalset_tasks_real_v2_cpu.jsonl", "iGPU": "results/t2s_evalset_tasks_real_v2_igpu.jsonl"}
+
+
+def intel_refusals(repo=REPO) -> dict:
+    """{backend: reasons} from the refused_model records of the evo-t2s B3 v2 real runs (strict preflight)."""
+    out = {}
+    for be, rel in T2S_B3_REAL.items():
+        p = Path(repo) / rel
+        rs = [r for r in _rows(p) if r.get("record") == "refused_model" and r.get("model_id") == "qwen3:14b"]             if p.exists() else []
+        out[be] = [x for r in rs for x in r.get("reasons", []) if "strict preflight" not in x]
+    return out
+
+
+def live_hours_text(d: dict, refusals: dict | None = None) -> str:
+    """Operator decisions 2026-10-30: hybrid-live-intel SKIPPED (the strict gate is not relaxed); hybrid-live-amd
+    approved to run once the tuned post-run check exists, q4_0 28928 the main config; it waits on that."""
+    a, s = d["amd"], d["spend"]
+    ref = "; ".join(f"{be}: {', '.join(r) or 'no refusal record'}" for be, r in (refusals or {}).items())
     return (f"ESTIMATE, not a measurement (nothing deployed or queued); per run {d['n_tasks']} B3 v2 tasks (3 seeds), "
             f"qwen3:14b local, {CLOUD_MODEL} cloud, route + check + rollback + budget / hybrid-live-amd (evo-x2, KV "
-            f"q4_0 num_ctx 28928): {a['point_h']:.2f} h (high {a['high_h']:.2f} h); point = the measured "
-            f"x2_own_config_probe_q4_28928 sessions ({', '.join(str(m) for m in a['sessions_min'])} min) plus "
-            f"{START_OVERHEAD_S[0]:.0f} s per session start (ASSUMED); high = 3 x the slowest session plus "
+            f"q4_0 num_ctx 28928, the main config): APPROVED to run once the tuned post-run check exists (operator "
+            f"2026-10-30); waits on it, not run, not queued; {a['point_h']:.2f} h (high {a['high_h']:.2f} h); point = "
+            f"the measured x2_own_config_probe_q4_28928 sessions ({', '.join(str(m) for m in a['sessions_min'])} min) "
+            f"plus {START_OVERHEAD_S[0]:.0f} s per session start (ASSUMED); high = 3 x the slowest session plus "
             f"{START_OVERHEAD_S[1]:.0f} s starts plus every task escalated at the mean full-history redo time "
-            f"{d['redo_s']:.1f} s / hybrid-live-intel (evo-t2s iGPU, OLLAMA_IGPU_ENABLE=1, default window 32768): "
-            f"{i['point_h']:.2f} h (high {i['high_h']:.2f} h); local part from row t2s-evalset-tasks-hours "
-            f"(t2s_o26_b3_real_igpu: {i['basis']}), replaced by the measured file once t2s_o26_b3_real_igpu syncs; "
-            f"same start and escalation terms / cloud spend per run: billed (cache-priced) USD {s['billed_per_escalated']:.5f} "
-            f"per escalated task (highest tier-mean full-history redo), USD {s['billed_all_escalated']:.2f} if all "
+            f"{d['redo_s']:.1f} s / cloud spend per run: billed (cache-priced) USD {s['billed_per_escalated']:.5f} per "
+            f"escalated task (highest tier-mean full-history redo), USD {s['billed_all_escalated']:.2f} if all "
             f"{d['n_tasks']} escalate (all-cloud billed reference USD {s['allcloud_billed']:.2f}); upper bound (no cache, "
-            f"largest recorded full-history redo task USD {s['upper_per_task']:.5f}) USD {s['upper_all']:.2f}; both runs "
-            f"together upper bound USD {2 * s['upper_all']:.2f} / evo-t2s queue: staged entries end {d['staged_end_h']:.1f} h "
-            f"after the window opened plus the start allowance (row t2s-b5-plan-hours entries; window opened "
-            f"{T2S_WINDOW_OPENED_UTC[:16]}Z, docs/T2S_CHANGELOG.md), projected {d['staged_end_utc'].strftime('%m-%d %H:%MZ')}, "
-            f"{d['left_h']:.1f} h before no-launch; the Intel run at its high case fits after the staged queue with "
-            f"the {d['slack_h']:.0f} h slack: {d['fits_after_queue']}; without the slack: "
-            f"{d['fits_after_queue_no_slack']}; it must not displace a staged entry without the operator's say")
+            f"largest recorded full-history redo task USD {s['upper_per_task']:.5f}) USD {s['upper_all']:.2f} / "
+            f"hybrid-live-intel (evo-t2s): SKIPPED (operator 2026-10-30): qwen3:14b fails evo-t2s's strict preflight "
+            f"(refused_model records of the B3 v2 real runs: {ref}); the gate is not relaxed")

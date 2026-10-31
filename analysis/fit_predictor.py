@@ -263,29 +263,42 @@ def _cell_text(c) -> str:
     return s
 
 
+def _pr_one(c, name) -> str:
+    v = c[name]
+    return "n/a" if v is None else f"{v:.3f} [{c[name + '_ci'][0]:.3f}, {c[name + '_ci'][1]:.3f}]"
+
+
 def fit_predictor_v1_text(d: dict) -> str:
+    """Row text. Operator decision 2026-10-30: the headline is the detector-v2 (runtime log) result, the verdict is
+    MISSED, and the pooled target is labelled as proposed by the agent, not the operator; pooled and v1 numbers follow
+    as secondary."""
     g = d["groups"]
     p = g["pooled"]["pred"]
-    parts = [f"session-start predictor ({d['source']}: first {K} turns' prompts, linear growth to the task's turn, vs "
-             f"measured ceiling else loaded window, margin 0); {d['n_units']} units in {d['n_sessions']} sessions; "
-             f"95% Wilson intervals (units are turns within sessions: too narrow)",
-             "pooled: " + _cell_text(g["pooled"]),
-             "ground truth v2 (detector v2 / llama-server context event): " + _cell_text(g["ground truth v2"]),
-             "ground truth v1 (over_loaded_window, same series the predictor extrapolates): "
+    v2 = g["ground truth v2"]["pred"]
+    parts = [f"HEADLINE (operator 2026-10-30): against the runtime log (ground truth detector v2 / llama-server "
+             f"context event), the session-start predictor ({d['source']}: first {K} turns' prompts, linear growth to "
+             f"the task's turn, vs measured ceiling else loaded window, margin 0) has precision {_pr_one(v2, 'precision')}"
+             f", recall {_pr_one(v2, 'recall')} (TP {v2['tp']}, FP {v2['fp']}, FN {v2['fn']}, TN {v2['tn']}); "
+             f"verdict MISSED (operator: treat as missed); 95% Wilson intervals (units are turns within sessions: too "
+             f"narrow)",
+             "detector v2 cell in full: " + _cell_text(g["ground truth v2"]),
+             f"SECONDARY (not the headline): {d['n_units']} units in {d['n_sessions']} sessions",
+             "pooled (secondary): " + _cell_text(g["pooled"]),
+             "ground truth v1 (secondary; over_loaded_window, the same series the predictor extrapolates): "
              + _cell_text(g["ground truth v1"])]
     for dv, c in d["by_device"].items():
-        parts.append(f"{dv}: " + _cell_text(c))
+        parts.append(f"{dv} (secondary): " + _cell_text(c))
     for (dv, w), c in d["by_device_window"].items():
         parts.append(f"{dv} ceiling {w} (n={c['pred']['n']}): " + _cell_text(c))
     for f, c in d["by_family"].items():
         parts.append(f"run family {f} (n={c['pred']['n']}): " + _cell_text(c))
     ex = ", ".join(f"{k} {v}" for k, v in sorted(d["excluded"].items())) or "none"
     parts.append(f"excluded: {ex}")
-    parts.append(f"pre-registered target (proposed by the agent) pooled precision >= {TARGET_PRECISION:.2f} and recall "
-                 f">= {TARGET_RECALL:.2f}: {'MET' if d['target_met'] else 'MISSED'} (precision "
-                 f"{p['precision']:.3f}, recall {p['recall']:.3f})")
+    parts.append(f"pooled target precision >= {TARGET_PRECISION:.2f} and recall >= {TARGET_RECALL:.2f} (proposed by "
+                 f"the agent, not the operator): pooled point estimates precision {p['precision']:.3f}, recall "
+                 f"{p['recall']:.3f} would clear it, but the pooled cell is mostly v1 ground truth; verdict MISSED "
+                 f"(operator 2026-10-30)")
     return " / ".join(parts)
-
 
 if __name__ == "__main__":
     print(fit_predictor_v1_text(fit_predictor_v1()))

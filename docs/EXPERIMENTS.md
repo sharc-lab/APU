@@ -2599,6 +2599,20 @@ current estimate. Report precision/recall of 'will overflow'. Row: fit-predictor
 - On the client-policy arms the client keeps the sent prompt under its trigger after turn k, so a linear projection of
   the sent prompt is expected to over-predict there.
 
+### RESULT (2026-10-29, verdict amended by the operator 2026-10-30): MISSED
+
+Headline, against the runtime log (detector v2 / llama-server context event), pasted from row `fit-predictor-v1`:
+"precision 0.350 [0.298, 0.404], recall 0.900 [0.833, 0.942] (TP 108, FP 201, FN 12, TN 867)". Verdict MISSED
+(operator, 2026-10-30: "report the 0.350 precision vs the runtime log as the headline number and mark the pooled target
+as agent-proposed. Treat it as missed."). The pooled target (precision >= 0.90 and recall >= 0.90) was proposed by the
+agent, not the operator.
+
+Secondary, not the headline: pooled "precision 0.931 [0.922, 0.939], recall 0.990 [0.985, 0.993]"; ground truth v1
+"precision 0.991 [0.987, 0.994], recall 0.993 [0.990, 0.996]". The pooled cell is mostly v1 ground truth from the R2
+sessions, defined on the same series the predictor extrapolates (validity flag above), so it does not count. The
+false positives against the runtime log come mostly from the client-policy arms (own-compaction and client trim) and
+the long tasks; the row has every cell.
+
 ## PRE-REGISTRATION (2026-10-29): hybrid-full-pipeline-v1 (route + check + rollback + budget), replay
 
 **Status: pre-registered; the replay code is committed, the row is PENDING with the reason "awaiting post-run-check
@@ -2688,6 +2702,26 @@ Stand-ins for A and C exist only in tests (tests/test_hybrid_full_pipeline.py); 
   or by moving a staged entry (B5 / B6) or into the next confirmed window. It must not displace the staged plan
   without the operator's say. The AMD run fits on evo-x2 between jobs (under 1 h at the high case).
 - Before either run: A and C committed, row hybrid-full-pipeline-v1 computed by replay, and the operator's go.
+
+### AMENDMENT (operator decisions 2026-10-30)
+
+- **hybrid-live-intel: SKIPPED.** Operator: "E Intel: skip; don't relax the strict gate. Record it as skipped and
+  why." Why: qwen3:14b fails evo-t2s's strict preflight. The refused_model records of the B3 v2 real runs give CPU
+  end state 80/90, and iGPU 79/90 plus a negative-control miss (canary misses 1 at num_ctx 131072). The gate is not
+  relaxed, so the Intel run is not staged. The placement and hours above for the Intel run no longer apply.
+- **hybrid-live-amd: approved to run once the tuned post-run check exists**, with q4_0 at 28928 as the main config. It
+  waits on the tuned check; it is not run, not queued and not deployed by this commit. Its cloud spend still needs
+  the operator's approval at start (billed worst case and upper bound are over USD 2).
+- Row `hybrid-live-hours` now reads the Intel run as SKIPPED with these reasons and carries the AMD estimate only.
+
+### Named operating point q4_0 at 28928 (operator 2026-10-30)
+
+Operator: "make q4_0 at 28928 a named operating point in the register and pitch-savings-table: 81/90 local, 94.4%
+accuracy, cloud USD/task and % of all-cloud bill, labelled replay. Plot it on the accuracy-vs-cloud-cost frontier with
+f16 8192 and all-cloud." Row `operating-point-q4-28928` (from row hybrid-full-pipeline-v1's replay, escalations
+imputed), a named line in `pitch-savings-table`, and the figure docs/figures/operating_point_frontier.png (data in
+docs/figures/operating_point_frontier.json, every value parsed from the register rows by
+analysis/operating_point_frontier.py; tests/test_operating_point_frontier.py checks them against the rows).
 
 ## PRE-REGISTRATION (2026-10-29): bigger, broader numbers (F1 to F5) and the device database (G1)
 
