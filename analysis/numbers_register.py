@@ -4488,6 +4488,35 @@ def compute_hybrid_savings_curve(repo):
     return {"value": im.hybrid_curve_text(c), "n": n}
 
 
+PITCH_YEAR_POINT = "nebius-rebench-openhands median"
+PITCH_YEAR_MODEL = "claude-sonnet-5-5"
+PITCH_YEAR_VOLUME = 1000
+
+
+def compute_pitch_allcloud_bill_year(repo):
+    """The pitch's yearly all-cloud bill (audit 2026-10-25 1c, operator approved 2026-10-31): 12 x the 30-day-month
+    all-cloud bill B of row hybrid-savings-curve at the OpenHands median task size, claude-sonnet-5-5, 1,000 tasks/day,
+    with the 365-day figure beside it. Priced, not run; the cache hit rate is the curve's assumption."""
+    im = _impact()
+    c = _hybrid_curve(repo)
+    if c["status"] != "VERIFIED":
+        raise ValueError(f"PENDING: rows {', '.join(c['pending'])} not VERIFIED")
+    tier = next(t for t in c["tiers"] if t["model"] == PITCH_YEAR_MODEL)
+    p = next(p for p in tier["points"] if p["name"] == PITCH_YEAR_POINT)
+    v = PITCH_YEAR_VOLUME
+    month = p["volumes"][v]["bill"]
+    days = im.DAYS_PER_MONTH
+    year12 = 12 * month
+    year365 = p["bill_task"] * v * 365
+    return {"value": (
+        f"PRICED, NOT RUN (no generation call): all-cloud bill on {PITCH_YEAR_MODEL}, {PITCH_YEAR_POINT} task size "
+        f"(USD {p['bill_task']:.5f}/task, {c['case']} caching, ASSUMPTION cache hit rate {c['hit_rate']}; row "
+        f"cloud-cost-per-real-task), {v:,} tasks/day: USD {month:,.2f} per {days}-day month (row hybrid-savings-curve, "
+        f"B at {v:,}/day); 12 x {days}-day months = USD {year12:,.2f} (a {12 * days}-day year, the pitch's "
+        f"USD {year12 / 1000:,.0f}K/yr); 365 days = USD {year365:,.2f} (USD {year365 / 1000:,.1f}K); an all-cloud bill, "
+        f"not a saving: local quality on long tasks not measured"), "n": "1 priced point"}
+
+
 def compute_hybrid_savings_tradeoff(repo):
     """Measured trade-off lead (operator decision 2026-10-22, savings curve lead): per device, cloud tier, task-size
     point and volume, savings per month and accuracy for all-cloud, naive local and the window-overflow-flag hybrid,
@@ -9498,6 +9527,12 @@ NUMBER_ENTRIES = [
      "INTERIM until cloud-redo-full-context is VERIFIED, then automatic",
      "compute": compute_hybrid_savings_curve, "data_files": CURVE_FILES,
      "script_function": "analysis/impact_model.py::hybrid_curve"},
+    {"claim_id": "pitch-allcloud-bill-year", "description": "Pitch figure (audit 2026-10-25 1c, operator approved "
+     "2026-10-31): the yearly all-cloud bill at 1,000 coding tasks/day on claude-sonnet-5-5 at the OpenHands median "
+     "task size, priced not run, ASSUMPTION cache hit rate 0.7: 12 x the 30-day-month bill B of hybrid-savings-curve, "
+     "with the 365-day figure beside it",
+     "compute": compute_pitch_allcloud_bill_year, "data_files": CURVE_FILES,
+     "script_function": "analysis/numbers_register.py::compute_pitch_allcloud_bill_year"},
     {"claim_id": "hybrid-savings-tradeoff", "description": "Measured savings vs accuracy trade-off (operator decision "
      "2026-10-22, the savings lead): per device (evo-x2 default measured; evo-t2s Intel CPU 4096 projected from evo-x2's "
      "4096 tier), cloud tier, task-size point (B3 v2 tasks measured; SWE-Gym median, OpenHands median and p90 projected "

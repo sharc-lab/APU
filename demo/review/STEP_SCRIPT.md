@@ -19,16 +19,18 @@ corner.
   150 tasks per setting."
 
 ## 3. Why not just change one setting?
-- **Number:** 16x (measured).
-- **Say:** "Giving it more memory can make it up to 16 times slower, or it will not start at all. The quick fix
-  still leaves 30% wrong. Trimming old history breaks a different rule."
-- **Likely question:** "16 times slower than what?" **Answer:** "A 40-turn session took about 202 minutes at the big
-  default memory setting against about 12 at the small one, on the AMD workstation."
+- **Number:** 16.6x (measured).
+- **Say:** "At the default memory setting a session is 16.6 times slower than at the tightest setting, and the
+  tightest setting is the one that is 42% wrong. The quick fix still leaves 30% wrong. Trimming old history breaks a
+  different rule."
+- **Likely question:** "16.6 times slower than what?" **Answer:** "A 40-turn session took 202.3 minutes at the
+  default memory setting against 12.2 at the 4096 setting, on the AMD workstation (row impact-session-time-by-window).
+  The fast arm is the broken one, so this is not a like-for-like speedup."
 
 ## 4. What it costs
-- **Number:** $2.53 (priced) and about 2 cents (measured).
+- **Number:** $2.53 (priced) and 1.76x (measured).
 - **Say:** "Sending a whole long task to a top cloud model costs about $2.53. Fixing one wrong answer later costs
-  about 2 cents, but actions the agent already took cannot be undone. How much accuracy gap you accept decides where
+  1.76 times a fresh cloud run of the same task, and actions the agent already took cannot be undone. How much accuracy gap you accept decides where
   it runs; we measure that gap per device." Move the slider to 12, then back to 5. The dollar figures beside it are
   projected: measured cost per task times an assumed 1,000 tasks a day.
 - **Live button:** click "Fix one wrong answer now (live)" once. Live (tag measured): "That is a real wrong answer
@@ -44,4 +46,6 @@ corner.
   session to the cloud from the start, with the accuracy to expect and what it saves. Where we have no data, it says
   not measured."
 - **Likely question:** "Why does it say cloud at 5 points?" **Answer:** "Measured accuracy locally is 80 of 90 against
-  90 of 90 in the cloud, a gap of 11 points on the workstation; at 12 points or more it runs locally."
+  90 of 90 in the cloud, a gap of 11.1 points on the workstation; at 11.1 points or more it runs locally."
+- **Intel laptop saving:** USD 169.89 a month at 1,000 tasks a day against claude-sonnet-5-5 (row
+  t2s-config-comparison, Intel iGPU, qwen3:14b), not $306: the $306 is the naive Intel CPU column, another setting.

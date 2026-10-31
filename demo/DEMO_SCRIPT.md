@@ -58,26 +58,30 @@ wrong answers showed an error).
 
 ## Step 3 (2:00 to 3:00): Why not just change one setting?
 
-Say: "A bigger memory setting can be up to 16 times slower, or will not start. The quick fix still leaves 30% wrong.
-Trimming old history breaks a different rule." Measured (impact-session-time-by-window: 202.3 vs 12.2 minutes per
-session; fh1-amd-boundary-qwen3-32b: first failed to start at a memory setting of 367360; x2-evalset-tasks-real-v2-
-wrong-rate: 30.0% with num_keep; R2-qwen3-14b-4096-reconciliation: the logging rule held in 24, 25 and 25 of 40 turns
+Say: "At the default memory setting a session is 16.6 times slower than at the tightest setting, which is 42% wrong.
+The quick fix still leaves 30% wrong. Trimming old history breaks a different rule." Measured
+(impact-session-time-by-window: 202.3 vs 12.2 minutes per session, default vs 4096, 16.6x; the fast arm is the broken
+4096 setting, so it is not a like-for-like speedup; fh1-amd-boundary-qwen3-32b, Details only: a different model and
+runtime first failed to start at a memory setting of 367360; x2-evalset-tasks-real-v2-wrong-rate: 30.0% with num_keep; R2-qwen3-14b-4096-reconciliation: the logging rule held in 24, 25 and 25 of 40 turns
 with trimming against 40 of 40 without).
 
 ## Step 4 (3:00 to 4:00): What it costs
 
-Say: "A whole long task in a top cloud model costs about $2.53. Fixing one wrong answer later costs about 2 cents, but
-actions already taken cannot be undone. How much accuracy gap you accept decides where it runs; we measure that gap
-per device." Move the slider to 12, then back to 5. Priced: cloud-cost-per-real-task (Sonnet, realistic caching).
-Measured: cloud-redo-full-context (mean USD 0.0227; 84.8% fixed, 95% Wilson CI 79.1% to 89.1%; 28 of 30 unfixed
-inherited earlier actions) and hybrid-route-at-start (the slider).
+Say: "A whole long task in a top cloud model costs about $2.53. Fixing one wrong answer later costs 1.76 times a fresh
+cloud run of the same task, and actions already taken cannot be undone. How much accuracy gap you accept decides where
+it runs; we measure that gap per device." Move the slider to 12, then back to 5. Priced: cloud-cost-per-real-task
+(Sonnet, realistic caching, assumed 0.7 cache hit rate). Measured: late-escalation-cost-vs-fresh (1.76x on the mean,
+matched on 119 rows over 53 tasks), cloud-redo-full-context (84.8% fixed, 95% Wilson CI 79.1% to 89.1%; 28 of 30
+unfixed inherited earlier actions) and hybrid-route-at-start (the slider).
 
 ## Step 5 (4:00 to 5:00): What our tool does
 
 Pick "AMD workstation", then "Intel laptop", then "NVIDIA laptop". Say: "At the gap you accept, the tool says run
 locally with this setting, or send the whole session to the cloud from the start, with the accuracy to expect and what
 it saves per month. Where we have no data, it says not measured." Measured (hybrid-route-at-start; the Intel laptop's
-local accuracy is measured by R2 session pass rate, not task accuracy). NVIDIA laptop: not measured.
+local accuracy is measured by R2 session pass rate, not task accuracy). The Intel laptop's monthly saving is USD 169.89
+at 1,000 tasks a day against claude-sonnet-5-5 (t2s-config-comparison, Intel iGPU, qwen3:14b; the screen reads it from
+that row). NVIDIA laptop: not measured.
 
 Close: "On Ollama the failure is silent, the right setting depends on the machine, and we measure the accuracy gap per device so
 you can decide where it runs." Then "Finish" for questions in the engineering view.
@@ -89,10 +93,10 @@ you can decide where it runs." Then "Finish" for questions in the engineering vi
 | Default setting: 5 of 5 sessions broke their own rules, no error shown | measured | t2s-r2-real-cpu |
 | Right setting: 5 of 5 kept their rules | measured | t2s-r2-real-igpu |
 | 11% / 35% / 42% wrong (rounded), error messages shown 0 | measured | x2-evalset-tasks-real-v2-wrong-rate |
-| Bigger memory setting up to 16x slower, or will not start | measured | impact-session-time-by-window, fh1-amd-boundary-qwen3-32b |
+| Default memory setting 16.6x slower than the tightest (which is 42% wrong) | measured | impact-session-time-by-window, x2-evalset-tasks-real-v2-wrong-rate |
 | The quick fix: still 30% wrong | measured | x2-evalset-tasks-real-v2-wrong-rate |
 | Trimming old history breaks a different rule | measured | R2-qwen3-14b-4096-reconciliation |
 | $2.53 per long task in the cloud | priced | cloud-cost-per-real-task |
-| Fixing a wrong answer later: about 2 cents | measured | cloud-redo-full-context |
-| Slider and tool card: route, expected accuracy, savings per month | measured | hybrid-route-at-start |
+| Fixing a wrong answer later: 1.76x a fresh cloud run | measured | late-escalation-cost-vs-fresh |
+| Slider and tool card: route, expected accuracy, savings per month | measured | hybrid-route-at-start; Intel saving t2s-config-comparison |
 | NVIDIA laptop | not measured | none |

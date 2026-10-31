@@ -2713,6 +2713,11 @@ Stand-ins for A and C exist only in tests (tests/test_hybrid_full_pipeline.py); 
   waits on the tuned check; it is not run, not queued and not deployed by this commit. Its cloud spend still needs
   the operator's approval at start (billed worst case and upper bound are over USD 2).
 - Row `hybrid-live-hours` now reads the Intel run as SKIPPED with these reasons and carries the AMD estimate only.
+- Amendment 2026-10-31 (operator approved the audit's pitch fixes): hybrid-live-amd's main config is KV q4_0 at
+  num_ctx 28928, the pitch's cost-first operating point (row operating-point-q4-28928). Order: it runs after the 8192
+  live post-run check is in, meaning queue job x2_post_run_check_local_v1 has run on evo-x2 and its controller cloud
+  phase has finished. No change to any cost cap, to the USD 2 per-job cap or to the approval flag logic: the run still
+  needs the operator's approval flag (billed worst case USD 3.68, row hybrid-live-hours).
 
 ### Named operating point q4_0 at 28928 (operator 2026-10-30)
 

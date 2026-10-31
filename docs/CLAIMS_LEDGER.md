@@ -61,7 +61,7 @@ resample whole sessions (10000 resamples, seed 20261014, stratified by memory se
 - Hardware: evo-x2 (local run), claude-sonnet-5-5 (cloud).
 - **Status: ON-TARGET (evo-x2), measured, STAND-IN for the rollback part.**
 
-### Claim L-03 (LEAD, cost): measured 20% below all-cloud; 75% is a target scenario only
+### Claim L-03 (LEAD, cost): measured 20% below all-cloud at 88/90 vs 90/90; 75% is a target scenario only
 **Route at start at 8192 costs 19.7% less than all-cloud (n = 90 tasks), at 97.8% (88/90) vs 100.0% (90/90) correct.**
 
 - Evidence: USD 0.00819 vs 0.01020 per task (`hybrid-route-at-start-measured`); session-level CI for the saving

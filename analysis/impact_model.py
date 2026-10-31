@@ -2143,7 +2143,10 @@ def hybrid_tradeoff_text(t) -> str:
             f"option; qwen3:14b B3 v2 tasks vs all-cloud on the {len(t['seeds'])} shared seeds; escalation cost "
             f"{t['esc_label']}; projected task-size points from cloud-cost-per-real-task ({t['case']} caching, "
             f"ASSUMPTION hit rate {t['hit_rate']}) apply each option's measured savings share; evo-t2s "
-            f"{TRADEOFF_DEVICE_PROJ}; the ceiling is a separate field, not an option / " + " / ".join(parts))
+            f"{TRADEOFF_DEVICE_PROJ}; the ceiling is a separate field, not an option; every escalated task here takes "
+            f"the all-cloud outcome of the same task and seed (ASSUMED), so a ceiling accuracy here is an upper bound: "
+            f"for the tier the redo ran on, row hybrid-route-at-start gives the ceiling accuracy from the measured "
+            f"redo outcome per task (2026-10-31) / " + " / ".join(parts))
 
 
 
@@ -2342,6 +2345,7 @@ def route_at_start(tradeoff, t2s_cfg, ceilings=None, tolerances=ROUTE_TOLERANCES
                                                             "quality": ac["quality"]}}
         rows.append({"device": dev, "recommended": rec, "naive": naive_name, "model": r["model"], "local": loc,
                      "all_cloud": ac, "bill": bill, "gap": 100 * (ac["quality"] - loc["quality"]), "routes": routes,
+                     "config_savings": (rec_t2s.get("savings") or {}).get(r["model"]) if dev == "evo-t2s" else None,
                      "flag": o["hybrid_flag"], "naive_local": nv, "ceiling": ceil, "esc_label": r["esc_label"],
                      "projected": [{"point": p["point"], "label": p["point_label"],
                                     "local_savings": p["options"]["naive_local"]["savings_month"]} for p in proj]})
@@ -2483,7 +2487,7 @@ def step4_lead(late, route, model, v) -> list:
     inh = cls.get(LATE_INHERITED, 0)
     rest = ", ".join(f"{n} {k.replace('_', ' ')}{'s' if n != 1 else ''}" for k, n in cls.items()
                      if n and k != LATE_INHERITED)
-    out = [f"\"Fix after the fact: about {round(100 * late['redo']['mean'])} cents, "
+    out = [f"\"Fix after the fact: {late['m_ratio_mean']:.2f}x the cost of a fresh cloud run of the same task, "
            f"{100 * late['fix_rate']:.1f}% fixed, but executed actions cannot be undone; decide up front instead.\" "
            f"(Late full-history escalation on {late['model']}: USD {late['redo']['mean']:.4f} mean per task, "
            f"{late['ratio_mean']:.2f}x a fresh all-cloud run ({late['m_ratio_mean']:.2f}x matched on the same task and "
@@ -2497,11 +2501,16 @@ def step4_lead(late, route, model, v) -> list:
             if r["model"] != model:
                 continue
             d = r["routes"][tol]
+            # audit 2026-10-25 1b (operator approved 2026-10-31): evo-t2s quotes the saving its own configuration row
+            # states (t2s-config-comparison), not the whole bill borrowed from the naive Intel CPU column
+            cfg_sav = (r.get("config_savings") or {}).get(v)
+            saves = (f"USD {cfg_sav['savings']:,.2f} a month at {v:,} tasks/day (row t2s-config-comparison: "
+                     f"kept-local share x bill less the escalation premium)" if cfg_sav else
+                     f"USD {r['bill'][v]:,.2f} a month at {v:,} tasks/day")
             out.append(f"- {r['device']}, recommended {r['recommended']}: local {_accp(r['local'])} "
                        f"[{r['local']['label']}] vs all-cloud {_accp(r['all_cloud'])}, gap {r['gap']:.1f} points. At "
                        f"matched quality the whole session goes {'local' if d['route'] == 'local' else 'to the cloud'} "
-                       f"from the start; a team that accepts that gap runs it local and saves "
-                       f"USD {r['bill'][v]:,.2f} a month at {v:,} tasks/day.")
+                       f"from the start; a team that accepts that gap runs it local and saves {saves}.")
         t2 = next((r for r in route["rows"] if r["device"] != "evo-x2" and r["model"] == model), None)
         if t2 and t2["flag"]["savings_month"][v] < 0:
             out.append(f"- Late escalation by window flag on evo-t2s's Intel CPU 4096 default ({TRADEOFF_DEVICE_PROJ}) "
@@ -2525,8 +2534,14 @@ def render_oct29_block(t, late=None, route=None) -> str:
     models = sorted({r["model"] for r in t["rows"]})
     t2s_dev = next(r["device"] for r in t["rows"] if r["device"] != "evo-x2")
     out = []
+    # audit 2026-10-25 1b (operator approved 2026-10-31): the ceiling accuracy quoted beside its saving is the one
+    # hybrid-route-at-start computes from the measured redo outcome per task when that tier has a redo; the trade-off
+    # row's own ceiling accuracy assumes the all-cloud outcome per escalated task (an upper bound)
+    route_ceil = {r["model"]: r["ceiling"] for r in (route or {}).get("rows", [])
+                  if route.get("status") == "VERIFIED" and r["device"] == "evo-x2"}
     for m in models:
         x, y = _tb_row(t, "evo-x2", m), _tb_row(t, t2s_dev, m)
+        ce_acc = route_ceil.get(m) or x["ceiling"]
         a, nv, hf = x["options"]["all_cloud"], x["options"]["naive_local"], x["options"]["hybrid_flag"]
         ya, yn, yh = y["options"]["all_cloud"], y["options"]["naive_local"], y["options"]["hybrid_flag"]
         out.append(
@@ -2537,7 +2552,8 @@ def render_oct29_block(t, late=None, route=None) -> str:
             f"{_acc(hf)}. On evo-t2s's Intel CPU default ({TRADEOFF_DEVICE_PROJ}) naive local is {_acc(yn)} correct; "
             f"the flag escalates {yh['escalated']} tasks and reaches {_acc(yh)} (all-cloud {_acc(ya)}) but saves only "
             f"USD {yh['savings_month'][v]:,.2f}/month. A detector for in-window wrong answers would save up to USD "
-            f"{x['ceiling']['savings_month'][v]:,.2f}/month on evo-x2 at {_acc(x['ceiling'])} ({CEILING_LABEL}).")
+            f"{x['ceiling']['savings_month'][v]:,.2f}/month on evo-x2 at {_acc(ce_acc)} ({CEILING_LABEL}"
+            + (f"; {ce_acc['label']}" if ce_acc.get("label") else "") + ").")
         # the largest projected MEDIAN point (not a p90 tail) as the real-task illustration
         big = [r for r in t["rows"] if r["device"] == "evo-x2" and r["model"] == m and r["point_label"] != "measured"
                and r["point"].endswith("median")]

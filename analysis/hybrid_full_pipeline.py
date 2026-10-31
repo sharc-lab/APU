@@ -344,8 +344,10 @@ def live_hours_text(d: dict, refusals: dict | None = None) -> str:
     ref = "; ".join(f"{be}: {', '.join(r) or 'no refusal record'}" for be, r in (refusals or {}).items())
     return (f"ESTIMATE, not a measurement (nothing deployed or queued); per run {d['n_tasks']} B3 v2 tasks (3 seeds), "
             f"qwen3:14b local, {CLOUD_MODEL} cloud, route + check + rollback + budget / hybrid-live-amd (evo-x2, KV "
-            f"q4_0 num_ctx 28928, the main config): APPROVED to run once the tuned post-run check exists (operator "
-            f"2026-10-30); waits on it, not run, not queued; {a['point_h']:.2f} h (high {a['high_h']:.2f} h); point = "
+            f"q4_0 num_ctx 28928, the main config and the pitch's cost-first operating point): APPROVED to run once "
+            f"the tuned post-run check exists (operator 2026-10-30), i.e. after the 8192 live post-run check is in "
+            f"(queue job x2_post_run_check_local_v1 plus its controller cloud phase; operator 2026-10-31); waits on it, "
+            f"not run, not queued; needs the operator's cloud approval flag at start; {a['point_h']:.2f} h (high {a['high_h']:.2f} h); point = "
             f"the measured x2_own_config_probe_q4_28928 sessions ({', '.join(str(m) for m in a['sessions_min'])} min) "
             f"plus {START_OVERHEAD_S[0]:.0f} s per session start (ASSUMED); high = 3 x the slowest session plus "
             f"{START_OVERHEAD_S[1]:.0f} s starts plus every task escalated at the mean full-history redo time "

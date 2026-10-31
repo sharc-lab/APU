@@ -203,7 +203,7 @@ function tradeoffHTML(t) {
     const rows = opts.map(([name, o]) => `<tr><td>${esc(name)}</td><td class="n">${num("USD " + o.saves[v].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }), t.src)}</td><td class="n">${num(`${o.correct}/${o.n} (${o.pct.toFixed(1)}%)`, t.src)}</td><td class="n">${o.silent == null ? "0" : num(o.silent, t.src)}${o.escalated != null ? `; escalated ${num(o.escalated, t.src)}` : ""}</td></tr>`).join("");
     return `<h3>${esc(title)} ${lab(label)}</h3><svg class="bars" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">${g}</svg>
       <div class="scroll"><table><tr><th>option</th><th>saves per month at ${Number(v).toLocaleString()} tasks/day</th><th>correct</th><th>wrong answers silent</th></tr>${rows}</table></div>
-      <p class="muted small">Side note, not an option: a detector for in-window wrong answers would save up to ${num("USD " + r.ceiling.saves[v].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }), t.src)} at ${num(`${r.ceiling.correct}/${r.ceiling.n}`, t.src)} (ceiling, no such detector).</p>`;
+      <p class="muted small">Side note, not an option: a detector for in-window wrong answers would save up to ${num("USD " + r.ceiling.saves[v].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }), t.src)} at up to ${num(`${r.ceiling.correct}/${r.ceiling.n}`, t.src)} (ceiling, no such detector; assumes every escalated task gets the all-cloud outcome, so the measured redo outcome can be lower: see hybrid-route-at-start).</p>`;
   };
   const f = t.featured;
   let h = block(f, `${f.device} at its default vs ${f.model}, B3 tasks`, f.device_label);

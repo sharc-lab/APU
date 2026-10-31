@@ -47,8 +47,9 @@ def test_late_text_names_inherited_actions_and_t2s_cost():
     assert "cloud_model_error 1" in txt and "grader_issue" not in txt
     assert "costs more than all-cloud" in txt and "—" not in txt
     lead = im.step4_lead(d, None, "cloud-x", 1000)
-    assert lead[0].startswith('"Fix after the fact: about 2 cents, 70.0% fixed, but executed actions cannot be undone; '
-                              'decide up front instead."')
+    assert lead[0].startswith('"Fix after the fact: 2.00x the cost of a fresh cloud run of the same task, 70.0% fixed, '
+                              'but executed actions cannot be undone; decide up front instead."')
+    assert "cents" not in lead[0]
     assert "95% CI 40.0% to 90.0%" in lead[0] and "2 inherited actions" in lead[0]
     assert im.late_text({"status": "PENDING", "pending": ["x"]}).startswith("PENDING")
     assert im.step4_lead({"status": "PENDING"}, None, "m", 1000) == []
@@ -126,7 +127,8 @@ def test_impact_doc_route_first_and_step4_lead():
     o29 = text[text.index(im.OCT29_BEGIN):text.index(im.OCT29_END)]
     step4 = o29[o29.index("Demo story step 4"):]
     if "late-escalation-cost-vs-fresh" in o29:
-        assert step4.split("\n")[2].startswith('"Fix after the fact: about ')
+        assert step4.split("\n")[2].startswith('"Fix after the fact: ')
+        assert "x the cost of a fresh cloud run of the same task" in step4.split("\n")[2]
         assert "executed actions cannot be undone; decide up front instead" in step4 and "95% CI" in step4
     assert "—" not in sec
 

@@ -560,7 +560,7 @@ def test_views_js_renders_every_view(app, tmp_path):
     # main screens: plain words, presenter numbers; evidence only inside the closed Details panel
     assert "5 of 5" in w[0]["items"] and "No error shown" in w[0]["items"]
     assert "Enough memory" in w[1]["items"] and "42%" in w[1]["items"] and "Error messages shown: 0" in w[1]["items"]
-    assert "16x" in w[2]["items"] and "30% wrong" in w[2]["items"]
+    assert "16.6x" in w[2]["items"] and "30% wrong" in w[2]["items"]
     assert "$2.53" in w[3]["items"] and views.ROUTE_TAKEAWAY in w[3]["items"] and 'value="5"' in w[3]["html"]
     assert "Saves per month" in w[4]["items"]
     for s in w[:5]:
@@ -596,12 +596,18 @@ def test_story_steps_from_committed_files(app):
                                                 "shown.", "Right setting: 5 of 5 kept their rules."]
     assert [(b["label"], b["value"]) for b in s2["bars"]] == [("Enough memory", 11), ("Tight", 35), ("Tighter", 42)]
     assert s2["caption"] == "Error messages shown: 0"
-    assert [t["text"] for t in s3["tiles"]] == ["Bigger memory setting: up to 16x slower, or will not start",
+    assert [t["text"] for t in s3["tiles"]] == ["Default memory setting: 16.6x slower than Tighter, which is 42% wrong",
                                                 "The quick fix: still 30% wrong",
                                                 "Trimming old history: breaks a different rule"]
     assert s4["numbers"][0]["big"] == "$2.53" and s4["numbers"][0]["tag"] == "priced"
-    assert s4["numbers"][1]["text"] == ("Fixing a wrong answer later: about 2 cents, but actions already taken "
+    assert s4["numbers"][1]["big"] == "1.76x"
+    assert s4["numbers"][1]["src"] == {"register": "late-escalation-cost-vs-fresh"}
+    assert s4["numbers"][1]["text"] == ("Fixing a wrong answer later costs 1.76x a fresh cloud run; actions taken "
                                         "cannot be undone") and s4["numbers"][1]["tag"] == "measured"
+    intel = [e for e in s5["entries"] if e["machine"] == "Intel laptop"]
+    assert {e["model"]: e["saves_local"]["1000"] for e in intel} == {"claude-haiku-5-5": 16.10,
+                                                                     "claude-sonnet-5-5": 169.89}
+    assert all(e["saves_src"] == "t2s-config-comparison" for e in intel)
     assert s4["takeaway"] == views.ROUTE_TAKEAWAY and s4["slider"]["default"] == 5
     assert s5["machines"] == ["AMD workstation", "Intel laptop", "NVIDIA laptop"]
     assert {e["machine"] for e in s5["entries"]} == {"AMD workstation", "Intel laptop"}  # NVIDIA: not measured
@@ -620,7 +626,7 @@ def test_story_steps_from_committed_files(app):
     # step 4 leads with the measured trade-off (the prepared IMPACT.md text), then the fix-after-the-fact line
     assert money[0]["label"] == "measured" and money[0]["src"] == {"register": "hybrid-savings-tradeoff"}
     assert money[0]["text"].startswith("Local saves money")
-    fix = next(i for i in money if i["text"].startswith("Fix after the fact: about 2 cents"))
+    fix = next(i for i in money if i["text"].startswith("Fix after the fact: mean USD 0.0227"))
     assert fix["label"] == "measured" and fix["src"] == {"register": "cloud-redo-full-context"}
     assert "mean USD 0.0227" in fix["text"] and "84.8% fixed" in fix["text"] and "Wilson CI 79.1% to 89.1%" in fix["text"]
     assert "28 of the 30 unfixed inherited" in fix["text"] and "decide up front instead" in fix["text"]
@@ -669,14 +675,30 @@ def test_story_tradeoff_parsers():
         167, 197, 79.1, 89.1, 0.0227, 2048)
     assert fr["classes"] == {"thinking_empty_at_cap": 0, "earlier_state_repair": 28, "cloud_model_error": 2}
     line = views.fix_after_the_fact(fr)
-    assert line.startswith("Fix after the fact: about 2 cents (mean USD 0.0227 per task, cache-priced), 84.8% fixed "
-                           "(95% Wilson CI 79.1% to 89.1%), but executed actions cannot be undone; decide up front")
+    assert line.startswith("Fix after the fact: mean USD 0.0227 per short B3 task (cache-priced; compare it with a "
+                           "fresh run of the same task, row late-escalation-cost-vs-fresh, not with a long task), "
+                           "84.8% fixed (95% Wilson CI 79.1% to 89.1%), but executed actions cannot be undone; decide "
+                           "up front")
+    assert "cents" not in line
     assert "28 of the 30 unfixed inherited" in line
     assert views.optional_row({}, "hybrid-route-at-start")["label"] == "being measured"
     cfg = views.parse_t2s_config("naive: Intel CPU, Ollama default qwen3:14b: loaded window 4096, gated silent 5/5 "
                                  "sessions, kept local (measured by R2 session pass rate (not B3 task accuracy)) 0/5 = "
                                  "0.00; vs claude-sonnet-5-5: saves USD -37.49 at 100/day, -374.93 at 1,000/day, x")
     assert cfg["cpu|qwen3:14b"]["kept"] == 0 and cfg["cpu|qwen3:14b"]["saves_1000"]["claude-sonnet-5-5"] == -374.93
+    # audit 2026-10-25 1b: the Intel laptop's saving comes from its own configuration row, not the naive CPU column
+    cfg2 = views.parse_t2s_config("recommended: Intel iGPU, Ollama default qwen3:14b: loaded window 32768, gated silent "
+                                  "1/5 sessions, kept local (measured by R2 session pass rate (not B3 task accuracy)) "
+                                  "4/5 = 0.80; vs claude-sonnet-5-5: saves USD 16.99 at 100/day, 169.89 at 1,000/day, "
+                                  "1,698.93 at 10,000/day/month")
+    routes = [{"device": "evo-t2s", "model": "claude-sonnet-5-5", "r2_basis": True,
+               "saves_local": {"100": 30.61, "1000": 306.10, "10000": 3060.99}},
+              {"device": "evo-x2", "model": "claude-sonnet-5-5", "r2_basis": False,
+               "saves_local": {"100": 30.61, "1000": 306.10, "10000": 3060.99}}]
+    out = views.intel_savings_from_config(routes, cfg2)
+    assert out[0]["saves_local"] == {"100": 16.99, "1000": 169.89, "10000": 1698.93}
+    assert out[0]["saves_src"] == "t2s-config-comparison" and out[1]["saves_local"]["1000"] == 306.10
+    assert views.intel_savings_from_config([dict(routes[0])], {})[0]["saves_local"] is None
 
 
 def test_device_decision_and_kept_local_label(app):
