@@ -4743,6 +4743,36 @@ def compute_post_run_check_live_estimate(repo):
     return {"value": prc.live_estimate_text(e), "n": f"{e['n_tasks']} tasks (ESTIMATE)"}
 
 
+POST_RUN_CHECK_TUNED_FILE = "results/post_run_check_tuned_v1.jsonl"
+POST_RUN_CHECK_LIVE8192_FILE = "results/x2_post_run_check_live_v1.jsonl"
+
+
+def _post_run_check_tuning():
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "analysis"))
+    import post_run_check_tuning as prt
+    return prt
+
+
+def compute_post_run_check_l3_rule_breakdown(repo):
+    prt = _post_run_check_tuning()
+    d = prt.load(repo)
+    return {"value": prt.breakdown_text(d), "n": f"{sum(b['n'] for b in d['breakdown'].values())} task turns "
+                                                 "(tuning seeds)"}
+
+
+def compute_post_run_check_tuned(repo):
+    prt = _post_run_check_tuning()
+    d = prt.load(repo)
+    return {"value": prt.tuned_text(d), "n": "30 held-out task turns per window (seed 20260905)"}
+
+
+def compute_post_run_check_live_8192_estimate(repo):
+    prt = _post_run_check_tuning()
+    d = prt.load(repo)
+    return {"value": prt.live8192_text(d), "n": f"{d['live']['n_tasks']} tasks (ESTIMATE)"}
+
+
 def compute_post_run_check_live(repo):
     raise RuntimeError("live post-run check job not run; this row stays PENDING until its file has run_end")
 
@@ -9616,6 +9646,29 @@ NUMBER_ENTRIES = [
      "local model, cost and value measured alone; design only (src/dse/post_run_check.L4_DESIGN), not run",
      "compute": compute_post_run_check_l4, "data_files": [POST_RUN_CHECK_L4_FILE], "pending_ok": True,
      "require_run_end": [POST_RUN_CHECK_L4_FILE], "script_function": "src/dse/post_run_check.py::l4_design"},
+    {"claim_id": "post-run-check-l3-rule-breakdown", "description": "Post-run check amendment 2026-10-31: per window, "
+     "on the tuning seeds 20260901-04 only, each L3 check's firings on wrong and correct local answers and its unique "
+     "catches",
+     "compute": compute_post_run_check_l3_rule_breakdown, "data_files": [POST_RUN_CHECK_TUNED_FILE, *POST_RUN_CHECK_DATA],
+     "pending_ok": True, "require_run_end": [POST_RUN_CHECK_TUNED_FILE],
+     "script_function": "analysis/post_run_check_tuning.py::breakdown"},
+    {"claim_id": "post-run-check-tuned", "description": "Post-run check with the tuned L3 (amendment 2026-10-31 "
+     "procedure on seeds 20260901-04): held-out seed 20260905 per window, recall, false escalations, final accuracy, "
+     "kept local, cloud USD per task vs the unchanged targets; tuning-seed figures beside, labelled",
+     "compute": compute_post_run_check_tuned, "data_files": [POST_RUN_CHECK_TUNED_FILE, *POST_RUN_CHECK_DATA],
+     "pending_ok": True, "require_run_end": [POST_RUN_CHECK_TUNED_FILE],
+     "script_function": "analysis/post_run_check_tuning.py::tune"},
+    {"claim_id": "post-run-check-live-8192-estimate", "description": "ESTIMATE for the live one-seed post-run check "
+     "at evo-x2 num_ctx 8192 (seed 20260905): billed point, high, upper bound, job cap, hours",
+     "compute": compute_post_run_check_live_8192_estimate,
+     "data_files": [POST_RUN_CHECK_TUNED_FILE, *POST_RUN_CHECK_DATA, "results/x2_r2_mechanism.jsonl"],
+     "pending_ok": True, "require_run_end": [POST_RUN_CHECK_TUNED_FILE],
+     "script_function": "analysis/post_run_check_tuning.py::live_estimate"},
+    {"claim_id": "post-run-check-live-8192", "description": "Live post-run check at evo-x2 num_ctx 8192, seed "
+     "20260905 (local phase x2_post_run_check_local_v1 on evo-x2, controller cloud phase scripts/"
+     "post_run_check_cloud.py, job cap USD 2.00); not run, not queued",
+     "compute": compute_post_run_check_live, "data_files": [POST_RUN_CHECK_LIVE8192_FILE], "pending_ok": True,
+     "require_run_end": [POST_RUN_CHECK_LIVE8192_FILE], "script_function": "scripts/post_run_check_cloud.py::run"},
     {"claim_id": "per-task-budget-check", "description": "Per-task cloud budget (src/cloud/task_budget.py): forced "
      "retry loop on a fake client; stops at the right call, nothing past the cap, outcome and ledger record written",
      "compute": compute_per_task_budget_check, "data_files": [PER_TASK_BUDGET_FILE], "pending_ok": True,

@@ -40,6 +40,8 @@ OP_HOURS = (0.78, 1.38)
 XRT_HOURS = (1.94, 2.91)
 # register row kv-fa-interaction-llamacpp-hours (ESTIMATE; harness/kv_fa_llamacpp.py::hours_estimate), (point, high)
 KVFA_HOURS = (11.94, 17.90)
+# register row post-run-check-live-8192-estimate (ESTIMATE; analysis/post_run_check_tuning.py::live_estimate)
+PRC_LIVE_HOURS = 0.38
 _OC_COMMON = ["--design", "v2", "--mode", "real", "--workload", "evalset", "--guardrails", "off", "--models",
               "qwen3:14b", "--preflight", "v2_te_deviation", "--rules-from", f"{RESULTS}\\x2_evalset_tasks_val_v2.jsonl"]
 
@@ -274,6 +276,19 @@ ENTRIES = {
                 "default/16384/8192/4096, q8_0 15360, q4_0 28928), each with the job's own debug server, detector v2 "
                 "and the llama_kv_cache line; per-config files x2_own_profiler_probe_v1_<tier>.jsonl. ESTIMATE "
                 f"{OP_HOURS[0]:.2f} h (high {OP_HOURS[1]:.2f} h; register row own-profiler-probe-hours). " + RELEASE,
+    },
+    # ── live post-run check, local phase (2026-10-31; docs/EXPERIMENTS.md "AMENDMENT (2026-10-31)"; side directory
+    # prclive; hours: register row post-run-check-live-8192-estimate; no cloud call in this job) ──
+    "x2_post_run_check_local_v1": {
+        "projected_duration_h": PRC_LIVE_HOURS,
+        "cmd": [PY, "prclive\\x2_r2_evalset.py", *_OC_COMMON, "--plan", "post_run_check_live_v1", "--out",
+                f"{RESULTS}\\x2_post_run_check_local_v1.jsonl"],
+        "note": "live post-run check, local phase, pre-registered in docs/EXPERIMENTS.md amendment 2026-10-31: "
+                "qwen3:14b B3 v2 tasks at num_ctx 8192, seed 20260905, detector v2 on every call (own debug server "
+                "log) and the render check on every call plus sampled prompt-token checks (L2). No cloud call; the "
+                "controller runs scripts/post_run_check_cloud.py afterwards. ESTIMATE "
+                f"{PRC_LIVE_HOURS:.2f} h (register row post-run-check-live-8192-estimate, which includes the cloud "
+                "phase). " + RELEASE,
     },
     # ── cross-runtime replication on llama.cpp server (2026-10-26; docs/EXPERIMENTS.md "PRE-REGISTRATION
     # (2026-10-26): cross-runtime replication on llama.cpp server"; side directory xrt; queued after the demo hold) ──

@@ -88,7 +88,20 @@ def test_forced_retry_loop_stops_at_cap(tmp_path):
              "task1_counted_within_cap": refusal["task_spent_usd"] <= cap + 1e-12,
              "billed_within_cap": sum(c["billed_usd"] for c in calls) <= cap,
              "retry_after_refusal_sent": False, "outcome_recorded": True, "next_task_fresh_budget": True}]
-    RESULT.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8", newline="\n")
+    out = tmp_path / RESULT.name               # never the committed file
+    out.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8", newline="\n")
+    assert out.read_bytes() == RESULT.read_bytes().replace(b"\r\n", b"\n"), "result differs from the committed file"
+
+
+PINNED_SHA256 = "3d9c8495d27527480b86c6c0dc8707901d58daa3b86a451fed1436add3f159c6"   # committed content, LF ends
+
+
+def test_committed_result_file_unchanged():
+    """The committed results/per_task_budget_check_v1.jsonl is never written by tests (checked again at session end
+    in tests/conftest.py)."""
+    import hashlib
+    got = hashlib.sha256(RESULT.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+    assert got == PINNED_SHA256, "results/per_task_budget_check_v1.jsonl was modified"
 
 
 def test_per_task_check_runs_before_job_cap_and_never_loosens_it(tmp_path):

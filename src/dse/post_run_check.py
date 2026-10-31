@@ -149,17 +149,19 @@ def l2_proxy_record(turn: dict) -> dict:
             "label": "PROXY: prompt_eval_count below the chars/4 estimate sent, not the render check"}
 
 
-def l3_record(turn: dict, system_prompt: str, user_text: str, tools_schema: list[dict]) -> dict:
+def l3_record(turn: dict, system_prompt: str, user_text: str, tools_schema: list[dict],
+              config: dict | None = None) -> dict:
     calls = [c for rec in turn.get("calls") or [] for c in rec.get("tool_calls_parsed") or []]
-    r = l3_check(system_prompt, user_text, tools_schema, calls, turn.get("final_text"))
+    r = l3_check(system_prompt, user_text, tools_schema, calls, turn.get("final_text"), config)
     return {"layer": "L3", "fail": not r["pass"], **r}
 
 
-def check_record(turn: dict, system_prompt: str, user_text: str, tools_schema: list[dict]) -> dict:
+def check_record(turn: dict, system_prompt: str, user_text: str, tools_schema: list[dict],
+                 config: dict | None = None) -> dict:
     """Every layer computable from a recorded turn, with the check's own compute time."""
     t0 = time.perf_counter()
     layers = [l1_errors_record(turn), l1_proxy_record(turn), l2_proxy_record(turn),
-              l3_record(turn, system_prompt, user_text, tools_schema)]
+              l3_record(turn, system_prompt, user_text, tools_schema, config)]
     d = decide(layers)
     d["check_seconds"] = time.perf_counter() - t0
     d["layers"] = {x["layer"]: x for x in layers}
