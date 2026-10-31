@@ -2913,3 +2913,10 @@ Commands (for the operator; run none of them from an agent session):
   that one process: `$env:ANTHROPIC_API_KEY = <key>; py -3.12 scripts/post_run_check_cloud.py --live --job-cap 2.00
   --ledger <main checkout>\results\cloud_ledger.jsonl; Remove-Item Env:\ANTHROPIC_API_KEY`. The Console check must be
   fresh (src/cloud/console_gate.py); the job cap is within the USD 2 per-job limit, so no approval flag is needed.
+- Deployed and queued 2026-10-31 (operator go for the local phase only; the cloud phase waits until the operator
+  confirms the Console spend file): at c1eab5f to `C:\apu\ovn\prclive` (the 12 files above) and a new queue-tool
+  directory `C:\apu\ovn\qfill_prclive` (x2_queue_fill.py, x2_deploy_check.py; `C:\apu\ovn\qfill` not touched).
+  `qfill_prclive\x2_deploy_check.py --verify C:\apu\ovn\prclive C:\apu\ovn\qfill_prclive`: no problems. `--check-plan`:
+  one session, ollama_ctx_8192_call2_notools, seed 20260905, 30 task turns, projected max prompt 23076. Appended with
+  `qfill_prclive\x2_queue_fill.py --append x2_post_run_check_local_v1` at queue position 96, behind the running
+  x2_kv_fa_llamacpp (95). No pause set; the job calls tq.advance() on exit.
