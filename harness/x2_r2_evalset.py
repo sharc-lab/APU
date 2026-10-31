@@ -875,7 +875,14 @@ OWN_PROFILER_TIERS = {"ollama_default": "f16", "ollama_ctx_16384": "f16", "ollam
                       "ollama_ctx_4096": "f16", "ollama_ctx_15360": "q8_0", "ollama_ctx_28928": "q4_0"}
 OWN_PROFILER_SEEDS = (20260901,)
 PROBE_WALL_S = 600.0
-CTX_POLICY_PLANS = (OWN_COMPACTION_PLAN, OWN_CONFIG_PLAN, OWN_PROFILER_PLAN)
+# live post-run check, local phase (2026-10-31, docs/EXPERIMENTS.md "AMENDMENT (2026-10-31)"): B3 v2 qwen3:14b at
+# num_ctx 8192, seed 20260905, detector v2 on every call (L1) plus the render check on every call and the sampled
+# prompt-token check (L2, harness/post_run_check_live.py). No cloud call in this job; the controller phase
+# (scripts/post_run_check_cloud.py) checks, rolls back and escalates.
+PRC_LIVE_PLAN = "post_run_check_live_v1"
+PRC_LIVE_TIERS = ("ollama_ctx_8192",)
+PRC_LIVE_SEEDS = (20260905,)
+CTX_POLICY_PLANS = (OWN_COMPACTION_PLAN, OWN_CONFIG_PLAN, OWN_PROFILER_PLAN, PRC_LIVE_PLAN)
 for _a, _n in (("own_compaction_4096", 4096), ("own_compaction_8192", 8192), ("client_trim_4096", 4096),
                ("client_trim_8192", 8192), ("ollama_ctx_15360", 15360), ("ollama_ctx_28928", 28928)):
     for _m, _sfx in ag.MODE_SUFFIX.items():
@@ -896,7 +903,8 @@ def ctx_policy_plan(plan_name, tiers_text=None, seeds_text=None, call2_mode="off
     --tiers / --seeds if given (each must belong to the plan; the two probe plans need exactly one tier)."""
     allowed, seeds_all = {OWN_COMPACTION_PLAN: (OWN_COMPACTION_ARMS, OWN_COMPACTION_SEEDS),
                           OWN_CONFIG_PLAN: (tuple(OWN_CONFIG_TIERS), OWN_CONFIG_SEEDS),
-                          OWN_PROFILER_PLAN: (tuple(OWN_PROFILER_TIERS), OWN_PROFILER_SEEDS)}[plan_name]
+                          OWN_PROFILER_PLAN: (tuple(OWN_PROFILER_TIERS), OWN_PROFILER_SEEDS),
+                          PRC_LIVE_PLAN: (PRC_LIVE_TIERS, PRC_LIVE_SEEDS)}[plan_name]
     tiers = [t.strip() for t in tiers_text.split(",") if t.strip()] if tiers_text else list(allowed)
     bad = [t for t in tiers if t not in allowed]
     if bad or len(set(tiers)) != len(tiers):
@@ -1468,7 +1476,7 @@ def build_arg_parser():
                     help="print the plan and session shape, then exit (no server, no model call, no queue)")
     ap.add_argument("--plan", choices=("default", TASKS_PLAN, TASKS_V2_PLAN, TASKS_V2_Q8_PLAN, TASKS_V2_MS_PLAN,
                                          TASKS_V2_L70_PLAN, TASKS_V2_T2S_PLAN, OWN_COMPACTION_PLAN, OWN_CONFIG_PLAN,
-                                         OWN_PROFILER_PLAN),
+                                         OWN_PROFILER_PLAN, PRC_LIVE_PLAN),
                     default="default",
                     help="real mode: default = --tiers/--seeds or STRONG_TIERS x SEEDS; tasks_v1 = the B3 task real "
                          "run (Ollama default and 4096, SEEDS, 30 task turns; needs --workload evalset --guardrails off); "
@@ -1871,7 +1879,11 @@ def main(argv=None, advance=True):
             mech = OCX.mech
             if not mech.debug_enabled(mech.read_log(serve_log, 0)):
                 raise RuntimeError(f"OLLAMA_DEBUG not active in {serve_log}; detector v2 needs the debug lines")
+            base_rt = runtime
             runtime = OCX.PolicySessionRuntime(runtime, serve_log, emit, ctx_policy_of)
+            if args.plan == PRC_LIVE_PLAN:
+                import post_run_check_live as PRCL   # noqa: PLC0415
+                runtime = PRCL.L2RenderRuntime(runtime, base_rt, serve_log, emit)
         avail = runtime.available_models()
         missing = [m for m in models if not any(ag.same_tag(m, a) for a in avail)]
         if missing:

@@ -81,7 +81,25 @@ def test_l3_fresh_import_loads_no_harness_module():
 
 def test_l3_signature_takes_no_task_object():
     params = list(L3.l3_check.__code__.co_varnames[:L3.l3_check.__code__.co_argcount])
-    assert params == ["system_prompt", "user_text", "tools_schema", "calls", "final_text"]
+    assert params == ["system_prompt", "user_text", "tools_schema", "calls", "final_text", "config"]
+
+
+def test_tuned_config_is_the_procedure_output_and_never_sees_holdout():
+    sys.path.insert(0, str(REPO / "analysis"))
+    import post_run_check_tuning as T
+    d = T.load()
+    cfg = d["tuning"]["config"]
+    assert cfg["variants"] == L3.CONFIG_TUNED["variants"] and tuple(cfg["drop"]) == tuple(L3.CONFIG_TUNED["drop"])
+    with pytest.raises(ValueError):
+        T.tune([{"seed": T.HOLDOUT, "local_ok": True, "l3_all": []}])
+
+
+def test_tuned_variants_behave():
+    ok = json.dumps({"answer": "done", "source": "s", "extra": 1})
+    r = L3.l3_check(SP, "Transfer 5.00 from account ACC-1 to payee PAY-2.", SCHEMA,
+                    [LOG, {"name": "transfer_funds", "arguments": {"from_account": "ACC-1", "to_account": "PAY-2",
+                                                                    "amount": 5}}], ok, L3.CONFIG_TUNED)
+    assert r["pass"] and "rule1_json_keys" in r["all_failed"] and "rule5_session_code" in r["all_failed"]
 
 
 SP = ("  5. The \"answer\" field's TEXT VALUE itself (inside the quotes) must end with the exact session\n"

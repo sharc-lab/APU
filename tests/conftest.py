@@ -22,3 +22,28 @@ def pytest_configure(config):
             ),
             returncode=2,
         )
+
+
+# Committed result files that tests must never write (operator 2026-10-31): hashed at session start, compared at
+# session end; a change fails the run.
+_GUARDED = ("results/per_task_budget_check_v1.jsonl",)
+_GUARD_HASH: dict = {}
+
+
+def _hash(rel):
+    import hashlib
+    from pathlib import Path
+    p = Path(__file__).resolve().parents[1] / rel
+    return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+
+
+def pytest_sessionstart(session):
+    for rel in _GUARDED:
+        _GUARD_HASH[rel] = _hash(rel)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    changed = [rel for rel in _GUARDED if _hash(rel) != _GUARD_HASH.get(rel)]
+    if changed:
+        print(f"\nERROR: committed result file(s) modified by the test session: {changed}", file=sys.stderr)
+        session.exitstatus = 1
