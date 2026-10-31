@@ -21,7 +21,7 @@ CITE = {
 # Citations written without an author-year in the draft: [name; to verify].
 CITE_NOYEAR = {'llmfit': 'llmfit', 'Ollama issue #14259': 'ollama14259'}
 # Named in the draft but with no verified source, so no bib entry: printed as a visible marker, never \cite.
-UNVERIFIED = {'ContextPaw'}
+UNVERIFIED: set = set()
 SECNAMES = {'4.1': 'Introduction', '4.2': 'Background and Related Work', '4.3': 'Platforms, Harness and Methodology',
             '4.4': 'Memory-Architecture Boundaries', '4.5': 'Runtime Policy', '4.6': 'Agent Consequences',
             '4.6a': 'The Window Result', '4.6b': 'The Mechanism on AMD and NVIDIA', '4.7': 'Fixes',
