@@ -2777,3 +2777,60 @@ this commit from existing result files; the row text is the source, never this s
 
 - One schema: device, runtime, version, model, window, KV, backend, measured ceiling, wrong rate, s/task, each value
   with its source row or file; missing is null, never guessed. No target.
+
+### AMENDMENT (2026-10-31): offline L3 tuning with a held-out seed, then a small live run at num_ctx 8192
+
+**Status: pre-registered before any tuning.** Committed before the L3 rule breakdown is computed and before any L3
+rule is changed. The operator's words, verbatim: "A post-run check: no live run yet. Offline first, zero cost: break
+down false escalations by L3 rule (which invariant fires on correct answers, per window), tighten or drop rules that
+fire on correct answers, re-run the replay, and report recall / false escalations / accuracy per window vs the
+pre-registered targets. Pre-register the tuning as a dated amendment and hold out one seed for the final number so we
+don't tune on the test set. Then a small live run at num_ctx 8192 (where L1 and L2 can actually fire), 1 seed, capped
+at USD 2. Show me the cost before running." and "Point the per-task-budget test at a temp path; it must never write
+committed results."
+
+Held-out seed: **20260905** (the last B3 v2 seed). Tuning seeds: 20260901, 20260902, 20260903, 20260904. The
+breakdown and every tuning decision read the tuning seeds only. The final numbers are the held-out seed's only (30
+task turns per window), against the unchanged targets: recall >= 80%, false escalations <= 10%, final accuracy >= 97%.
+Note: the all-cloud run has no seed 20260905 row, so a task right locally that the check escalates on the held-out seed
+is graded IMPUTED from that task's all-cloud pass fraction over seeds 20260901-03, exactly as before.
+
+What may change: only L3 checks (src/dse/l3_invariants.py), each either kept, replaced by its pre-listed tightened
+variant below, or dropped. Nothing else changes: the L1 and L2 proxies and their thresholds, the decision rule (any
+FAIL escalates), the grading of escalated tasks, the USD 0.25 per-task cap and the targets stay as pre-registered. L3
+still never imports or reads the grader, the reference calls, the expected answer values or the expected end state
+(the static test must keep passing). The grader's end_state_ok is read only to score the check, as before.
+
+Pre-listed tightened variants (the only tightenings allowed):
+
+- rule1_json_keys -> rule1_json_lenient: the final text contains a JSON object (the whole text, one code fence, or the
+  first {...} block in it) with a string "answer"; extra keys and surrounding text allowed.
+- rule5_session_code -> rule5_code_present: the session code from the system prompt appears anywhere in the final text.
+- Every other check has no tightened variant; it can only be kept or dropped.
+
+Procedure (deterministic, pooled over the three windows of the tuning seeds). For each L3 check c: F_right(c) =
+correct tasks on which c fires; U_wrong(c) = wrong tasks on which c is the only L3 check that fires.
+
+1. F_right(c) = 0: keep c unchanged.
+2. Else, if c has a tightened variant v: adopt v if F_right(v) < F_right(c) and U_wrong(c) - U_wrong(v) <=
+   F_right(c) - F_right(v) (it removes at least as many firings on correct answers as unique catches); U_wrong(v) is
+   computed with every other check unchanged.
+3. Then, if the check in use (c or v) still has F_right > U_wrong: drop it.
+
+Checks are processed in a fixed order (the order l3_check evaluates them). Every change goes into a changelog
+(analysis/post_run_check_replay.py TUNING_CHANGELOG, generated from the procedure, and docs/EXPERIMENTS.md).
+
+Reported, all from results/post_run_check_tuned_v1.jsonl (run_end required):
+
+- row `post-run-check-l3-rule-breakdown`: per window, on the tuning seeds, each L3 check's firings on wrong and on
+  correct tasks and its unique catches;
+- row `post-run-check-tuned`: headline = the held-out seed, per window, recall, false escalations, final accuracy, kept
+  local, cloud USD per task, MET or MISSED for each target, for the same decision as the pre-registered rows (L1 errors,
+  L1 PROXY, L2 PROXY, tuned L3) and for tuned L3 alone; the tuning seeds' figures beside them, labelled as tuning data.
+
+Live run (prepared only, nothing deployed, queued or run): B3 v2 qwen3:14b, evo-x2 num_ctx 8192, one seed (20260905),
+L1 from detector v2 on the job's own Ollama debug log, L2 from the render check on every call plus the prompt-token
+check (x2_r2_mechanism / prompt_token_check) for citability, L3 tuned; on FAIL, rollback to the pre-task snapshot and
+claude-sonnet-5-5 under the USD 0.25 per-task cap and a USD 2.00 billed job cap enforced in code (client spend cap =
+ledger total + 2.00). Row `post-run-check-live-8192` PENDING until its file has run_end; its cost and hours ESTIMATE in
+row `post-run-check-live-8192-estimate`.
