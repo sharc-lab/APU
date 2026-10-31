@@ -183,8 +183,7 @@ reinforcement learning which steps of a long agent task a small local model dele
 [Huang et al. 2026, EC2-Bench; to verify] benchmarks edge-cloud collaboration strategies on performance, resource use
 and privacy; Minions [Narayan et al. 2025, Minions; to verify] has a cloud model decompose long-document tasks into
 subtasks run by an on-device model; Arch-Router [Tran et al. 2025, Arch-Router; to verify] routes queries by
-user-defined domain and action preferences; ContextPaw [ContextPaw; to verify] is a placeholder whose source we have
-not confirmed; and llmfit [llmfit; to verify] estimates which models fit a machine's memory, including a context
+user-defined domain and action preferences; and llmfit [llmfit; to verify] estimates which models fit a machine's memory, including a context
 dimension. An open runtime issue [Ollama issue #14259; to verify] reports that chat-history truncation is silent and
 asks for a warning-level log line. None of these measures how the window a runtime loads changes an agent's
 correctness. We contribute no learned router and no cut-off detector: the cut-off signal is the runtime's own, and we
@@ -892,7 +891,6 @@ published paper before it enters `docs/references.bib`; no result of these paper
 - [Huang et al. 2026, EC2-Bench] P. Huang et al., "Empowering Edge Agents: A Systematic Analysis of Edge-Cloud Collaboration in LLM Agent Execution", arXiv:2610.17816, 2026. To verify (added 2026-10-23; arXiv page checked 2026-10-23).
 - [Narayan et al. 2025, Minions] A. Narayan et al., "Minions: Cost-efficient Collaboration Between On-device and Cloud Language Models", arXiv:2502.15964, 2025. To verify (added 2026-10-23; arXiv page checked 2026-10-23).
 - [Tran et al. 2025, Arch-Router] C. Tran et al., "Arch-Router: Aligning LLM Routing with Human Preferences", arXiv:2506.16655, 2025. To verify (added 2026-10-23; arXiv page checked 2026-10-23).
-- [ContextPaw] Not verified: no source found on 2026-10-23; no details recorded. To verify (added 2026-10-23).
 - [llmfit] llmfit, open-source model-fit tool (GitHub repository README checked 2026-10-23). To verify (added 2026-10-23).
 - [Ollama issue #14259] "Chat history and embedding truncation happens silently with no user-visible indication", Ollama issue tracker, opened 2026-02-14. To verify (added 2026-10-23; issue page checked 2026-10-23).
 - [Kwon et al. 2023, vLLM] W. Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention", SOSP 2023. To verify.
