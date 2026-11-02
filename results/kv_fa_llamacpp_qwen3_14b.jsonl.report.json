@@ -1,0 +1,313 @@
+{
+ "run_finished": true,
+ "valid": false,
+ "problems": [
+  "f16_fa_off: 51 rejected, cut or failed calls or turns: the workload did not fit cleanly",
+  "q8k_fa_off: 181 rejected, cut or failed calls or turns: the workload did not fit cleanly"
+ ],
+ "refusal_probe": {
+  "cell": "q8_fa_off",
+  "ctk": "q8_0",
+  "ctv": "q8_0",
+  "fa": "off",
+  "result": "refused",
+  "lines": [
+   "\u001b[34m0.00.281.432\u001b[0m \u001b[31mE llama_init_from_model: quantized V cache requires flash_attn to be enabled",
+   "\u001b[34m0.02.698.750\u001b[0m \u001b[31mE llama_init_from_model: quantized V cache requires flash_attn to be enabled",
+   "\u001b[0m\u001b[34m0.02.698.753\u001b[0m \u001b[31mE cmn  common_init_: failed to create context with model 'C:\\apu\\models\\Qwen3-14B-Q4_K_M.gguf'",
+   "\u001b[0m\u001b[34m0.02.698.755\u001b[0m \u001b[31mE cmn  common_init_: failed to create context with model 'C:\\apu\\models\\Qwen3-14B-Q4_K_M.gguf'",
+   "\u001b[34m0.00.281.432\u001b[0m \u001b[31mE llama_init_from_model: quantized V cache requires flash_attn to be enabled"
+  ]
+ },
+ "window": 40960,
+ "turns": 24,
+ "cells": {
+  "f16_fa_off": {
+   "arm_id": "llamacpp_kv_f16_fa_off_call2_notools",
+   "ctk": "f16",
+   "ctv": "f16",
+   "fa": "off",
+   "n_sessions": 3,
+   "per_seed_min": {
+    "20260901": 310.7158833333291,
+    "20260902": 295.95521666666804,
+    "20260903": 309.81641666667224
+   },
+   "mean_min": 305.4958388888898,
+   "prefill_tok_s": 30.430837198508325,
+   "decode_tok_s": 9.970892351583572,
+   "rule_k": 292,
+   "rule_n": 324,
+   "rule_pass_rate": 0.9012345679012346,
+   "hist_k": 12,
+   "hist_n": 12,
+   "history_recall": 1.0,
+   "kv_buffer_mib": 6400.0,
+   "compute_buffer_mib": [
+    3590.0200000000004
+   ],
+   "flash_attn_log": [
+    "disabled"
+   ],
+   "problems": [
+    "51 rejected, cut or failed calls or turns: the workload did not fit cleanly"
+   ]
+  },
+  "f16_fa_on": {
+   "arm_id": "llamacpp_kv_f16_fa_on_call2_notools",
+   "ctk": "f16",
+   "ctv": "f16",
+   "fa": "on",
+   "n_sessions": 3,
+   "per_seed_min": {
+    "20260901": 138.67211666666748,
+    "20260902": 138.85988333333128,
+    "20260903": 136.48803333333538
+   },
+   "mean_min": 138.00667777777804,
+   "prefill_tok_s": 136.6999669724746,
+   "decode_tok_s": 18.834428858876816,
+   "rule_k": 324,
+   "rule_n": 324,
+   "rule_pass_rate": 1.0,
+   "hist_k": 12,
+   "hist_n": 12,
+   "history_recall": 1.0,
+   "kv_buffer_mib": 6400.0,
+   "compute_buffer_mib": [
+    222.01999999999998
+   ],
+   "flash_attn_log": [
+    "enabled"
+   ],
+   "problems": []
+  },
+  "q8k_fa_off": {
+   "arm_id": "llamacpp_kv_q8k_fa_off_call2_notools",
+   "ctk": "q8_0",
+   "ctv": "f16",
+   "fa": "off",
+   "n_sessions": 3,
+   "per_seed_min": {
+    "20260901": 741.5591166666709,
+    "20260902": 741.2137999999958,
+    "20260903": 735.8570333333375
+   },
+   "mean_min": 739.543316666668,
+   "prefill_tok_s": 24.598245760400843,
+   "decode_tok_s": 0.13206175609254966,
+   "rule_k": 164,
+   "rule_n": 324,
+   "rule_pass_rate": 0.5061728395061729,
+   "hist_k": 0,
+   "hist_n": 12,
+   "history_recall": 0.0,
+   "kv_buffer_mib": 4900.0,
+   "compute_buffer_mib": [
+    3552.6400000000003
+   ],
+   "flash_attn_log": [
+    "disabled"
+   ],
+   "problems": [
+    "181 rejected, cut or failed calls or turns: the workload did not fit cleanly"
+   ]
+  },
+  "q8k_fa_on": {
+   "arm_id": "llamacpp_kv_q8k_fa_on_call2_notools",
+   "ctk": "q8_0",
+   "ctv": "f16",
+   "fa": "on",
+   "n_sessions": 3,
+   "per_seed_min": {
+    "20260901": 73.10859999999714,
+    "20260902": 71.97995000000422,
+    "20260903": 71.90833333333333
+   },
+   "mean_min": 72.3322944444449,
+   "prefill_tok_s": 251.89178983858122,
+   "decode_tok_s": 19.48004390815241,
+   "rule_k": 322,
+   "rule_n": 324,
+   "rule_pass_rate": 0.9938271604938271,
+   "hist_k": 12,
+   "hist_n": 12,
+   "history_recall": 1.0,
+   "kv_buffer_mib": 4900.0,
+   "compute_buffer_mib": [
+    232.14
+   ],
+   "flash_attn_log": [
+    "enabled"
+   ],
+   "problems": []
+  },
+  "q8_fa_on": {
+   "arm_id": "llamacpp_kv_q8_fa_on_call2_notools",
+   "ctk": "q8_0",
+   "ctv": "q8_0",
+   "fa": "on",
+   "n_sessions": 3,
+   "per_seed_min": {
+    "20260901": 49.82370000000422,
+    "20260902": 49.208583333327745,
+    "20260903": 49.18411666666313
+   },
+   "mean_min": 49.405466666665035,
+   "prefill_tok_s": 296.56630494007936,
+   "decode_tok_s": 20.71941546191244,
+   "rule_k": 324,
+   "rule_n": 324,
+   "rule_pass_rate": 1.0,
+   "hist_k": 12,
+   "hist_n": 12,
+   "history_recall": 1.0,
+   "kv_buffer_mib": 3400.0,
+   "compute_buffer_mib": [
+    222.18
+   ],
+   "flash_attn_log": [
+    "enabled"
+   ],
+   "problems": []
+  }
+ },
+ "primary": {
+  "speed": {
+   "estimate": {
+    "I": 1.5301280696194284,
+    "ratio_fa_off": 2.420796693521064,
+    "ratio_fa_on": 0.5241216991029685,
+    "ci95": [
+     1.5057636851669112,
+     1.5592526497936987
+    ],
+    "n_sessions": {
+     "f16_fa_off": 3,
+     "f16_fa_on": 3,
+     "q8_fa_off": 3,
+     "q8_fa_on": 3
+    },
+    "n_boot": 10000,
+    "seed": 20261014
+   },
+   "reading": "not read (invalid: f16_fa_off: 51 rejected, cut or failed calls or turns: the workload did not fit cleanly; q8k_fa_off: 181 rejected, cut or failed calls or turns: the workload did not fit cleanly)"
+  },
+  "memory": {
+   "kv_mib": {
+    "f16_fa_off": 6400.0,
+    "f16_fa_on": 6400.0,
+    "q8_fa_off": 4900.0,
+    "q8_fa_on": 4900.0
+   },
+   "d_fa_off_mib": -1500.0,
+   "d_fa_on_mib": -1500.0,
+   "interaction_mib": 0.0,
+   "tolerance_mib": 64.0,
+   "reading": "not read (invalid: f16_fa_off: 51 rejected, cut or failed calls or turns: the workload did not fit cleanly; q8k_fa_off: 181 rejected, cut or failed calls or turns: the workload did not fit cleanly)"
+  }
+ },
+ "secondary": {
+  "prefill_tok_s": {
+   "I": -0.8239924337260656,
+   "ratio_fa_off": 0.8083328631394543,
+   "ratio_fa_on": 1.8426616729856358,
+   "ci95": [
+    -0.9146880965612678,
+    -0.7511653308298548
+   ],
+   "n_sessions": {
+    "f16_fa_off": 3,
+    "f16_fa_on": 3,
+    "q8_fa_off": 3,
+    "q8_fa_on": 3
+   },
+   "n_boot": 10000,
+   "seed": 20261014
+  },
+  "decode_tok_s": {
+   "I": -4.357859735188379,
+   "ratio_fa_off": 0.013244727897556298,
+   "ratio_fa_on": 1.0342784511339886,
+   "ci95": [
+    -4.365806097545699,
+    -4.350715903904626
+   ],
+   "n_sessions": {
+    "f16_fa_off": 3,
+    "f16_fa_on": 3,
+    "q8_fa_off": 3,
+    "q8_fa_on": 3
+   },
+   "n_boot": 10000,
+   "seed": 20261014
+  },
+  "operator_square_minutes": {
+   "estimate": {
+    "I": 1.911337692529548,
+    "ratio_fa_off": 2.420796693521064,
+    "ratio_fa_on": 0.35799330483282127,
+    "ci95": [
+     1.8876730661617027,
+     1.9398467817711147
+    ],
+    "n_sessions": {
+     "f16_fa_off": 3,
+     "f16_fa_on": 3,
+     "q8_fa_off": 3,
+     "q8_fa_on": 3
+    },
+    "n_boot": 10000,
+    "seed": 20261014
+   },
+   "label": "confounded: K-only q8_0 at FA off vs K+V q8_0 at FA on"
+  },
+  "operator_square_memory": {
+   "kv_mib": {
+    "f16_fa_off": 6400.0,
+    "f16_fa_on": 6400.0,
+    "q8_fa_off": 4900.0,
+    "q8_fa_on": 3400.0
+   },
+   "d_fa_off_mib": -1500.0,
+   "d_fa_on_mib": -3000.0,
+   "interaction_mib": 1500.0,
+   "tolerance_mib": 64.0,
+   "reading": "memory interaction: the q8_0 KV saving differs with flash attention"
+  }
+ },
+ "ollama_b5_prefix": {
+  "a": {
+   "per_seed_min": {
+    "20260901": 51.75546666667021,
+    "20260902": 54.8242166666702,
+    "20260903": 42.17526666666769
+   },
+   "mean_min": 49.584983333336034
+  },
+  "i": {
+   "per_seed_min": {
+    "20260901": 53.62889999999898,
+    "20260902": 46.77498333333448,
+    "20260903": 39.2875
+   },
+   "mean_min": 46.56379444444449
+  },
+  "g": {
+   "per_seed_min": {
+    "20260901": 9.01274999999053,
+    "20260902": 8.439583333333333,
+    "20260903": 6.394016666667691
+   },
+   "mean_min": 7.9487833333305185
+  },
+  "h": {
+   "per_seed_min": {
+    "20260901": 7.7572833333319675,
+    "20260902": 7.725783333333675,
+    "20260903": 7.988549999997486
+   },
+   "mean_min": 7.823872222221043
+  }
+ }
+}
