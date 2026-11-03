@@ -4776,6 +4776,151 @@ def compute_allcloud_baseline_opus_rolling_cache(repo):
           f"saving: local quality on long tasks not measured, Opus accuracy not measured"), "n": "1 priced point x 2 models"}
 
 
+# ── Spillway vs all-cloud on the pitch workload (2026-11-03, operator request; pitch text only). Same workload as
+# row pitch-allcloud-bill-year-rolling-cache's NEW figure (claude-sonnet-5-5, nebius-rebench-openhands median task,
+# 1,000 tasks/day, 30-day month, rolling breakpoint). Replay and pricing only, no call. ──
+SLT_LAYERS = ("L1_errors", "L1_proxy", "L2_proxy")   # the post-run check layers computable from a long-task row
+SLT_STRATUM = "openhands"                            # long-task stratum matched to nebius-rebench-openhands
+SLT_OTHER_STRATUM = "swegym"
+SLT_FILES = REAL_TASK_FILES + ["results/x2_longtask_local_v1.jsonl", "results/longtask_cloud_v1.jsonl"]
+
+
+def spillway_long_task_data(repo) -> dict:
+    """Per-trace rolling USD on the pitch model, the projected window flag per trace, the measured long-task local
+    outcomes and post-run check firings per stratum, and the Spillway monthly bill per case on the pitch workload.
+
+    Spillway bill per case = the all-cloud monthly bill x the escalated tasks' share of the all-cloud USD. An escalated
+    task is a local attempt (no cloud USD), a rollback to the pre-task mark (no cloud USD) and a fresh cloud run from
+    the clean state, which costs that task's all-cloud USD. Shares that do not depend on task size (perfect check,
+    post-run check, no check) apply to the median-based bill directly; the window flag selects the largest tasks, so
+    its share is the flagged traces' share of the summed per-trace USD."""
+    import sys as _sys
+    if str(Path(repo)) not in _sys.path:
+        _sys.path.insert(0, str(Path(repo)))
+    from src.dse import post_run_check as prc
+    ct, res = _ct_rolling(repo)
+    im = _impact()
+    _lt, xl = _longtask_modules()
+    label, q = PITCH_YEAR_POINT.rsplit(" ", 1)
+    e = res["sets"][label]
+    prices = ct.load_prices(Path(repo))
+    f = res["calibration"][label]["median"]
+    trajs = ct.load_trajectories(Path(repo))[label]
+    per = [ct.task_cost(prices, PITCH_YEAR_MODEL, [p * f for p in ps], [o * f for o in os_], ct.ROLLING_CASE)
+           for ps, os_ in trajs]
+    med = e["usd"][(PITCH_YEAR_MODEL, ct.ROLLING_CASE)][q]
+    if abs(ct._q(per, 0.5) - med) > 1e-9:
+        raise ValueError("per-trace rolling USD median differs from row cloud-cost-per-real-task-rolling-cache")
+    v, days = PITCH_YEAR_VOLUME, im.DAYS_PER_MONTH
+    bill = med * v * days
+    local = xl.task_rows(_finished_attempt_rows(_read_jsonl(Path(repo) / LONGTASK_LOCAL_FILE)),
+                         xl.ARMS["ollama_default"]["arm_id"])
+    windows = {w for r in local for w in (r["loaded_context"] if isinstance(r["loaded_context"], list)
+                                          else [r["loaded_context"]])}
+    if len(windows) != 1:
+        raise ValueError(f"loaded window not unique: {sorted(windows)}")
+    window = windows.pop()
+    flag = [max(ps) > window for ps, _ in trajs]   # qwen tokens, the local model's own tokenizer
+    strata = {}
+    for st in (SLT_STRATUM, SLT_OTHER_STRATUM):
+        g = [r for r in local if r["stratum"] == st]
+        fired = [[x["layer"] for x in (prc.l1_errors_record(r), prc.l1_proxy_record(r), prc.l2_proxy_record(r))
+                  if x["fail"]] for r in g]
+        layer_n = {l: sum(1 for fr in fired if l in fr) for l in SLT_LAYERS}
+        esc = [bool(fr) for fr in fired]
+        strata[st] = {"n": len(g), "ok": sum(1 for r in g if r["correct"]),
+                      "esc": sum(esc), "kept": len(g) - sum(esc),
+                      "kept_ok": sum(1 for r, x in zip(g, esc) if not x and r["correct"]),
+                      "esc_ok": sum(1 for r, x in zip(g, esc) if x and r["correct"]),
+                      "layer_n": layer_n, "flag_n": sum(1 for r in g if r.get("over_loaded_window")),
+                      "unflagged_ok": sum(1 for r in g if r["correct"] and not r.get("over_loaded_window")),
+                      "minutes_mean": statistics.fmean(r["task_wall_s"] for r in g) / 60}
+    cloud = [r for r in _read_jsonl(Path(repo) / LONGTASK_CLOUD_FILE)
+             if r.get("record") == "longtask_cloud_task" and r["model_id"] == PITCH_YEAR_MODEL]
+    c_oh = [r for r in cloud if r["task_id"].startswith(f"lt_{SLT_STRATUM}_")]
+    cacc = {"all": (sum(1 for r in cloud if r["correct"]), len(cloud)),
+            SLT_STRATUM: (sum(1 for r in c_oh if r["correct"]), len(c_oh))}
+    s = strata[SLT_STRATUM]
+    tot = sum(per)
+    flag_share = sum(u for u, fl in zip(per, flag) if fl) / tot
+
+    def mk(label_, basis, esc_tasks, kept_ok, usd_share=None):
+        # accuracy = locally correct kept tasks + escalated tasks at all-cloud's accuracy A
+        sh = esc_tasks if usd_share is None else usd_share
+        return {"label": label_, "basis": basis, "esc_tasks": esc_tasks, "usd_share": sh, "bill": bill * sh,
+                "saving": 1 - sh, "kept_ok": kept_ok,
+                "acc": {k: kept_ok + esc_tasks * a / n for k, (a, n) in cacc.items()}}
+    p_oh = s["ok"] / s["n"]
+    so = strata[SLT_OTHER_STRATUM]
+    p_sw = so["ok"] / so["n"]
+    fl_tasks = sum(flag) / len(flag)
+    cases = [
+        mk("perfect check (ceiling: escalates exactly the locally wrong tasks)", "PROJECTED (no such detector)",
+           1 - p_oh, p_oh),
+        mk(f"post-run check, measured layers that apply to a long-task row ({', '.join(SLT_LAYERS)}; L3 not "
+           f"applicable)", "MEASURED firing on the long-task run", s["esc"] / s["n"], s["kept_ok"] / s["n"]),
+        mk("window-overflow flag, measured firing on the long-task run", "MEASURED firing on the long-task run",
+           s["flag_n"] / s["n"], s["unflagged_ok"] / s["n"]),
+        mk(f"window-overflow flag, projected on the matched traces (max prompt > loaded window {window})",
+           "PROJECTED (trace prompt lengths; local accuracy of kept tasks from the synthetic stratum)",
+           fl_tasks, p_oh * (1 - fl_tasks), usd_share=flag_share),
+        mk("no check (all local)", "MEASURED local accuracy, synthetic stratum", 0.0, p_oh),
+        mk(f"SENSITIVITY, NOT the matched stratum: perfect check at the {SLT_OTHER_STRATUM} stratum's local rate",
+           "NOT SUPPORTED by the data (wrong stratum)", 1 - p_sw, p_sw),
+    ]
+    return {"bill": bill, "per_task": med, "mean_task": tot / len(per), "n_traces": len(per),
+            "steps_median": e["steps_median"], "volume": v, "days": days, "window": window,
+            "n_flag": sum(flag), "flag_share": flag_share, "strata": strata, "cloud_acc": cacc, "cases": cases,
+            "over_cap": sum(1 for u in per if u > POST_RUN_TASK_CAP_USD), "cap": POST_RUN_TASK_CAP_USD,
+            "model": PITCH_YEAR_MODEL, "label": label}
+
+
+POST_RUN_TASK_CAP_USD = 0.25   # analysis/post_run_check_replay.py TASK_CAP_USD, read only (not changed here)
+
+
+def compute_spillway_long_task_savings_rolling(repo):
+    d = spillway_long_task_data(repo)
+    s, so = d["strata"][SLT_STRATUM], d["strata"][SLT_OTHER_STRATUM]
+    (ca, cn), (oa, on) = d["cloud_acc"]["all"], d["cloud_acc"][SLT_STRATUM]
+    parts = []
+    for c in d["cases"]:
+        parts.append(f"{c['label']} [{c['basis']}]: escalated {100 * c['esc_tasks']:.1f}% of tasks"
+                     + (f" ({100 * c['usd_share']:.1f}% of the all-cloud USD)" if c["usd_share"] != c["esc_tasks"]
+                        else "")
+                     + f", Spillway cloud bill USD {c['bill']:,.2f} per {d['days']}-day month vs all-cloud USD "
+                     f"{d['bill']:,.2f}, saving {100 * c['saving']:.1f}%; implied accuracy {100 * c['kept_ok']:.1f}% "
+                     f"(kept local, correct) + {100 * c['esc_tasks']:.1f}% x all-cloud accuracy A = "
+                     f"{100 * c['acc']['all']:.1f}% at A = {ca}/{cn} ({100 * c['acc'][SLT_STRATUM]:.1f}% at A = "
+                     f"{oa}/{on}, {SLT_STRATUM} stratum) vs all-cloud {100 * ca / cn:.1f}% ({100 * oa / on:.1f}%)")
+    lay = ", ".join(f"{k} {n}/{s['n']}" for k, n in s["layer_n"].items())
+    lay_o = ", ".join(f"{k} {n}/{so['n']}" for k, n in so["layer_n"].items())
+    return {"value": (
+        f"PRICED AND REPLAYED, NOT RUN (no call): Spillway vs all-cloud on row pitch-allcloud-bill-year-rolling-cache's "
+        f"NEW workload ({d['model']}, {PITCH_YEAR_POINT} task size, {d['label']} n={d['n_traces']} traces, median "
+        f"{d['steps_median']:.0f} steps, {d['volume']:,} tasks/day, rolling cache breakpoint, src/cloud/prompt_cache.py): "
+        f"all-cloud USD {d['per_task']:.5f}/task (median), USD {d['bill']:,.2f} per {d['days']}-day month (per-trace "
+        f"mean USD {d['mean_task']:.5f}/task = USD {d['mean_task'] * d['volume'] * d['days']:,.2f}/month, not the "
+        f"pitch basis); escalation = local attempt (no cloud USD) + rollback to the pre-task mark (no cloud USD) + a "
+        f"fresh cloud run from the clean state at that task's all-cloud USD, so an escalated task costs exactly its "
+        f"all-cloud USD and the local attempt adds time, not USD (measured mean {s['minutes_mean']:.1f} min per "
+        f"{SLT_STRATUM}-stratum task, not priced); STRATUM BASIS: local accuracy from x2_longtask_local_v1 "
+        f"ollama_default (qwen3:14b, evo-x2, loaded window {d['window']}), {SLT_STRATUM} stratum {s['ok']}/{s['n']} "
+        f"(the stratum matched to nebius-rebench-openhands step counts; synthetic tasks, not OpenHands tasks), "
+        f"{SLT_OTHER_STRATUM} stratum {so['ok']}/{so['n']} (not the matched workload); post-run check on the recorded "
+        f"long-task rows: {SLT_STRATUM} stratum fired {s['esc']}/{s['n']} ({lay}; {s['esc_ok']} of the escalated were "
+        f"locally correct), {SLT_OTHER_STRATUM} {so['esc']}/{so['n']} ({lay_o}; {so['esc_ok']} locally correct "
+        f"escalated); L3 (B3 task-rule invariants) does not apply to long-task rows; L1 server log and L2 render not "
+        f"recorded (PROXIES as in rows post-run-check-*); window flag on the matched traces: {d['n_flag']}/"
+        f"{d['n_traces']} traces have a max prompt above {d['window']} qwen tokens ({100 * d['flag_share']:.1f}% of "
+        f"the per-trace USD); all-cloud accuracy A not measured on OpenHands tasks: {d['model']} on the synthetic "
+        f"long tasks {ca}/{cn} (seed 20260901), {SLT_STRATUM} stratum {oa}/{on} / " + " / ".join(parts)
+        + f" / per-task cloud cap USD {d['cap']:.2f} (post-run check replay, not changed): {d['over_cap']}/"
+          f"{d['n_traces']} traces cost more on {d['model']}, so with that cap an escalated task of this size ends "
+          f"budget_exhausted (hand-off) and the bills above assume escalations run uncapped; hardware and local "
+          f"electricity not in either bill"),
+        "n": f"{d['n_traces']} traces priced x {len(d['cases'])} cases; {s['n'] + so['n']} local long tasks"}
+
+
 def compute_all_cloud_b3_cost_opus_rolling_cache(repo):
     rr = _rolling()
     so = _opus_data(repo)["summary"][OPUS_MODEL]
@@ -10607,6 +10752,13 @@ NUMBER_ENTRIES = [
      "cache breakpoint, current-generation list prices; priced, not run",
      "compute": compute_allcloud_baseline_opus_rolling_cache, "data_files": REAL_TASK_FILES,
      "script_function": "analysis/numbers_register.py::compute_allcloud_baseline_opus_rolling_cache"},
+    {"claim_id": "spillway-long-task-savings-rolling", "description": "Spillway (pitch) vs all-cloud on the same "
+     "workload as row pitch-allcloud-bill-year-rolling-cache's NEW bill (claude-sonnet-5-5, OpenHands median task, "
+     "1,000 tasks/day, 30-day month, rolling cache breakpoint): Spillway monthly cloud bill, saving and implied "
+     "accuracy per check case, from the measured long-task local outcomes and the post-run check's firing on the "
+     "recorded long-task rows; escalation = local attempt + rollback + fresh cloud run; priced and replayed, not run",
+     "compute": compute_spillway_long_task_savings_rolling, "data_files": SLT_FILES,
+     "script_function": "analysis/numbers_register.py::spillway_long_task_data"},
     {"claim_id": "all-cloud-b3-cost-opus-rolling-cache", "description": "B3 v2 all-cloud per-task denominator under "
      "the rolling cache breakpoint, claude-sonnet-5-5 (run) beside claude-opus-5-5 (priced from the Sonnet run's "
      "recorded tokens, not run on Opus; Opus accuracy not measured)",
