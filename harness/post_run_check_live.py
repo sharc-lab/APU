@@ -7,8 +7,10 @@ L2RenderRuntime sits OUTSIDE it: before each real call it sends the render-only 
 (x2_r2_agent.OllamaRuntime.render_only), waits for that request's own log line so the render never lands in the real
 call's detector slice, then forwards the real call. Per call it emits one `prc_l2_call` row:
 
-  system_kept, current_user_message_kept, dropped_turns (x2_r2_mechanism.analyse_render); example_turn (the earliest
-  completed turn with log_event plus another tool, own_compaction.choose_example) and example_kept; l2_fail.
+  system_kept, current_user_message_kept, dropped_turns (x2_r2_mechanism.analyse_render); example_turn (a completed
+  turn with log_event plus another tool, own_compaction.choose_example) and example_kept; example_mode; l2_fail.
+  example_mode: "earliest" is the rule the x2_post_run_check_local_v1 run recorded; "latest" (the most recent such
+  turn, docs/EXPERIMENTS.md "Amendment 2026-11-03") is EXAMPLE_MODE, used by any later run.
 
 Citability: x2_r2_mechanism.check_due picks calls for a fresh-load prompt-token check (prompt_token_check, render
 tokens vs prompt_eval_count; at most 5 + 8 per session); each is one `prc_l2_prompt_check` row. The controller phase
@@ -24,9 +26,12 @@ import time
 import own_compaction as OCX
 import x2_r2_mechanism as mech
 
+EXAMPLE_MODE = "latest"   # Amendment 2026-11-03; "earliest" reproduces x2_post_run_check_local_v1
 
-def example_user_content(messages: list[dict]) -> tuple[int | None, str | None]:
-    """(turn number, user message content) of the earliest completed turn showing log_event plus a task tool."""
+
+def example_user_content(messages: list[dict], mode: str = "earliest") -> tuple[int | None, str | None]:
+    """(turn number, user message content) of the completed turn showing log_event plus a task tool that `mode` picks
+    (own_compaction.choose_example: "earliest" or "latest"), or (None, None) if no completed turn shows it."""
     turns, cur = [], None
     for i, m in enumerate(messages):
         if m.get("role") == "user":
@@ -35,28 +40,30 @@ def example_user_content(messages: list[dict]) -> tuple[int | None, str | None]:
         elif cur is not None:
             cur.append(i)
     done = turns[:-1]   # the last turn is the current one
-    k = OCX.choose_example(messages, done)
+    k = OCX.choose_example(messages, done, mode)
     if k is None:
         return None, None
     return k + 1, messages[done[k][0]].get("content")
 
 
-def l2_row(rendered: str | None, messages: list[dict]) -> dict:
+def l2_row(rendered: str | None, messages: list[dict], example_mode: str = "earliest") -> dict:
     a = mech.analyse_render(rendered, messages)
-    ex_turn, ex = example_user_content(messages)
+    ex_turn, ex = example_user_content(messages, example_mode)
     ex_kept = None if ex is None or rendered is None else ex in rendered
     fail = (rendered is None or not a.get("system_kept") or not a.get("current_user_message_kept")
             or ex_kept is False)
     return {"render_ok": a.get("render_ok"), "system_kept": a.get("system_kept"),
             "current_user_message_kept": a.get("current_user_message_kept"), "dropped_turns": a.get("dropped_turns"),
-            "example_turn": ex_turn, "example_kept": ex_kept, "rendered_sha256": a.get("rendered_sha256"),
+            "example_turn": ex_turn, "example_kept": ex_kept, "example_mode": example_mode,
+            "rendered_sha256": a.get("rendered_sha256"),
             "l2_fail": bool(fail)}
 
 
 class L2RenderRuntime:
     def __init__(self, inner, base, log_path, emit, checker="default", sleep=time.sleep, clock=time.monotonic,
-                 gin_wait_s=mech.GIN_WAIT_S):
+                 gin_wait_s=mech.GIN_WAIT_S, example_mode=EXAMPLE_MODE):
         self.inner, self.base, self.log_path, self.emit = inner, base, log_path, emit
+        self.example_mode = example_mode
         self.checker = mech.default_checker(base) if checker == "default" else checker
         self.sleep, self.clock, self.gin_wait_s = sleep, clock, gin_wait_s
         self.ctx = {}
@@ -92,7 +99,7 @@ class L2RenderRuntime:
         turn_idx = sum(1 for m in snap if m.get("role") == "user")
         row = {"record": "prc_l2_call", **self.ctx, "num_ctx_requested": num_ctx, "turn_idx": turn_idx,
                "n_messages_sent": len(snap), "render_error": rerr, "prompt_eval_count": resp.get("prompt_eval_count"),
-               **l2_row(rendered, snap), "ts_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+               **l2_row(rendered, snap, self.example_mode), "ts_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
         self.emit(row)
         post = bool(row["dropped_turns"]) or not row["system_kept"]
         k = self._k[post]

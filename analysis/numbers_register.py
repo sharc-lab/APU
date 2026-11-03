@@ -4983,6 +4983,29 @@ def compute_post_run_check_live_8192_estimate_rolling(repo):
             "n": f"{e['new']['n_escalated']} escalated of {e['n_tasks']} tasks (ESTIMATE)"}
 
 
+def _l2_example():
+    import sys as _sys
+    _sys.path.insert(0, str(REPO / "analysis"))
+    import post_run_check_l2_example as x
+    return x
+
+
+def compute_post_run_check_live_8192_l2_recent_example(repo):
+    """Amendment 2026-11-03: the live 8192 run's real L2 recomputed offline with the most recent example turn."""
+    x = _l2_example()
+    d = x.live_recompute(repo)
+    if d["status"] != "VERIFIED":
+        raise ValueError("guard failed: " + "; ".join(d["mismatches"][:5]))
+    return {"value": x.live_text(d, x.live_cost(repo, d)), "n": f"{d['before']['n']} task turns, {d['n_calls']} calls"}
+
+
+def compute_post_run_check_l2_recent_example(repo):
+    """Amendment 2026-11-03: replay held-out figures before and after (the replay's L2 PROXY does not read the
+    example turn)."""
+    x = _l2_example()
+    return {"value": x.replay_text(x.replay_heldout(repo)), "n": "30 held-out task turns per window (seed 20260905)"}
+
+
 def compute_route_at_start_default_window(repo):
     im = _impact()
     d = im.route_default_window(repo)
@@ -10785,6 +10808,20 @@ NUMBER_ENTRIES = [
                     *ROLLING_FILES],
      "pending_ok": True, "require_run_end": ["results/x2_post_run_check_local_v1.jsonl"],
      "script_function": "analysis/post_run_check_tuning.py::live_estimate_rolling"},
+    {"claim_id": "post-run-check-live-8192-l2-recent-example", "description": "Amendment 2026-11-03: live post-run "
+     "check at evo-x2 num_ctx 8192, held-out seed 20260905, real L2 recomputed offline from the recorded render rows "
+     "with the tool-call example taken from the most recent completed turn instead of the earliest: recall and false "
+     "escalations before vs after, cloud cost ESTIMATE of both escalation sets",
+     "compute": compute_post_run_check_live_8192_l2_recent_example,
+     "data_files": [POST_RUN_CHECK_TUNED_FILE, *POST_RUN_CHECK_DATA, "results/x2_post_run_check_local_v1.jsonl",
+                    *ROLLING_FILES],
+     "pending_ok": True, "require_run_end": ["results/x2_post_run_check_local_v1.jsonl"],
+     "script_function": "analysis/post_run_check_l2_example.py::live_recompute"},
+    {"claim_id": "post-run-check-l2-recent-example", "description": "Amendment 2026-11-03: replay held-out seed "
+     "20260905, per window, L1 errors + L1 PROXY + L2 PROXY + tuned L3, before vs after the most recent example turn "
+     "rule (identical: the L2 PROXY does not read the example turn)",
+     "compute": compute_post_run_check_l2_recent_example, "data_files": [POST_RUN_CHECK_TUNED_FILE],
+     "script_function": "analysis/post_run_check_l2_example.py::replay_heldout"},
     {"claim_id": "hybrid-live-hours", "description": "ESTIMATE, not a measurement: hours and cloud spend (billed and "
      "upper bound) of the E design: hybrid-live-amd on evo-x2, 3 seeds, approved once the tuned post-run check "
      "exists; hybrid-live-intel SKIPPED (operator 2026-10-30, strict preflight not relaxed); not queued",

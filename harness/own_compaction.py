@@ -90,10 +90,18 @@ def is_example_turn(names: list[str]) -> bool:
     return "log_event" in names and any(n != "log_event" for n in names)
 
 
-def choose_example(messages: list[dict], turns: list[list[int]]) -> int | None:
-    """Index (into turns) of the earliest turn showing the log_event + task-tool pattern, or None."""
-    for i, t in enumerate(turns):
-        if is_example_turn(turn_tool_names(messages, t)):
+EXAMPLE_MODES = ("earliest", "latest")
+
+
+def choose_example(messages: list[dict], turns: list[list[int]], mode: str = "earliest") -> int | None:
+    """Index (into turns) of the turn showing the log_event + task-tool pattern, or None if no turn shows it.
+    mode "earliest" (the default; every recorded run used it): the first such turn. mode "latest" (docs/EXPERIMENTS.md
+    "Amendment 2026-11-03"): the most recent such turn."""
+    if mode not in EXAMPLE_MODES:
+        raise ValueError(f"mode must be one of {EXAMPLE_MODES}, got {mode!r}")
+    order = range(len(turns)) if mode == "earliest" else range(len(turns) - 1, -1, -1)
+    for i in order:
+        if is_example_turn(turn_tool_names(messages, turns[i])):
             return i
     return None
 

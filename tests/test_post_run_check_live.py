@@ -28,6 +28,28 @@ def test_example_and_l2_row():
     assert PRCL.l2_row(None, MSGS)["l2_fail"]
 
 
+MSGS3 = MSGS[:-1] + [{"role": "user", "content": "TURN2"},
+                     {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "log_event"}},
+                                                                         {"function": {"name": "send_email"}}]},
+                     {"role": "assistant", "content": "done"}, {"role": "user", "content": "TURN3"}]
+
+
+def test_example_mode_latest_amendment_2026_11_03():
+    assert PRCL.EXAMPLE_MODE == "latest"
+    assert PRCL.example_user_content(MSGS3) == (1, "TURN1")              # default reproduces recorded runs
+    assert PRCL.example_user_content(MSGS3, "latest") == (2, "TURN2")
+    window_dropped_turn1 = "RULES TURN2 done TURN3"
+    old = PRCL.l2_row(window_dropped_turn1, MSGS3)
+    new = PRCL.l2_row(window_dropped_turn1, MSGS3, "latest")
+    assert old["l2_fail"] and old["example_kept"] is False and old["example_mode"] == "earliest"
+    assert not new["l2_fail"] and new["example_turn"] == 2 and new["example_kept"] is True
+    assert PRCL.l2_row("RULES TURN1 TURN3", MSGS3, "latest")["l2_fail"]   # most recent example dropped
+    no_example = [{"role": "system", "content": "RULES"}, {"role": "user", "content": "A"},
+                  {"role": "assistant", "content": "x"}, {"role": "user", "content": "B"}]
+    r = PRCL.l2_row("RULES B", no_example, "latest")
+    assert r["example_turn"] is None and r["example_kept"] is None and not r["l2_fail"]
+
+
 def test_turn_l2_citability():
     calls = [{"seed": 1, "turn_idx": 3, "l2_fail": False}, {"seed": 1, "turn_idx": 4, "l2_fail": False}]
     assert not PRCL.turn_l2(calls, [], 1, 3)["fail"]

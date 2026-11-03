@@ -2947,3 +2947,50 @@ Operator decision 2026-11-02. Filed after the local phase finished (x2_post_run_
 - Cost: recomputed under the rolling breakpoint with the local phase's actual escalation set, row
   post-run-check-live-8192-estimate-rolling. Command unchanged from the 2026-10-31 amendment; it runs only after the
   operator confirms the Console spend file.
+
+#### Amendment 2026-11-03: L2 tool-call example from the most recent completed turn (filed before any evaluation number)
+
+Operator decision 2026-11-03: "approve an amendment: pick the tool-call example from RECENT turns instead of turn 1.
+Evaluate on a HELD-OUT seed only; report recall and false escalations before vs after. No retuning on the 8192 live
+set." Filed and committed before any figure under the new rule is computed.
+
+- Why: in the live 8192 local phase (results/x2_post_run_check_local_v1.jsonl) the render check's example turn is always
+  turn 1 (own_compaction.choose_example picks the EARLIEST completed turn showing log_event plus a task tool), which is
+  the first turn the sliding window drops, so L2 fails on every turn after the window overflow even though the
+  prompt-token checks matched the render.
+- Rule, fixed here with no free parameter: the tool-call example turn is the MOST RECENT completed turn whose calls
+  include log_event plus at least one other tool (own_compaction.is_example_turn, unchanged). A completed turn is a
+  turn before the current one in the messages sent (the current turn, including its own earlier tool rounds, is never a
+  candidate). If no completed turn qualifies there is no example turn: example_turn and example_kept are null and the
+  example condition does not fail L2 (the same handling the earliest rule already has before the first qualifying
+  turn). The rest of L2 is unchanged: FAIL if the render is missing, the system message is not in it, the current user
+  message is not in it, the example turn's user message is not in it, or a prompt-token check at or before the turn did
+  not match.
+- The old rule stays available (choose_example mode "earliest", the default there, so every recorded row and earlier
+  register row reproduces unchanged); the new rule is mode "latest". harness/post_run_check_live.py uses "latest" for
+  any future live run. The cloud phase of x2_post_run_check_live_v1 still reads the L2 decisions recorded by its local
+  phase (earliest rule), as pre-registered; this amendment does not change that job.
+- Unchanged: L1 (detector v2) and L1 errors, tuned L3 (CONFIG_TUNED), the decision rule (any FAIL escalates), the
+  grading of escalated tasks, the USD 0.25 per-task cap, and the targets: recall >= 80%, false escalations <= 10%,
+  final accuracy >= 97%.
+- Seeds: the tuning seeds 20260901-04 (including results/x2_r2_mechanism.jsonl, seed 20260901, the only other file
+  with real renders) may be used only to check that the code works; no figure from them is reported as the result and
+  nothing is chosen from them. The reported result is the held-out seed 20260905.
+- Real L2 data: the only real L2 data (render analysis plus dropped_turns) for seed 20260905 is the live 8192 local
+  phase. The re-evaluation there is offline, from its recorded prc_l2_call rows, with the rule fixed above and nothing
+  tuned on it (so it is an evaluation on the held-out seed, not retuning): per call, example_turn is recomputed with the
+  new rule on the client-side history rebuilt from the run's own r2a_turn rows (scripts/cloud_redo.rebuild, the rebuild
+  the cloud phase uses); example_kept = example_turn not in the recorded dropped_turns (x2_r2_mechanism.analyse_render's
+  dropped_turns and the example check are the same whole user message substring test on the same render); render_ok,
+  system_kept, current_user_message_kept and the prompt-token checks are taken as recorded. No new render and no model
+  call. Guard: the earliest rule on the rebuilt history must reproduce every recorded example_turn and example_kept; if
+  any call differs, no after figure is reported. Reported: recall and false escalations before (recorded decisions) and
+  after, kept local, and the after escalation set's cloud cost as an ESTIMATE under the rolling cache breakpoint (as row
+  post-run-check-live-8192-estimate-rolling). Final accuracy of the live run is not measured (its cloud phase has not
+  run) and is not reported.
+- Replay: the replay's L2 is a PROXY (server prompt_eval_count below the client's chars/4 estimate; no render kept) and
+  does not read the example turn, so this rule cannot change any replay decision. The replay held-out figures (per
+  window 4096, 8192, default: L1 errors + L1 PROXY + L2 PROXY + tuned L3) are reported before and after for
+  completeness and are identical by construction. No example-aware proxy is invented for the replay.
+- Rows: post-run-check-l2-recent-example (replay, held-out seed) and post-run-check-live-8192-l2-recent-example (live
+  8192 run, real L2, offline recomputation).

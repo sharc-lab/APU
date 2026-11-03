@@ -44,6 +44,20 @@ def test_example_is_the_first_turn_with_log_event_and_a_task_tool():
     assert not oc.is_example_turn(["log_event"]) and oc.is_example_turn(["get_record", "log_event"])
 
 
+def test_example_mode_latest_picks_the_most_recent_qualifying_turn():
+    m = _msgs(5, example_at=2)
+    u3 = next(j for j, x in enumerate(m) if x["role"] == "user" and x["content"].startswith("task 3 "))
+    m[u3 + 1]["tool_calls"].insert(0, {"function": {"name": "log_event", "arguments": {}}})   # turn 3 qualifies too
+    head, turns = oc.ct.split_turns(m)
+    assert oc.choose_example(m, turns) == 2
+    assert oc.choose_example(m, turns, "earliest") == 2
+    assert oc.choose_example(m, turns, "latest") == 3
+    none = _msgs(3, example_at=9)
+    assert oc.choose_example(none, oc.ct.split_turns(none)[1], "latest") is None
+    with pytest.raises(ValueError):
+        oc.choose_example(m, turns, "recent")
+
+
 def test_assemble_keeps_chronology_and_places_the_summary_after_the_older_example():
     m = _msgs(6, example_at=0)
     head, turns = oc.ct.split_turns(m)
