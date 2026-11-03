@@ -2994,3 +2994,77 @@ set." Filed and committed before any figure under the new rule is computed.
   completeness and are identical by construction. No example-aware proxy is invented for the replay.
 - Rows: post-run-check-l2-recent-example (replay, held-out seed) and post-run-check-live-8192-l2-recent-example (live
   8192 run, real L2, offline recomputation).
+
+## PRE-REGISTRATION (2026-11-03): pitch1, standard hybrid vs the post-run-check pipeline on the same 90 jobs
+
+External reviewer request (Zach), operator approved. Replay of recorded runs only: no SSH, no cloud call, no API key,
+USD 0. Written before any arm below was computed. Git hash at filing: 09bc319.
+
+What was seen before filing: while checking field names I printed the per-turn fields of one session (B3 v2,
+ollama_ctx_8192_call2_notools, seed 20260901: end_state_ok, transcript_tokens_est, final_call_prompt_tokens_calibrated,
+over_loaded_window, turn_wall_s per task turn, and one call record's prompt_tokens_est and
+prompt_eval_count_info_only) and the per-tier row counts of the full-history redo and own-rollback redo files. No arm,
+total, cost or accuracy of this comparison was computed. Existing rows (hybrid-full-pipeline-v1,
+operating-point-q4-28928-rolling-cache) already report the pipeline with the v1 L3 config at the default window; their
+values were not read in this session.
+
+### Jobs and windows
+
+- Jobs: B3 v2 tasks, qwen3:14b, evo-x2 recorded runs (results/x2_evalset_tasks_real_v2.jsonl), seeds 20260901-03,
+  30 task turns each, the task set hybrid_full_pipeline.run_pipeline uses (local task turns with a grader outcome that
+  also have an all-cloud row). Expected n = 90 per window; any other n is reported as is.
+- Windows (same local window for every arm in a comparison): default (arm ollama_default_call2_notools, loaded
+  window 40960) and 8192 (arm ollama_ctx_8192_call2_notools). The window each arm checks against is the recorded
+  loaded_context of that arm's sessions.
+- Cloud: claude-sonnet-5-5, every cloud row priced with the rolling cache breakpoint (usd_new of
+  analysis/rolling_cache_reprice.all_cloud_rolling and redo_rolling; src/cloud/prompt_cache.py).
+
+### Arms
+
+1. All-cloud: each job's all_cloud_b3_v1 row (outcome, rolling USD, recorded seconds).
+2. Local-only: each job's local turn, accepted as is, USD 0.
+3. Standard hybrid (Ollama local-first, LiteLLM-style cloud fallback, prompt-length check against the window):
+   - Token estimate (primary): chars/4, the client's own pre-call estimate recorded on every local call
+     (prompt_tokens_est = harness/x2_r2_agent.prompt_tokens_est: len(text) // 4 of each message's content plus 4
+     tokens per message plus chars/4 of the tool-call JSON and of the tools schema). Sensitivity: the model's own
+     tokenizer count, chars/4 x token_calib_ratio (the server's prompt_eval_count over the chars/4 estimate on the
+     session's first call, recorded per session), which is what an integration counting with the served model's
+     tokenizer would see. LiteLLM token_counter itself is not run: LiteLLM is not installed, its default encoding
+     file (tiktoken cl100k_base) is not cached on this laptop, no network fetch is made, and the exact message text
+     of later calls is not stored; this is stated as not done.
+   - Check point (primary): before the task's first local call; estimate > window sends the task to the cloud
+     before any local work. Sensitivity: before every local call of the task (any call over the window sends the
+     task to the cloud).
+   - A task sent by the window check takes the same cloud outcome source as a routed task in the pipeline: its
+     all-cloud row (outcome, rolling USD, seconds).
+   - Otherwise local. Hard-error fallback to the cloud only when the local turn recorded an HTTP error
+     (any_http_error), a call outcome other than "ok" (timeout, runtime refusal or error), or an empty final response
+     (final_content_empty). A fallback takes the same cloud outcome source as a pipeline escalation
+     (hybrid_full_pipeline.escalation_outcomes: own-rollback redo, else full-history redo, else IMPUTED as the
+     all-cloud outcome at the highest tier-mean full-history redo rolling USD). A wrong but well-formed local answer
+     is accepted (no correctness check). No per-task budget.
+4. Spillway pipeline: hybrid_full_pipeline.run_pipeline unchanged (route at start, fit-predictor-v1's rule k = 3;
+   post-run check L1_errors, L1_proxy, L2_proxy, L3; rollback and cloud redo; per-task budget USD 0.25), with L3 at
+   CONFIG_TUNED (primary, the tuned config). Sensitivity: L3 at CONFIG_V1 (the hybrid-full-pipeline-v1 check). Note:
+   CONFIG_TUNED was tuned on seeds 20260901-04, which include all three seeds here, so for L3 this comparison is
+   in-sample; the held-out evidence is row post-run-check-tuned (seed 20260905).
+
+### Measures (per window, per arm)
+
+correct/90; wrong local answers accepted (local turn kept with end_state_ok not true); total wrong; cloud USD per job
+(rolling, billed basis); % of the all-cloud bill (same window's 90 jobs, rolling); tasks sent to cloud (routed or
+window-sent, escalated or fallback); imputed count (cloud outcomes with no recorded redo); median latency per job:
+local turn_wall_s for a kept local job, the all-cloud row's seconds for a routed or window-sent job, turn_wall_s plus
+the cloud source row's seconds for an escalated or fallback job (imputed: the all-cloud row's seconds); the post-run
+check's own compute time is not added (sub-second, recorded separately as check_seconds).
+
+### Targets (fixed now; reported MET/MISSED even if the pipeline loses)
+
+- T1-default and T1-8192 (the operator's question): at that window the pipeline's correct/90 is strictly above the
+  standard hybrid's AND its cloud USD per job is equal or lower. Primary definitions only (chars/4, first-call check,
+  CONFIG_TUNED).
+- T2 (accuracy alone, per window): pipeline correct/90 strictly above the standard hybrid's.
+- T3 (cost alone, per window): pipeline cloud USD per job equal or lower than the standard hybrid's.
+- Sensitivity (reported, not targets): T1 under the tokenizer-count estimate, the every-call check, and CONFIG_V1.
+
+Results: rows pitch1-standard-hybrid-default and pitch1-standard-hybrid-8192 (analysis/pitch1_standard_hybrid.py).
