@@ -82,3 +82,15 @@ def test_compute_reads_the_four_files(tmp_path):
     r = nr.compute_fh1_amd_boundary_llama70b(tmp_path)
     assert "first spill n_ctx 300" in r["value"]
     assert r["n"] == "2 measured calls, 0 fresh-process fail reps"
+
+
+def test_compute_reports_the_fixed_prompt_length(tmp_path):
+    (tmp_path / "results").mkdir()
+    pts = [_pt(100, 100, 500.0, 10.0, model="llama-3.3-70b"), _pt(300, 300, 9000.0, 9.5, model="llama-3.3-70b")]
+    for p in pts:
+        p["tokens_in"] = 1855
+    files = dict(zip(nr.AMD_BOUNDARY_FILES, [pts, [], [dict(BISECTION[0])], []]))
+    for f, rows in files.items():
+        (tmp_path / f).write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    r = nr.compute_fh1_amd_boundary_llama70b(tmp_path)
+    assert r["value"].endswith("prompt per spill_stats call: 1855 tokens at every n_ctx")

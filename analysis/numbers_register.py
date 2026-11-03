@@ -5476,7 +5476,16 @@ def _amd_boundary(repo, model_id):
                              _read_jsonl(repo / AMD_BOUNDARY_FILES[3]))
     n_calls = sum(p["n"] for p in s["points"])
     n_fail = (s["edge"] or {}).get("n", 0)
-    return {"value": format_amd_boundary(s), "n": f"{n_calls} measured calls, {n_fail} fresh-process fail reps",
+    value = format_amd_boundary(s)
+    # The prompt sent at every spill_stats point (added 2026-11-02 so the paper can say the cost of crossing the
+    # spill boundary was measured with one fixed prompt, not with prompts that fill the window).
+    tin = sorted({r["tokens_in"] for r in sources["spill_stats"]
+                  if r.get("record") == "mx2v_regime_point" and r.get("model_id") == model_id
+                  and r.get("tokens_in") is not None})
+    if tin:
+        value += (" // prompt per spill_stats call: " + ", ".join(str(t) for t in tin)
+                  + (" tokens at every n_ctx" if len(tin) == 1 else " tokens"))
+    return {"value": value, "n": f"{n_calls} measured calls, {n_fail} fresh-process fail reps",
             "detail": s}
 
 
@@ -6981,6 +6990,35 @@ def excess_reading(lo, hi, tier) -> str:
     if hi is not None and hi < 0:
         return f"lower at {tier} than at the default"
     return f"no excess shown at {tier}"
+
+
+def compute_session_exact_tests(repo):
+    """Session-level exact tests for every excess-over-default cell whose bootstrap CI is a point (both cells 0/n or
+    n/n, nonzero excess), in the three runs the paper cites: R2 v1b (5 seeds per cell, R2-v1b-excess-over-default),
+    R2 pooled over 10 seeds (R2-v1b-excess-10seed) and the B3 v2 task run (x2-evalset-tasks-real-v2-gated-excess).
+    One-sided Fisher exact on sessions (analysis/session_exact_tests.py), same counts as those rows."""
+    import sys as _sys
+    _sys.path.insert(0, str(repo / "analysis"))
+    import r2_real_report as rr
+    import session_exact_tests as se
+    vpaths = [repo / R2_VALIDATION_V2_FILE, repo / R2_VALIDATION_V2B_FILE]
+    for f in (R2_REAL_V1_FILE, R2_REAL_V1B_FILE, R2_V1B_SEEDS_FILE, X2_EVALSET_TASKS_REAL_V2):
+        if not (repo / f).exists():
+            raise FileNotFoundError(repo / f)
+    reps = [("R2 v1b, 5 seeds per cell",
+             rr.build_combined([repo / R2_REAL_V1_FILE, repo / R2_REAL_V1B_FILE], validation_paths=vpaths)),
+            ("R2 pooled, 10 seeds per cell",
+             rr.build_combined([repo / R2_REAL_V1_FILE, repo / R2_REAL_V1B_FILE, repo / R2_V1B_SEEDS_FILE],
+                               validation_paths=vpaths)),
+            ("B3 v2 task run, 5 seeds per cell",
+             rr.build_combined([repo / X2_EVALSET_TASKS_REAL_V2], validation_paths=[repo / X2_EVALSET_TASKS_VAL_V2]))]
+    parts, n = [], 0
+    for label, rep in reps:
+        tests = se.exact_tests(rep)
+        n += sum(d["n1"] + d["n0"] for d in tests)
+        parts.append(se.format_tests(label, tests))
+    return {"value": "; ".join(parts) + f" ({se.TEST_NAME}; replaces the point bootstrap interval of these cells)",
+            "n": f"{n} sessions in the tested cells"}
 
 
 def compute_r2_v1b_excess_10seed(repo):
@@ -10191,6 +10229,12 @@ NUMBER_ENTRIES = [
      "sign-reversal flag, new seeds alone, CI widths, validity",
      "compute": compute_r2_v1b_excess_10seed, "data_files": [R2_V1B_SEEDS_FILE, R2_V1B_REPRO_FILE] + R2_V1B_DATA,
      "pending_ok": True, "script_function": "analysis/numbers_register.py::compute_r2_v1b_excess_10seed"},
+    {"claim_id": "session-exact-tests", "description": "Session-level one-sided Fisher exact tests for the "
+     "excess-over-default cells whose session bootstrap CI is a point (0/n or n/n against 0/n): R2 v1b 5 seeds, R2 "
+     "10 seeds, B3 v2 task run",
+     "compute": compute_session_exact_tests,
+     "data_files": [R2_V1B_SEEDS_FILE, X2_EVALSET_TASKS_REAL_V2, X2_EVALSET_TASKS_VAL_V2] + R2_V1B_DATA,
+     "pending_ok": True, "script_function": "analysis/session_exact_tests.py::exact_tests"},
     {"claim_id": "fh1-amd-qwen3-32b-spill-sweep", "description": "qwen3-32b on evo-x2 (llama-server b10970 Vulkan "
      "-ngl 99), n_ctx 20480 to 40960 unclamped: spill point, last no-spill point and spill cost (decode, TTFT) with "
      "the pre-registered readings, per-point shared-usage delta",

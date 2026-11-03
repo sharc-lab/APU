@@ -11,7 +11,7 @@ Every number comes from the register row named beside it (`docs/NUMBERS_REGISTER
 
 When a local agent's conversation outgrows the context window, Ollama trims it and still reports success, while a
 stock llama-server at the same small window fails loudly, with an HTTP error on every wrong task turn <!-- xruntime-llamacpp-wrong-rate -->. We measure what is lost
-with pre-registered experiments on an AMD APU, an NVIDIA laptop GPU and an Intel laptop. At windows of 16384 tokens
+with pre-registered experiments on an AMD APU, an NVIDIA laptop GPU and an Intel mini PC. At windows of 16384 tokens
 and below, no session of three 8B to 14B models kept its full history <!-- R2-real-v1b-survival -->, and models
 up to 70B lose history once the window is exceeded <!-- H-scale-verdict --> <!-- H-scale-family-verdict -->. Rule loss
 appears in the 8B and 14B models (5 seeds) and in qwen3:32b (2 of 3 sessions at 4096) <!-- H-scale-verdict -->, and
@@ -21,7 +21,7 @@ On a tool-using task workload (B3), where qwen3:14b is the one model that passed
 its default window to 42.0% (63/150) at 4096 on Ollama, and every wrong task is silent <!-- x2-evalset-tasks-real-v2-wrong-rate -->;
 on llama-server the 4096 effect replicates (+92.0 points, 95% CI +88.7 to +94.7) but no wrong task is silent <!-- xruntime-llamacpp-wrong-rate -->.
 Runtime defaults decide how often this happens: an unmodified install loaded a 4096-token window on an Intel CPU
-<!-- t2s-r2-real-cpu --> and 32768 on the same laptop's integrated GPU <!-- t2s-r2-real-igpu -->. The backend matters
+<!-- t2s-r2-real-cpu --> and 32768 on the same machine's integrated GPU <!-- t2s-r2-real-igpu -->. The backend matters
 too: with identical model files and settings, llama3.1:8b wrote tool calls as text at an untruncated window on Vulkan
 and CUDA but not on ROCm <!-- x2-r2-llama-val-32k-vulkan --> <!-- blade-r2-gate-v2 --> <!-- x2-r2-llama-val-32k-offload -->.
 The fixes are partial. Setting the window per device removes the hidden default; KV-cache quantization cut session
@@ -47,7 +47,7 @@ afterwards in the cloud fixed 84.8% (167/197) <!-- cloud-redo-full-context --> a
 <!-- cloud-redo-full-context -->, but a plain redo cannot undo actions already executed (Section 4.7). The trade-off a practitioner faces is therefore between a cloud bill and
 wrong answers that are silent on Ollama, and how many wrong answers depends on settings the user rarely sees.
 
-A motivating case shows how easily a user lands in this regime. On an Intel laptop, an unmodified Ollama install
+A motivating case shows how easily a user lands in this regime. On an Intel mini PC, an unmodified Ollama install
 served two models with a 4096 <!-- t2s-r2-real-cpu --> token window, because device detection drops the integrated GPU
 and falls back to the CPU <!-- x2-device-detect-mechanism -->. Every agent session crossed that window at turn 3
 <!-- t2s-r2-real-cpu --> and then failed silently, 5/5 <!-- t2s-r2-real-cpu --> sessions for each model. With the
@@ -56,7 +56,7 @@ failure came after the window. Nobody chose 4096; the runtime did.
 
 This paper asks what a local agent loses when its conversation exceeds the context window, whether anything tells the
 user, and what decides how often it happens. We answer with pre-registered experiments on an AMD APU, an NVIDIA
-laptop GPU and an Intel laptop (CPU and integrated GPU), spanning unified and discrete memory. The answer has five
+laptop GPU and an Intel mini PC (CPU and integrated GPU), spanning unified and discrete memory. The answer has five
 parts. First, on Ollama history loss is silent and appears in every model we tested, from 8B to 70B <!-- H-scale-verdict -->
 <!-- H-scale-family-verdict -->: at a 16384-token window no session of three 8B to 14B models kept its full history to
 turn 15 (intact 5/5/0/0/0/0/0/0 of 5 for each model <!-- R2-real-v1b-survival -->). Second, rule loss is
@@ -86,7 +86,7 @@ cuts tokens.
    <!-- A-24-flip-point-prediction -->.
 2. **Runtime policy, not hardware, sets the effective window, and on Ollama overflow is silent** (Section 4.5); llama-server fails loudly at the
    same window <!-- xruntime-llamacpp-wrong-rate -->. The same runtime
-   gives llama3.1:8b a default window of 4096 tokens on the Intel laptop and 131072 on the AMD APU
+   gives llama3.1:8b a default window of 4096 tokens on the Intel mini PC and 131072 on the AMD APU
    <!-- T2S-vs-X2-default-ctx -->, and answers an over-length prompt with success after keeping num_ctx/2 + 2 tokens
    <!-- ollama-overflow-keeps-half -->.
 3. **The consequences for agents, with their mechanism** (Section 4.6). On Ollama, silent failures after the window grow as the
@@ -116,7 +116,7 @@ front while keeping the system message <!-- R2-mechanism-verdict -->. It also st
 enabled and a keep of 4 tokens, so an over-length prompt succeeds after keeping num_ctx/2 + 2 tokens
 <!-- ollama-overflow-keeps-half -->. The request option `num_keep` sets the kept prefix, which matters only on the shift
 and cut paths. If the client sends no `num_ctx`, Ollama chooses the window from the detected device: 4096 tokens for
-llama3.1:8b on our Intel laptop's CPU, 131072 on the AMD APU <!-- T2S-vs-X2-default-ctx -->. A per-request window
+llama3.1:8b on our Intel mini PC's CPU, 131072 on the AMD APU <!-- T2S-vs-X2-default-ctx -->. A per-request window
 does not survive a restart, while a model file or environment setting does <!-- window-override-methods -->. None of
 these steps is reported to the client.
 
@@ -143,7 +143,7 @@ characterize the window and shift conditions rather than offer them as detectors
 
 **Platforms and runtimes.** We study three consumer platforms from three GPU vendors: an AMD Ryzen AI Max+ (Strix
 Halo) APU whose Radeon iGPU shares unified memory with the CPU; a laptop with an NVIDIA RTX 4070 Laptop GPU and 8188
-MiB <!-- blade-k1-layer-split --> of discrete VRAM; and an Intel Core Ultra (Panther Lake) laptop with an Arc iGPU on
+MiB <!-- blade-k1-layer-split --> of discrete VRAM; and an Intel Core Ultra (Panther Lake) mini PC with an Arc iGPU on
 unified memory. Ollama's device detection drops the Intel iGPU and falls back to the CPU
 <!-- x2-device-detect-mechanism -->, so we measure Intel twice: on the CPU, as shipped, and on the iGPU, enabled only in
 the environment of the job's own server process. All agent runs use Ollama, which serves models through a bundled
@@ -255,14 +255,14 @@ vendors are not yet compared on the same metric.
 
 **Default windows follow the detected device.** Ollama's Vulkan backend drops both integrated GPUs by the same
 policy, but Ollama also discovers the AMD iGPU through ROCm, with no opt-out, so the AMD APU runs on its iGPU while the
-Intel laptop, which has no ROCm path, falls through to the CPU <!-- x2-device-detect-mechanism -->. The default window
-follows. On the Intel laptop the runtime loaded 4096 tokens for each of three models, while on the AMD APU it loaded
+Intel mini PC, which has no ROCm path, falls through to the CPU <!-- x2-device-detect-mechanism -->. The default window
+follows. On the Intel mini PC the runtime loaded 4096 tokens for each of three models, while on the AMD APU it loaded
 262144 for qwen3-4b-2507, 131072 for llama3.1:8b and 40960 for qwen3:8b <!-- T2S-vs-X2-default-ctx -->, in each case
 the model's native window (capped only for qwen3:8b <!-- K1v3-X2-table -->). The discrete GPU also got 4096 for both
 models we could measure there <!-- blade-k1-layer-split -->. The runtime's own log reports the rule behind the two
 small values: a default sized from detected VRAM, 4096 for the discrete GPU's 8.0 GiB and 32768 for the Intel iGPU's
 36.2 GiB when that iGPU is enabled <!-- gpu-memory-readonly -->. Table 2 lists the values. The spread from 4096 to 262144 for the
-same weights comes from device detection, not from capacity: the Intel laptop has 36.2 GiB visible to the runtime
+same weights comes from device detection, not from capacity: the Intel mini PC has 36.2 GiB visible to the runtime
 <!-- gpu-memory-readonly --> and still gets 4096 when its iGPU is dropped.
 
 **On Ollama, overflow is silent.** When a prompt exceeds the loaded window, Ollama returns success and processes
@@ -335,7 +335,7 @@ gate. And the first request on a new prompt waits while the previous request's K
 
 ## Section 4.6a (paper Section 6.1 The Window Result)
 
-**A default the user never sees.** On the Intel laptop, with no window requested, the same Ollama and the same two
+**A default the user never sees.** On the Intel mini PC, with no window requested, the same Ollama and the same two
 models loaded 4096 <!-- t2s-r2-real-cpu --> tokens on the CPU and 32768 <!-- t2s-r2-real-igpu --> on the iGPU. On the
 CPU every session crossed the window at turn 3 <!-- t2s-r2-real-cpu --> and then failed silently, 5/5
 <!-- t2s-r2-real-cpu --> for llama3.1:8b and 5/5 <!-- t2s-r2-real-cpu --> for qwen3:14b. On the iGPU no failure came
@@ -475,7 +475,7 @@ exceed-context errors in every cell <!-- R2-mitigation-v1-observed -->. The verd
 <!-- R2-mitigation-v1-verdict -->. On the AMD APU llama3.1:8b recovered at 8192 and 4096
 <!-- R2-mitigation-v1-verdict -->; qwen3:14b recovered at 8192 but not at 4096 <!-- R2-mitigation-v1-verdict -->, where
 its `log_event` rule fell to 61.7% (74/120) <!-- R2-mitigation-v1-4096 --> <!-- paper-percentage-counts -->, failing first at turn 3 in every seed (3/3/3
-<!-- R2-mitigation-v1-4096 -->). On the Intel laptop's CPU at 4096 <!-- t2s-r2-mitigation-cpu --> the split
+<!-- R2-mitigation-v1-4096 -->). On the Intel mini PC's CPU at 4096 <!-- t2s-r2-mitigation-cpu --> the split
 replicates: llama3.1:8b recovered, qwen3:14b did not, again on `log_event`, overall refuted
 <!-- t2s-r2-mitigation-cpu -->. The cause is the fix itself: untrimmed, qwen3:14b kept rule 2 on 40/40 turns in every
 seed <!-- R2-qwen3-14b-4096-reconciliation -->. On the first failing trimmed turn its first call
@@ -597,7 +597,7 @@ contributed detectors and not a cheap filter for which steps to send to a cloud 
 **Platforms and versions.** We measure one machine per vendor, so a platform effect cannot be separated from that
 machine's driver and memory configuration. Agent runs use Ollama 0.34.4 <!-- R2-qwen3-14b-4096-reconciliation --> and
 direct runs llama.cpp b10970 <!-- design: docs/HARDWARE.md (version record; no register row, gap G13) -->; default
-windows and trimming are runtime code and can change in any release. On the Intel laptop, CPU and iGPU differ in
+windows and trimming are runtime code and can change in any release. On the Intel mini PC, CPU and iGPU differ in
 backend and loaded window together (4096 <!-- t2s-r2-real-cpu --> against 32768 <!-- t2s-r2-real-igpu -->), so the
 motivating contrast is not a controlled test of either. The NVIDIA laptop contributes validation and mechanism
 sessions only, because its validation gate held back the real agent runs <!-- blade-r2-gate-v2 -->, and the router
@@ -663,7 +663,7 @@ and settings behaved differently on CUDA, Vulkan and ROCm <!-- blade-r2-gate-v2 
 <!-- x2-r2-llama-val-32k-offload -->.
 
 Future work follows from what is pending. The router and context-policy comparison, refuted on the unconstrained AMD
-platform <!-- b5-verdict -->, must run on the Intel laptop, whose default window is small enough that loss occurs, and
+platform <!-- b5-verdict -->, must run on the Intel mini PC, whose default window is small enough that loss occurs, and
 on the NVIDIA laptop. A hybrid local and cloud deployment needs a general verifier that catches wrong answers produced
 inside the window; we measured only the window flag; a late cloud redo with the full history fixed 84.8% (167/197) of wrong tasks
 <!-- cloud-redo-full-context --> at 1.76x the cost of a fresh cloud run of the same task <!-- late-escalation-cost-vs-fresh -->,
@@ -672,3 +672,25 @@ and a plain redo could not undo executed actions; on simulated tools, cascaded r
 reference calls, so a live rollback remains future work.
 More models per size and family, more seeds, further runtime versions and guardrail compliance at full context would
 turn the model-dependence of rule loss from an observation into a predictable property.
+
+## Changes of 2026-11-02 (external review fixes)
+
+Prose cut from the paper to make room for the "No reliable detector" paragraph in Section 4.7. Every number these
+sentences carried is already in a block above, verbatim with its register id, so nothing new is added here:
+
+- Section 4.4, qwen3-32b start-only bisection (last start 367104, first failure 367360, exit code 3221226505,
+  `fh1-amd-boundary-qwen3-32b`): block of Section 4.4 above.
+- Section 4.5, NVIDIA over-length prompts of 8192, 16384 and 32768 tokens returning HTTP 200 with 2050 evaluated
+  (`blade-k1-layer-split`): block of Section 4.5 above (Table 2 in the paper still carries "HTTP 200, evaluated 2050").
+- Section 4.5, `/api/ps` sizes 15511.5, 12511.6 and 10911.6 MiB and KV buffers 6400, 3400 and 1800 MiB, f16 estimates
+  differing by 2.7e-05 relative (`kv-precision-evidence`): block of Section 4.5 above.
+- Section 4.6a, long-task median final prompts 5774 and 1578 tokens (`long-task-local-accuracy`): block of Section
+  4.6a above.
+- Section 4.7p, exact form of the shift rule, P+C>n_ctx TP 44 FP 0 FN 0 against P>=n_ctx-1 TP 0 FP 0 FN 44
+  (`R2-shift-predictor-confusion`): block of Section 4.7p above.
+
+Withdrawn, not moved: the Section 4.1 count of self-reports mentioning truncation (`self-report-truncation-awareness`)
+was removed from the paper because the scorer behind it is under repair; it is not cited anywhere until that row is
+recomputed with the fixed scorer.
+
+"Intel laptop" in the blocks above was corrected to "Intel mini PC" on the same date: evo-t2s is a mini PC.
