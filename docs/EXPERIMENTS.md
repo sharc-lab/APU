@@ -3068,3 +3068,88 @@ check's own compute time is not added (sub-second, recorded separately as check_
 - Sensitivity (reported, not targets): T1 under the tokenizer-count estimate, the every-call check, and CONFIG_V1.
 
 Results: rows pitch1-standard-hybrid-default and pitch1-standard-hybrid-8192 (analysis/pitch1_standard_hybrid.py).
+
+## PRE-REGISTRATION (2026-11-03): verification-tier-v1, a Haiku verdict after L1 to L3 accept a local result
+
+**Status: filed before any cloud call.** Design and decisions: docs/VERIFICATION_TIER_PROPOSAL.md. Operator decisions
+2026-11-03: approve arm (a), a claude-haiku-5-5 accept/reject verdict on the local results L1 to L3 accept; strip the
+recall-probe suffix from the task text the verifier sees; do not verify cloud-escalated results for now; register the
+planning figures by a script first (done: rows verification-tier-payload-cost, verification-tier-accepted-wrong,
+verification-tier-ceiling, verification-tier-run-v1-estimate, analysis/verification_tier_plan.py). **The live run waits
+for the operator's go, after the cloud phase of the live 8192 post-run check (row post-run-check-live-8192).** Nothing
+is queued; no evo-x2 time is used.
+
+### Hypothesis
+
+A claude-haiku-5-5 verdict on the change set catches most wrong local results that L1 to L3 accept, at a small fraction
+of the all-cloud bill, with few false escalations.
+
+### Data (fixed now)
+
+- Stream: the 260 local task turns L1 to L3 accept [REG verification-tier-accepted-wrong]: B3 v2 qwen3:14b on evo-x2
+  (results/x2_evalset_tasks_real_v2.jsonl), the turns results/post_run_check_replay_v1.jsonl accepts (ollama_ctx_4096 3,
+  ollama_ctx_8192 42, ollama_default 134; seeds 20260901 to 20260905), and the q4_0 28928 turns hybrid-full-pipeline-v1
+  keeps local (81; seeds 20260901 to 20260903). Positives (wrong, end_state_ok false) 16; negatives 244.
+- Payload: src/dse/verification_tier.py::build_verdict_payload, inputs from analysis/verification_tier_plan.py::
+  client_view (grader-stripped rows; task text with the recall probe stripped; standing instructions and rules 6 to 8;
+  pre-turn state with secrets redacted; the turn's tool calls with results; final answer; change set). Never the
+  grader, the reference calls, the expected answer values or end_state_diff; tests/test_verification_tier.py enforces
+  it. The prompt is VERIFIER_INSTRUCTION as committed with this pre-registration; it is frozen.
+- Call: claude-haiku-5-5, thinking disabled, max_tokens 256, rolling cache breakpoint (src/cloud/prompt_cache.py), one
+  call per turn, in run order (config, tier, seed, turn), plus 1 warm-up call excluded from statistics.
+- Grading of the verifier: its verdict vs the recorded end_state_ok (the grader scores the verifier, never feeds it).
+  A reply that is not one JSON object with verdict accept or reject counts as a reject (fail safe) and is reported
+  separately.
+
+### Known limits, stated before the run
+
+- The prompt was written after the 11 B3 v2 accepted wrong turns were read for the proposal. It names no task-specific
+  rule, but the catch figure on these positives is not a blind test.
+- Held-out split: development seeds 20260901 to 20260904, held-out seed 20260905 (the post-run-check-tuned split). The
+  held-out seed holds 1 positive (ollama_default turn 29) and the q4_0 28928 stream has no seed 20260905, so the
+  held-out figure is for false escalations mainly; the positives are reported over all seeds with this caveat.
+- L1 and L2 enter the stream as recorded PROXIES (the post-run check replay rows). The two B3 v2 tiers without replay
+  rows (64 wrong turns) and the cloud's own escalated results are outside the stream.
+
+### Targets (met or missed reported as is)
+
+| metric | target |
+|---|---|
+| failures caught, post-L3 positives (11 B3 v2 + 5 q4_0 28928) | >= 14/16 |
+| false escalations, post-L3 negatives (168 B3 v2 + 76 q4_0 28928) | <= 12/244 |
+| added USD per verified task, billed | <= USD 0.001 |
+| added latency per verified task, median | <= 3 s |
+| new correct/90, q4_0 28928 operating point (now 85/90 [REG operating-point-q4-28928]; ceiling 90/90 [REG verification-tier-ceiling]), rejected turns graded from redo rows or IMPUTED as in hybrid-full-pipeline-v1 | >= 88/90 |
+| % of the Sonnet all-cloud bill for that pipeline (now 43.4% [REG operating-point-q4-28928-rolling-cache]) | <= 75% |
+
+Also reported, no target: the B3 v2 pipeline's final accuracy per replayed tier (L1 to L3, then the verifier, rejected
+turns graded from the recorded redo rows as in the post-run-check rows) beside the CEILING (149/150, 150/150, 149/150
+[REG verification-tier-ceiling]); the held-out seed's figures; unparseable replies.
+
+### Cost and stop rules (fixed now)
+
+- ESTIMATE [REG verification-tier-run-v1-estimate]: 261 calls, billed point USD 0.1078, high USD 0.1573, upper bound
+  USD 0.1962. Arm (c) (re-derivation) is not in the run; adding it needs the operator's decision and an amendment filed
+  here first (it would add USD 0.1772 billed point, USD 0.2943 upper bound, same row).
+- Job cap USD 2.00 billed, enforced in code (client spend cap = ledger total + 2.00); per-task verifier cap USD 0.005
+  via BudgetedClient; no call is sent whose reservation would pass either. The USD 2 per-job limit and the Console
+  check (src/cloud/console_gate.py, must be fresh) apply unchanged.
+- Stop after 5 replies with no parseable verdict or 5 provider errors.
+- Futility: after the development seeds, if false escalations pass 10% of the development negatives, stop; the target
+  cannot be met without an amendment.
+- No Sonnet call (Run V2 needs its own approval). No local model call, no evo-x2 time.
+- At most one amendment (a prompt change), decided on the development seeds only and filed here before its calls, then
+  evaluated on seed 20260905 alone; the held-out figure is the headline for an amended prompt.
+
+### Wording rules
+
+Never write a percentage of one hundred for any catch or accuracy figure; report counts ("x/16"). Only a run showing
+197/197 caught may say "every failure in our test suite caught", and then only with the test suite named (B3 v2,
+qwen3:14b, these seeds). Run V1 covers the post-L3 stream only, so it cannot make that claim. A catch is a catch by the
+verifier; whether the escalation then fixes it is reported separately.
+
+### Not claimed even if all targets are met
+
+A live hybrid result (the replay assumes a task's local outcome does not depend on earlier escalations, as every
+post-run-check row states); results for other models, runtimes or long tasks; anything about the two B3 v2 tiers
+without post-run check rows or about cloud-escalated results.

@@ -9472,6 +9472,42 @@ def compute_device_db_coverage(repo):
                      f"rebuild: {same}", "n": f"{cov['n']} entries"}
 
 
+# ── Verification tier (docs/VERIFICATION_TIER_PROPOSAL.md, operator decisions 2026-11-03): planning figures from
+# analysis/verification_tier_plan.py (payloads built as the live Run V1 would, arm (a) claude-haiku-5-5 verdict, only
+# for local results L1 to L3 accept). PLANNING / ESTIMATE / CEILING labels are in the row text; no verifier has run. ──
+VT_FILES = ["results/x2_evalset_tasks_real_v2.jsonl", "results/x2_own_config_probe_q4_28928.jsonl",
+            "results/post_run_check_replay_v1.jsonl", "results/cloud_prices_anthropic_20261014.json",
+            "results/all_cloud_b3_v1.jsonl", "results/cloud_redo_full_context_v1.jsonl",
+            "results/cloud_redo_full_context_v1_part2.jsonl", "results/cloud_redo_full_context_v1_part3.jsonl",
+            "results/own_rollback_redo_v1.jsonl"]
+
+
+def _vt_plan(repo):
+    vt = _analysis_module(repo, "verification_tier_plan")
+    return vt, vt.plan(repo)
+
+
+def compute_verification_tier_payload_cost(repo):
+    vt, d = _vt_plan(repo)
+    return {"value": vt.payload_cost_text(d), "n": f"{len(d['calls'])} accepted local task turns (PLANNING)"}
+
+
+def compute_verification_tier_accepted_wrong(repo):
+    vt, d = _vt_plan(repo)
+    nw = sum(1 for c in d["calls"] if not c["local_ok"])
+    return {"value": vt.accepted_wrong_text(d), "n": f"{nw} wrong of {len(d['calls'])} accepted (PLANNING)"}
+
+
+def compute_verification_tier_ceiling(repo):
+    vt, d = _vt_plan(repo)
+    return {"value": vt.ceiling_text(d), "n": f"{sum(c['n'] for c in d['ceiling'])} task turns (CEILING)"}
+
+
+def compute_verification_tier_run_v1_estimate(repo):
+    vt, d = _vt_plan(repo)
+    return {"value": vt.run_v1_text(d), "n": f"{d['run']['a']['n_calls']} calls (ESTIMATE)"}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -11075,6 +11111,27 @@ NUMBER_ENTRIES = [
                     "results/t2s_r2_validation_igpu_v1.jsonl", "results/x2_r2_v1b_seeds_06_10.jsonl",
                     "results/x2_r2_qwen3_8b_seeds_06_10.jsonl"] + R2_V1B_DATA + AMD_BOUNDARY_FILES,
      "script_function": "analysis/device_db.py::build"},
+    {"claim_id": "verification-tier-payload-cost", "description": "PLANNING (priced, not run): verification tier "
+     "payload sizes and USD per verified task (arm (a) claude-haiku-5-5 verdict, claude-sonnet-5-5 for comparison; "
+     "arm (c) re-derivation as a comparison) under the rolling cache breakpoint, payloads built as the live Run V1 would "
+     "for the local results L1 to L3 accept, recall-probe suffix stripped; token estimator stated",
+     "compute": compute_verification_tier_payload_cost, "data_files": VT_FILES,
+     "script_function": "analysis/verification_tier_plan.py::payload_cost_text"},
+    {"claim_id": "verification-tier-accepted-wrong", "description": "PLANNING: the verifier's stream (local task turns "
+     "L1 to L3 accept: B3 v2 three replayed tiers and q4_0 28928), wrong vs correct per tier, and for each wrong one "
+     "where its error sits in the verifier's inputs (grader read after the payload is built, scoring only)",
+     "compute": compute_verification_tier_accepted_wrong, "data_files": VT_FILES,
+     "script_function": "analysis/verification_tier_plan.py::accepted_wrong_text"},
+    {"claim_id": "verification-tier-ceiling", "description": "CEILING, not a measurement: a perfect verifier after L1 "
+     "to L3 (rejects exactly the accepted wrong local results), escalations graded from recorded redo rows (q4_0 28928 "
+     "imputed): final accuracy per tier and the escalation USD",
+     "compute": compute_verification_tier_ceiling, "data_files": VT_FILES,
+     "script_function": "analysis/verification_tier_plan.py::ceiling_text"},
+    {"claim_id": "verification-tier-run-v1-estimate", "description": "ESTIMATE for the live verification tier Run V1 "
+     "(arm (a) claude-haiku-5-5 verdict on every accepted local task turn, 1 warm-up): billed point, high, upper "
+     "bound, job cap, call count; comparison arm (c) and the (a)+(c) total shown beside; not run",
+     "compute": compute_verification_tier_run_v1_estimate, "data_files": VT_FILES,
+     "script_function": "analysis/verification_tier_plan.py::run_v1_text"},
 ]
 
 
