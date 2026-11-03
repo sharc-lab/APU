@@ -248,8 +248,9 @@ class EnvelopeRouter:
 # A step needs turn k if (1) k is in step["needs_turns"] (the caller knows, e.g. R2 replay marks canary turns as
 # needing turn 1, where the history tags live), or (2) the current turn's user text contains an identifier
 # (pattern ID_PATTERN, e.g. "REC-0001", "HTAG-...") that occurs in turn k's text. If trimming would drop a needed
-# turn and quality_floor > 0, a trimmed local answer cannot meet the floor (with the fact gone the answer is wrong,
-# not refused: register self-report-truncation-awareness and R2-real-v1-gated-kill), so the step goes to cloud.
+# turn and quality_floor > 0, a trimmed local answer cannot meet the floor (with the fact gone the unprompted answer is
+# wrong, not refused: register R2-real-v1-gated-kill; models flag the loss only when asked, row
+# self-report-truncation-awareness), so the step goes to cloud.
 # require_full_history=True is the stricter policy flag: any trim at all goes to cloud. quality_floor == 0 means
 # the caller accepts trimmed history. If cloud is needed but the budget cannot cover it, the router still returns
 # local_trimmed (never an overflowing local call) and says in the reason that the floor is not met

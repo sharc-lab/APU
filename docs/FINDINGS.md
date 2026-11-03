@@ -1245,6 +1245,11 @@ conclusion is unchanged by the correction (still zero, now over a larger real sa
 when the model reports the answer is unavailable, it says so as if the information were simply absent from a
 complete document, never as evidence of truncation.
 
+Rescored 2026-11-02 (external review): the 0/960 above counts only the words "truncat" or "incomplet" in the free
+text, so it measures word choice. Scored on the AVAILABLE flag the arm asks for, models answer "AVAILABLE: no" on
+687/720 truncated prompts and on 3/240 untruncated ones `[self-report-truncation-awareness]`. When asked directly
+they do flag the loss; the 0/960 is withdrawn as evidence that models do not report it.
+
 **Self-report scoring: the running jobs are currently writing wrong scores to disk, live, right now.** The
 `strip_available_prefix` fix (commit `3f7b1f4`) is correctly present in the on-disk `scorers.py` on both machines
 (confirmed: `C:\apu\ovn\scorers.py` on evo-t2s has the function; verified by reading the file directly). But the
