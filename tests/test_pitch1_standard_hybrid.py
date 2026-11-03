@@ -65,7 +65,11 @@ def test_extra_usd_per_extra_correct():
 
 
 def test_adapter_passes_the_l3_config():
-    import post_run_check as A
+    # load the analysis adapter by path: another test may already hold src/dse/post_run_check.py under the bare name
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("analysis_post_run_check", REPO / "analysis" / "post_run_check.py")
+    A = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(A)
     from src.dse import l3_invariants as L3
     assert A.make_post_run_check(REPO).config is None              # every existing row: CONFIG_V1
     assert A.make_post_run_check(REPO, L3.CONFIG_TUNED).config is L3.CONFIG_TUNED
