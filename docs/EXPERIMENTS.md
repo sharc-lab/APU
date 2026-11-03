@@ -2925,3 +2925,25 @@ Commands (for the operator; run none of them from an agent session):
   one session, ollama_ctx_8192_call2_notools, seed 20260905, 30 task turns, projected max prompt 23076. Appended with
   `qfill_prclive\x2_queue_fill.py --append x2_post_run_check_local_v1` at queue position 96, behind the running
   x2_kv_fa_llamacpp (95). No pause set; the job calls tq.advance() on exit.
+
+#### Amendment 2026-11-02: cloud phase uses the rolling cache breakpoint (filed before any cloud call)
+
+Operator decision 2026-11-02. Filed after the local phase finished (x2_post_run_check_local_v1, run_end 2026-11-01
+20:33Z) and after one dry controller run (decisions only, no client), and before any cloud call of this job.
+
+- Change: the controller phase's redo calls (scripts/cloud_redo.live_turn) place prompt-cache breakpoints with
+  src/cloud/prompt_cache.py (one on the system prompt, one rolling on the latest message, at most 4), merged in
+  0e37a10, instead of the placement the 2026-10-31 amendment was written against. The new placement changes what is
+  billed as cache read vs write; it does not change which tasks are escalated, what the cloud model is sent, the
+  rollback, or the grading.
+- Unchanged: tuned L3 (CONFIG_TUNED), L1 and L2 as run, seed 20260905, claude-sonnet-5-5, the USD 0.25 per-task cap,
+  the USD 2.00 billed job cap enforced in code, the Console check (src/cloud/console_gate.py, must be fresh), the
+  targets (recall >= 80%, false escalations <= 10%, final accuracy >= 97%), and the rows post-run-check-live-8192 and
+  post-run-check-live-8192-estimate (kept as written).
+- No retuning on this set. The dry run showed L2 firing on every turn after the window overflow, because the
+  render check's example turn is turn 1, the first turn the window drops; all 11 prompt-token checks matched the
+  render exactly (8 after the overflow), so L2 read the prompt correctly. Any change to the example choice is a
+  separate amendment evaluated on a held-out seed, not on this run.
+- Cost: recomputed under the rolling breakpoint with the local phase's actual escalation set, row
+  post-run-check-live-8192-estimate-rolling. Command unchanged from the 2026-10-31 amendment; it runs only after the
+  operator confirms the Console spend file.
