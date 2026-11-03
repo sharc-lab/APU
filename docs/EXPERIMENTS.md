@@ -2947,3 +2947,25 @@ Operator decision 2026-11-02. Filed after the local phase finished (x2_post_run_
 - Cost: recomputed under the rolling breakpoint with the local phase's actual escalation set, row
   post-run-check-live-8192-estimate-rolling. Command unchanged from the 2026-10-31 amendment; it runs only after the
   operator confirms the Console spend file.
+
+## KIT (2026-11-03, nothing run): XPS demo comparison and the intake of Zach's XPS results
+
+**Status: kit and register rows only. Nothing run, queued or deployed; no cloud call.** Full commands and file formats:
+docs/XPS_DEMO_KIT.md. The XPS (Zach's Dell XPS, 16 GB, Intel, Qwen3-4B) is still not configured in this repo (see the E1
+metadata above); Zach runs the local step on it.
+
+- Jobs: the B3 v2 tasks, 30 tasks x seeds 20260901-03 = 90 per arm. Arms: (a) local default, refused while any runtime
+  override is detected; (b) standard hybrid (prompt-length check against the window before each local call, cloud on a
+  hard error); (c) the full pipeline (route at start, post-run check, rollback and cloud redo); (d) all-cloud.
+- Local step (USD 0, on the XPS): harness/xps_demo_kit.py; it records the runtime, version, default window and every
+  override in run_start. Cloud step (controller, operator): scripts/xps_demo_cloud.py, which always requires
+  --operator-approval and a job cap of at most USD 2.00, and uses console_gate.pre_job, CloudClient and the per-task cap
+  (USD 0.25) unchanged.
+- Rows: `xps-demo-comparison` (PENDING until results/xps_demo/ holds the local and cloud files with run_end),
+  `xps-demo-cloud-estimate` (an ESTIMATE from committed files), and the intake rows `xps-zach-ceiling-prediction`,
+  `xps-zach-ceiling-within-5pct`, `xps-zach-tuned-window`, `xps-zach-gpu-share` and
+  `xps-zach-intel-loud-failure-latency` (PENDING until his raw files are in results/xps_zach/, format in
+  analysis/xps_intake.py). What Zach reported is in the row descriptions only, labelled as reported.
+- Declared approximations of arms b and c: a task sent to the cloud is deferred locally and redone from the pre-task
+  state; later local turns never see a cloud answer; arm b falls back per task, not per call; a cloud task's latency
+  adds controller-side cloud seconds to XPS-side local seconds.

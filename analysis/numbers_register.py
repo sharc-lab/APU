@@ -8755,6 +8755,104 @@ def compute_xruntime_openvino_ceiling(repo):
                      "operator has reviewed the files and a parser is committed", "n": "0"}
 
 
+# ── Zach's XPS (Dell XPS, 16 GB, Intel, Qwen3-4B; not configured in this repo): intake rows and the demo kit (2026-11-03;
+# docs/XPS_DEMO_KIT.md). The xps-zach-* rows are PENDING until his raw files are in results/xps_zach/ (format:
+# analysis/xps_intake.py) and compute only from them; what he reported is in the description, never in the value. The
+# demo comparison row is PENDING until the local step (harness/xps_demo_kit.py) and the cloud step
+# (scripts/xps_demo_cloud.py) files exist with run_end; the cloud estimate row is an ESTIMATE from committed files. ──
+XPS_ZACH_CEILING = "results/xps_zach/ceiling.jsonl"
+XPS_ZACH_TUNED = "results/xps_zach/tuned_window.jsonl"
+XPS_ZACH_GPU = "results/xps_zach/gpu_share.jsonl"
+XPS_ZACH_LOUD = "results/xps_zach/loud_failure.jsonl"
+XPS_DEMO_LOCAL = "results/xps_demo/xps_demo_local_v1.jsonl"
+XPS_DEMO_CLOUD = {a: f"results/xps_demo/xps_demo_cloud_{a}.jsonl" for a in ("b", "c", "d")}
+XPS_DEMO_FILES = [XPS_DEMO_LOCAL] + list(XPS_DEMO_CLOUD.values())
+XPS_ESTIMATE_FILES = ["results/all_cloud_b3_v1.jsonl", "results/cloud_redo_full_context_v1.jsonl",
+                      "results/cloud_redo_full_context_v1_part2.jsonl", "results/cloud_redo_full_context_v1_part3.jsonl",
+                      "results/own_rollback_redo_v1.jsonl", "results/cloud_prices_anthropic_20261014.json"]
+
+
+def _xps_intake():
+    import sys as _sys
+    p = str(REPO / "analysis")
+    if p not in _sys.path:
+        _sys.path.insert(0, p)
+    import xps_intake
+    return xps_intake
+
+
+def compute_xps_zach_ceiling_prediction(repo):
+    return _xps_intake().compute(repo, "ceiling_prediction")
+
+
+def compute_xps_zach_ceiling_within_5pct(repo):
+    return _xps_intake().compute(repo, "ceiling_within")
+
+
+def compute_xps_zach_tuned_window(repo):
+    return _xps_intake().compute(repo, "tuned_window")
+
+
+def compute_xps_zach_gpu_share(repo):
+    return _xps_intake().compute(repo, "gpu_share")
+
+
+def compute_xps_zach_loud_failure(repo):
+    return _xps_intake().compute(repo, "loud_failure")
+
+
+def _xps_cloud_module():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("xps_demo_cloud_nr", REPO / "scripts" / "xps_demo_cloud.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def compute_xps_demo_cloud_estimate(repo):
+    """ESTIMATE of the XPS demo kit's cloud step, from committed files at the rolling cache breakpoint."""
+    import math
+    m = _xps_cloud_module()
+    b = m.estimate_basis(repo)
+    n = m.N_JOBS
+    per_part = int(m.JOB_CAP_MAX_USD // b["redo_usd_task"])
+    d_usd = n * b["all_cloud_usd_task"]
+    return {"value": (f"ESTIMATE, not run: model {b['model']}, rolling cache breakpoint; arm d (all-cloud, {n} jobs) = "
+                      f"{n} x USD {b['all_cloud_usd_task']:.5f}/task (all_cloud_b3_v1 repriced, {b['all_cloud_correct']}/"
+                      f"{b['all_cloud_n']} correct there; recorded placement {b['all_cloud_usd_task_recorded']:.5f}) = "
+                      f"USD {d_usd:.4f}, one job under the USD {m.JOB_CAP_MAX_USD:.2f} cap; arms b and c, per task "
+                      f"sent to the cloud: USD {b['redo_usd_task']:.5f} (highest tier-mean full-history redo, "
+                      f"{b['redo_tier']}), so 0 to {n} tasks each = USD 0 to {n * b['redo_usd_task']:.4f} per arm, at "
+                      f"most {per_part} tasks per USD {m.JOB_CAP_MAX_USD:.2f} job ({math.ceil(n / per_part)} jobs if "
+                      f"all {n} go to the cloud); worst case all three arms USD "
+                      f"{d_usd + 2 * n * b['redo_usd_task']:.4f}; the b and c counts are known only after the local "
+                      "step on the XPS (scripts/xps_demo_cloud.py estimate --local)"),
+            "n": f"{b['all_cloud_n']} all-cloud tasks; redo tiers {len(b['redo_tier_means'])}"}
+
+
+def compute_xps_demo_comparison(repo):
+    """The XPS demo comparison (four arms, 90 B3 v2 jobs) from the local and cloud step files."""
+    import glob as _glob
+    m = _xps_cloud_module()
+    local = sorted(_glob.glob(str(repo / "results" / "xps_demo" / "xps_demo_local_v1*.jsonl")))
+    cloud = sorted(_glob.glob(str(repo / "results" / "xps_demo" / "xps_demo_cloud_*.jsonl")))
+    lrows = m.load_rows(local)
+    starts = [r for r in lrows if r.get("record") == "run_start"]
+    rc = starts[0]["runtime_config"] if starts else {}
+    s = m.summarize(lrows, m.load_rows(cloud))
+    parts = []
+    for arm, v in s.items():
+        lat = v["latency_s"]
+        parts.append(f"{arm}: {v['correct']}/{v['correct_of']} correct, cloud USD {v['usd_per_job_mean']:.5f}/job, "
+                     f"latency median {lat['median'] or 0:.1f} s p90 {lat['p90'] or 0:.1f} s, kept local "
+                     f"{v['kept_local']}, complete {v['complete']}")
+    rid = ", ".join(sorted({Path(p).stem for p in local + cloud}))
+    return {"value": (f"runs {rid}; XPS runtime {rc.get('runtime')} {rc.get('version')}, default window "
+                      f"{rc.get('default_window')}, model {rc.get('model')}, overrides "
+                      f"{len(rc.get('overrides') or [])}; local seconds measured on the XPS, cloud seconds from the "
+                      "controller / " + " / ".join(parts)), "n": f"{len(s)} arms x 90 jobs"}
+
+
 
 # ── KV precision x flash attention on llama.cpp server (2026-10-26; docs/EXPERIMENTS.md "PRE-REGISTRATION (2026-10-26):
 # KV precision x flash attention on llama.cpp server"; harness/kv_fa_llamacpp.py, queue id x2_kv_fa_llamacpp). The
@@ -10775,6 +10873,41 @@ NUMBER_ENTRIES = [
      "OpenVINO ceiling result, recorded once he shares the files (awaiting Zach's files); no number until then",
      "compute": compute_xruntime_openvino_ceiling, "data_files": [XRT_OPENVINO_MANIFEST], "pending_ok": True,
      "script_function": "analysis/numbers_register.py::compute_xruntime_openvino_ceiling"},
+    {"claim_id": "xps-zach-ceiling-prediction", "description": "Zach's XPS (Dell XPS, 16 GB, Intel, Qwen3-4B): ceiling "
+     "prediction error on held-out configurations, mean |predicted - measured| / measured and held-out configs within "
+     "+/-5%, from his raw file only (format analysis/xps_intake.py). Zach REPORTED (not measured here) 5.1% mean error "
+     "and 4/4 held-out; no number until his file is in", "compute": compute_xps_zach_ceiling_prediction,
+     "data_files": [XPS_ZACH_CEILING], "pending_ok": True, "require_run_end": [XPS_ZACH_CEILING],
+     "script_function": "analysis/xps_intake.py::ceiling_prediction"},
+    {"claim_id": "xps-zach-ceiling-within-5pct", "description": "Zach's XPS: share of configurations whose predicted "
+     "ceiling is within +/-5% of the measured ceiling (fit and held-out together), from his raw file only. Zach REPORTED "
+     "(not measured here) within +/-5% over 14 configs; no number until his file is in",
+     "compute": compute_xps_zach_ceiling_within_5pct, "data_files": [XPS_ZACH_CEILING], "pending_ok": True,
+     "require_run_end": [XPS_ZACH_CEILING], "script_function": "analysis/xps_intake.py::ceiling_within"},
+    {"claim_id": "xps-zach-tuned-window", "description": "Zach's XPS: tasks correct at the runtime's default window vs "
+     "the tuned window, from his raw file only. Zach REPORTED (not measured here) a tuned window of 18,000 to 40,448 "
+     "with 30/30; no number until his file is in", "compute": compute_xps_zach_tuned_window,
+     "data_files": [XPS_ZACH_TUNED], "pending_ok": True, "require_run_end": [XPS_ZACH_TUNED],
+     "script_function": "analysis/xps_intake.py::tuned_window"},
+    {"claim_id": "xps-zach-gpu-share", "description": "Zach's XPS: trials ok per GPU share setting, from his raw file "
+     "only. Zach REPORTED (not measured here) GPU share 50% 6/6 vs 74% 0/6; no number until his file is in",
+     "compute": compute_xps_zach_gpu_share, "data_files": [XPS_ZACH_GPU], "pending_ok": True,
+     "require_run_end": [XPS_ZACH_GPU], "script_function": "analysis/xps_intake.py::gpu_share"},
+    {"claim_id": "xps-zach-intel-loud-failure-latency", "description": "Zach's XPS (Intel): calls with a prompt over "
+     "the window, how many fail loudly (an error returned) and the time to the error, vs calls within the window, from "
+     "his raw file only. Zach REPORTED an Intel loud-failure latency (value to be read from his file); no number until "
+     "his file is in", "compute": compute_xps_zach_loud_failure, "data_files": [XPS_ZACH_LOUD], "pending_ok": True,
+     "require_run_end": [XPS_ZACH_LOUD], "script_function": "analysis/xps_intake.py::loud_failure"},
+    {"claim_id": "xps-demo-cloud-estimate", "description": "ESTIMATE of the XPS demo kit's cloud step (arms b and c "
+     "cloud parts, arm d), USD billed at the rolling cache breakpoint, from the all-cloud B3 v2 run and the full-history "
+     "redo runs; the per-job cap is USD 2 (docs/XPS_DEMO_KIT.md)", "compute": compute_xps_demo_cloud_estimate,
+     "data_files": XPS_ESTIMATE_FILES, "script_function": "scripts/xps_demo_cloud.py::estimate_basis"},
+    {"claim_id": "xps-demo-comparison", "description": "XPS demo comparison on Zach's XPS, 90 B3 v2 jobs (30 tasks x "
+     "seeds 20260901-03), Qwen3-4B: (a) local default, (b) standard hybrid (local first, cloud on a prompt over the "
+     "window or a hard error), (c) the full pipeline (route at start, post-run check, rollback and cloud redo), (d) all-cloud; "
+     "correct/90, cloud USD per job, latency per job (docs/XPS_DEMO_KIT.md)", "compute": compute_xps_demo_comparison,
+     "data_files": XPS_DEMO_FILES, "pending_ok": True, "require_run_end": XPS_DEMO_FILES,
+     "script_function": "scripts/xps_demo_cloud.py::summarize"},
     {"claim_id": "kv-fa-interaction-llamacpp", "description": "KV precision x flash attention on llama-server b10970 "
      "(evo-x2, qwen3:14b GGUF, -c 40960, B5 R2 session cut at 24 turns, seeds 20260901-03): the q8_0 / FA-off refusal "
      "probe, per cell session minutes, KV buffer MiB, prefill and decode tok/s, rule pass and history recall, and the "

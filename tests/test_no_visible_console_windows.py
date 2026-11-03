@@ -42,6 +42,9 @@ CONTROLLER_SCRIPTS = [
     REPO / "harness" / "window_override_methods.py",   # Blade night 4 job (also evo-x2 / evo-t2s)
     REPO / "harness" / "t2s_deadline.py",              # open-window runs on the controller (ssh via run_hidden)
     REPO / "src" / "cloud" / "console_gate.py",        # pre-job gate of every live cloud job (git head, hidden)
+    # XPS demo kit local step (2026-11-03): runs on Zach's XPS, and here for its self-test and the cloud step's
+    # recheck; version commands and the llama-server command line go through run_hidden
+    REPO / "harness" / "xps_demo_kit.py",
 ]
 # Controller-side scripts that start no process at all (checked: no subprocess use of their own); listed so the bare-
 # call grep still covers them if one is ever added. The Blade night 3 B5 job starts Ollama only through
@@ -50,6 +53,8 @@ NO_SUBPROCESS_SCRIPTS = [
     REPO / "harness" / "policy_compare.py",
     REPO / "scripts" / "t2s_window_stage.py",
     REPO / "scripts" / "longtask_cloud.py",
+    REPO / "scripts" / "xps_demo_cloud.py",            # XPS demo kit cloud step (controller); console_gate is covered
+    REPO / "analysis" / "xps_intake.py",               # intake parser for Zach's XPS files (controller)
 ]
 
 
