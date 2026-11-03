@@ -4838,6 +4838,36 @@ def compute_post_run_check_live_8192_estimate_rolling(repo):
             "n": f"{e['new']['n_escalated']} escalated of {e['n_tasks']} tasks (ESTIMATE)"}
 
 
+# ── pitch1 (external reviewer request, operator approved; docs/EXPERIMENTS.md "PRE-REGISTRATION (2026-11-03): pitch1,
+# standard hybrid vs the post-run-check pipeline on the same 90 jobs"). Replay, rolling cache breakpoint. ──
+_PITCH1_CACHE = {}
+
+
+def _pitch1(repo):
+    key = str(repo)
+    if key not in _PITCH1_CACHE:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("pitch1_standard_hybrid",
+                                                      Path(repo) / "analysis" / "pitch1_standard_hybrid.py")
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        _PITCH1_CACHE[key] = (m, m.compare(Path(repo)))
+    return _PITCH1_CACHE[key]
+
+
+def _pitch1_row(repo, wname):
+    m, d = _pitch1(repo)
+    return {"value": m.window_text(d, wname), "n": f"{d['windows'][wname]['n']} jobs x 8 arm cells"}
+
+
+def compute_pitch1_standard_hybrid_default(repo):
+    return _pitch1_row(repo, "default")
+
+
+def compute_pitch1_standard_hybrid_8192(repo):
+    return _pitch1_row(repo, "8192")
+
+
 def compute_route_at_start_default_window(repo):
     im = _impact()
     d = im.route_default_window(repo)
@@ -10633,6 +10663,19 @@ NUMBER_ENTRIES = [
                     *ROLLING_FILES],
      "pending_ok": True, "require_run_end": ["results/x2_post_run_check_local_v1.jsonl"],
      "script_function": "analysis/post_run_check_tuning.py::live_estimate_rolling"},
+    {"claim_id": "pitch1-standard-hybrid-default", "description": "pitch1 (external reviewer request): standard "
+     "hybrid (Ollama local-first, prompt-length check against the window, cloud fallback on hard errors only) vs the "
+     "post-run-check pipeline on the same 90 B3 v2 jobs at the default window (loaded 40960), with all-cloud and "
+     "local-only; replay, rolling cache breakpoint; pre-registered targets T1 to T3",
+     "compute": compute_pitch1_standard_hybrid_default, "pending_reason": _hfp_pending_reason,
+     "data_files": ["results/x2_evalset_tasks_real_v2.jsonl", *ROLLING_FILES],
+     "script_function": "analysis/pitch1_standard_hybrid.py::compare"},
+    {"claim_id": "pitch1-standard-hybrid-8192", "description": "pitch1 (external reviewer request): standard hybrid "
+     "vs the post-run-check pipeline on the same 90 B3 v2 jobs at the 8,192 window, with all-cloud and local-only; "
+     "replay, rolling cache breakpoint; pre-registered targets T1 to T3",
+     "compute": compute_pitch1_standard_hybrid_8192, "pending_reason": _hfp_pending_reason,
+     "data_files": ["results/x2_evalset_tasks_real_v2.jsonl", *ROLLING_FILES],
+     "script_function": "analysis/pitch1_standard_hybrid.py::compare"},
     {"claim_id": "hybrid-live-hours", "description": "ESTIMATE, not a measurement: hours and cloud spend (billed and "
      "upper bound) of the E design: hybrid-live-amd on evo-x2, 3 seeds, approved once the tuned post-run check "
      "exists; hybrid-live-intel SKIPPED (operator 2026-10-30, strict preflight not relaxed); not queued",

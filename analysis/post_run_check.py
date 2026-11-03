@@ -13,8 +13,8 @@ from pathlib import Path
 
 
 class _RecordedPostRunCheck:
-    def __init__(self, repo):
-        self.repo = Path(repo)
+    def __init__(self, repo, config=None):
+        self.repo, self.config = Path(repo), config
         if str(self.repo) not in sys.path:
             sys.path.insert(0, str(self.repo))
         sys.path.insert(0, str(self.repo / "analysis"))
@@ -29,10 +29,12 @@ class _RecordedPostRunCheck:
 
     def check(self, task_record: dict) -> dict:
         sp, users, schema = self._session(task_record["seed"])
-        d = self.prc.check_record(task_record, sp, users[task_record["turn_idx"]], schema)
+        d = self.prc.check_record(task_record, sp, users[task_record["turn_idx"]], schema, self.config)
         return {"escalate": d["decision"] == "escalate", "reason": ",".join(d["fired"]) or "pass",
                 "layers_fired": list(d["fired"])}
 
 
-def make_post_run_check(repo):
-    return _RecordedPostRunCheck(repo)
+def make_post_run_check(repo, config=None):
+    """config: the L3 config (src/dse/l3_invariants.CONFIG_V1 when None, as every existing row uses; CONFIG_TUNED
+    for the tuned check)."""
+    return _RecordedPostRunCheck(repo, config)
