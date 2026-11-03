@@ -1376,25 +1376,55 @@ def compute_qwen32b_refusal_share(repo):
     return {"value": f"{refused}/{total} ({refused/total*100:.0f}%)", "n": total, "detail": shares}
 
 
+def _scorers_module():
+    import sys
+    sys.path.insert(0, str(REPO / "evaluation" / "probes"))
+    import importlib
+    return importlib.import_module("scorers")
+
+
 def compute_self_report_truncation_awareness(repo):
-    """Real computation against both real, now-committed files. Found live: the real evo-x2 count is 720
-    self-report outputs (not 435 as previously reported) -- X2's file has 6 models' worth of rows in this
-    run vs T2S's 2, so the self-report row count is proportionally larger."""
+    """R1b arm3_self_report (prompt suffix asks for "AVAILABLE: yes|no, then the answer", harness/t2s_night2.py
+    R1B_ARM_SUFFIXES): how often the model's own AVAILABLE flag says "no" on a truncated prompt (truncating=True,
+    budget ratios 0.98/0.85/0.40), and how often it says "no" on an untruncated one (ratio 1.20, a false alarm).
+
+    Fixed 2026-11-02 after external review: this function used to count only outputs whose free text matched
+    "truncat|incomplet" and never read the AVAILABLE flag, so it reported "0/240 (T2S) + 0/720 (X2) = 0/960"
+    (no model reports the loss) while the same rows answer "AVAILABLE: no" on 687 of 720 truncated prompts.
+    That earlier 0/960 came from the broken scorer and must not be cited. The free-text keyword count is kept in
+    detail["free_text_keyword"] for traceability only; it measures word choice, not the self-report.
+    The flag is parsed by evaluation/probes/scorers.py::parse_available_flag; a row with no flag counts as
+    not saying "no" (none exist in these two files; detail[host]["no_flag"] records the count)."""
+    import re as _re
     audit = _r1b_audit_module()
+    sc = _scorers_module()
     t2s_path = repo / "results" / "t2s_night2_20260929T202603Z.jsonl"
     x2_path = repo / "results" / "t2s_night2_20260929T205109Z.jsonl"
-    import re as _re
-    counts = {}
+    detail = {}
     for label, path in [("evo-t2s", t2s_path), ("evo-x2", x2_path)]:
-        rows = audit.load_r1b_rows(str(path))
-        sr_rows = [r for r in rows if r.get("arm") == "arm3_self_report"]
-        aware = sum(1 for r in sr_rows if _re.search(r"truncat|incomplet", (r.get("output") or ""), _re.I))
-        counts[label] = (aware, len(sr_rows))
-    total_aware = sum(v[0] for v in counts.values())
-    total_n = sum(v[1] for v in counts.values())
-    return {"value": f"{counts['evo-t2s'][0]}/{counts['evo-t2s'][1]} (T2S) + "
-                     f"{counts['evo-x2'][0]}/{counts['evo-x2'][1]} (X2) = {total_aware}/{total_n}",
-           "n": total_n, "detail": counts}
+        rows = [r for r in audit.load_r1b_rows(str(path)) if r.get("arm") == "arm3_self_report"]
+        if not rows:
+            raise ValueError(f"{label}: no arm3_self_report rows in {path}")
+        trunc = [r for r in rows if r.get("truncating") is True]
+        intact = [r for r in rows if r.get("truncating") is False]
+        if len(trunc) + len(intact) != len(rows):
+            raise ValueError(f"{label}: rows without a boolean truncating field")
+        flag = sc.parse_available_flag
+        detail[label] = {
+            "truncated_no": sum(1 for r in trunc if flag(r.get("output")) == "no"), "truncated_n": len(trunc),
+            "intact_no": sum(1 for r in intact if flag(r.get("output")) == "no"), "intact_n": len(intact),
+            "no_flag": sum(1 for r in rows if flag(r.get("output")) is None),
+            "free_text_keyword": sum(1 for r in rows
+                                     if _re.search(r"truncat|incomplet", r.get("output") or "", _re.I)),
+            "n": len(rows),
+        }
+    t, x = detail["evo-t2s"], detail["evo-x2"]
+    tn, tt = t["truncated_no"] + x["truncated_no"], t["truncated_n"] + x["truncated_n"]
+    inn, it = t["intact_no"] + x["intact_no"], t["intact_n"] + x["intact_n"]
+    return {"value": f"AVAILABLE: no on {t['truncated_no']}/{t['truncated_n']} (T2S) + "
+                     f"{x['truncated_no']}/{x['truncated_n']} (X2) = {tn}/{tt} truncated prompts "
+                     f"({100 * tn / tt:.1f}%); false no on untruncated {inn}/{it}",
+            "n": t["n"] + x["n"], "detail": detail}
 
 
 def compute_pack_trace_weighted_stats(repo):
@@ -8895,11 +8925,15 @@ NUMBER_ENTRIES = [
      "data_files": ["results/t2s_night2_20260929T205109Z.jsonl"],
      "script_function": "analysis/r1b_wrong_answer_audit.py::refusal_share_by_model",
      "reported_value": "41/199 (21%)"},
-    {"claim_id": "self-report-truncation-awareness", "description": "self-report arm truncation-awareness, both hosts",
+    {"claim_id": "self-report-truncation-awareness", "description": "R1b self-report arm: AVAILABLE flag says no "
+                    "on truncated prompts (and false no on untruncated), both hosts. Rescored 2026-11-02 from the "
+                    "recorded outputs with the fixed scorer; the earlier '0/240 (T2S) + 0/720 (X2) = 0/960' came "
+                    "from a broken scorer that ignored the AVAILABLE flag and is withdrawn",
      "compute": compute_self_report_truncation_awareness,
      "data_files": ["results/t2s_night2_20260929T202603Z.jsonl", "results/t2s_night2_20260929T205109Z.jsonl"],
      "script_function": "analysis/numbers_register.py::compute_self_report_truncation_awareness",
-     "reported_value": "0/240 (T2S) + 0/720 (X2) = 0/960"},
+     "reported_value": "AVAILABLE: no on 174/180 (T2S) + 513/540 (X2) = 687/720 truncated prompts (95.4%); "
+                       "false no on untruncated 3/240"},
     {"claim_id": "T2S-vs-X2-default-ctx", "description": "K1 v3 per-model ollama_default_ctx, evo-t2s vs evo-x2",
      "compute": compute_t2s_x2_default_ctx_table,
      "data_files": ["results/apu_results__t2s_k1_ollama_evo-t2s_20261001T074622Z.jsonl",

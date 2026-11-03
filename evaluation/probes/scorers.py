@@ -420,6 +420,22 @@ def strip_available_prefix(output: str) -> str:
     return _AVAILABLE_PREFIX.sub("", output, count=1)
 
 
+# The self-report flag itself. Found 2026-11-02 (external review): the register's truncation-awareness count
+# (analysis/numbers_register.py::compute_self_report_truncation_awareness) searched the free text for
+# "truncat|incomplet" and never read this flag, so a model answering "AVAILABLE: no" on a truncated prompt was
+# counted as not reporting the loss. The flag is the self-report the arm asks for; the free-text keyword is not.
+# The negative lookahead (not \b) is deliberate: real outputs include "AVAILABLE:yes12.4", where \b fails.
+_AVAILABLE_FLAG = re.compile(r"^\s*AVAILABLE\s*:\s*(yes|no)(?![a-z])", re.I)
+
+
+def parse_available_flag(output):
+    """'yes' or 'no' from a self-report output's leading 'AVAILABLE: yes|no', or None when it has no such flag."""
+    if not isinstance(output, str):
+        return None
+    m = _AVAILABLE_FLAG.match(output)
+    return m.group(1).lower() if m else None
+
+
 # ---------------------------------------------------------------- dispatch
 
 def score(probe: dict, output: str, judge_client=None):
