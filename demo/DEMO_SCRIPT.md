@@ -70,7 +70,7 @@ with trimming against 40 of 40 without).
 Say: "A whole long task in a top cloud model costs about $2.53. Fixing one wrong answer later costs 1.76 times a fresh
 cloud run of the same task, and actions already taken cannot be undone. How much accuracy gap you accept decides where
 it runs; we measure that gap per device." Move the slider to 12, then back to 5. Priced: cloud-cost-per-real-task
-(Sonnet, realistic caching, assumed 0.7 cache hit rate). Measured: late-escalation-cost-vs-fresh (1.76x on the mean,
+(Sonnet, realistic caching, assumed 0.7 cache hit rate; OLD). With the rolling cache breakpoint the client uses from 2026-11-02 the same task prices at $0.72 median (NEW, cloud-cost-per-real-task-rolling-cache); say "about 72 cents" once the dashboard reads that row. Measured: late-escalation-cost-vs-fresh (1.76x on the mean,
 matched on 119 rows over 53 tasks), cloud-redo-full-context (84.8% fixed, 95% Wilson CI 79.1% to 89.1%; 28 of 30
 unfixed inherited earlier actions) and hybrid-route-at-start (the slider).
 

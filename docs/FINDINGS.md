@@ -18,12 +18,15 @@ loudly, with HTTP errors [xruntime-llamacpp-wrong-rate]. Every figure below is f
 30-task local run (one memory setting, one seed); "task-level" CIs treat tasks as independent, "session-level" CIs
 resample whole sessions (10000 resamples, seed 20261014, stratified by memory setting where there is more than one).
 
-- **16x fewer wrong answers, at the 8192 memory setting.** Naive local was wrong on 36.7% (33/90) tasks; route at
+- **16x fewer wrong answers, 8,192 window (memory-constrained).** Naive local was wrong on 36.7% (33/90) tasks; route at
   start (claude-sonnet-5-5 as the cloud model) was wrong on 2.2% (2/90): 33 vs 2 = 16.5x
   [hybrid-route-at-start-measured] [headline-ci-session-hybrid]. Session-level 95% CI for the ratio [6.0x, 19.0x]
   over 3 sessions (one per seed), very coarse; 3003 of 10000 resamples had 0 route-at-start wrong and are left out
   [headline-ci-session-hybrid]. At the default window naive local was wrong on 11.1% (10/90) tasks
-  [hybrid-savings-v1] [cost-target-scenario], so the 16x holds at 8192, not at the default.
+  [hybrid-savings-v1] [cost-target-scenario], so the 16x holds at 8192, not at the default. At the default window
+  (40960) the router keeps all 90 tasks local: wrong 10 vs 10, 1.0x, median 9.67 s both; router at 8,192 vs naive local
+  at the default window: wrong "10/2 = 5.0x", median "2.00x" [route-at-start-default-window]. The 5.6x faster
+  (27.27 s vs 4.84 s median, [task-latency-by-policy]) is also an 8,192 window (memory-constrained) figure.
 - **0/197 warnings, on Ollama.** Of the 197 wrong local task turns of the B3 v2 real run on Ollama 0.34.4 (evo-x2; 5
   memory settings x 5 seeds = 25 sessions), 0.0% (0/197) surfaced an HTTP error or an error field to the client;
   100.0% (197/197) were silent. On llama-server at 4096 the opposite held: "wrong 150/150 (100.0%)" with "harness-silent
@@ -38,7 +41,9 @@ resample whole sessions (10000 resamples, seed 20261014, stratified by memory se
 - **Cost: measured 20% below all-cloud at 88/90 vs 90/90, quality not matched.** Route at start at 8192 costs USD 0.00819 per task vs
   all-cloud USD 0.01020, 19.7% lower (n = 90 tasks), at 97.8% (88/90) correct vs 100.0% (90/90)
   [hybrid-route-at-start-measured]; session-level 95% CI for the saving [16.8%, 22.4%] over 3 sessions, very coarse
-  [headline-ci-session-hybrid]. Replay of recorded runs; only 23.3% (21/90) tasks were kept local.
+  [headline-ci-session-hybrid]. Replay of recorded runs; only 23.3% (21/90) tasks were kept local. Repriced under the
+  rolling cache breakpoint the live client now uses: "NEW USD 0.00750 vs all-cloud 0.00936/task, saving 19.9%"
+  [hybrid-route-at-start-rolling-cache].
 - **75% is a target scenario, not measured.** A detector that flagged exactly the wrong local tasks (none exists) at
   the default window would keep 88.9% (80/90) local and cost USD 0.00252 per task, 75.3% below all-cloud (n = 90
   tasks); it also assumes escalated tasks cost the measured redo mean and take the all-cloud outcome, on short B3 v2
@@ -6390,3 +6395,29 @@ own-plan-execute pilot".
 - **E:** hybrid-live-intel SKIPPED (operator 2026-10-30): qwen3:14b fails evo-t2s's strict preflight and the gate is
   not relaxed. hybrid-live-amd (q4_0 28928) is approved to run once the tuned post-run check exists; it waits on that
   and is not queued. Row `hybrid-live-hours`.
+
+## RESULT (2026-11-02): external review pitch fixes; rolling cache breakpoint; the operating point's saving is the check's
+
+Offline replay and repricing only: no machine time, no cloud call, USD 0. Every figure below is quoted from its row.
+
+- **Window labels.** The 16x fewer wrong answers and 5.6x faster are at the 8,192 window (memory-constrained). Row
+  `route-at-start-default-window` puts the same replay at Ollama's default window (loaded 40960): the router keeps
+  90/90 local, so router and naive local are the same policy there ("wrong naive / wrong route 10/10 = 1.0x; median
+  naive / route 1.00x"); router at 8,192 vs naive local at the default window: wrong "10/2 = 5.0x", median "2.00x"
+  (claude-sonnet-5-5).
+- **The 40.1% is the post-run check's.** Row `operating-point-check-attribution`: q4_0 28928 and the default window,
+  through the same pipeline, route 0 tasks and escalate the same 9 tasks ("SAME SET: 9 of 9 escalated tasks match by
+  seed and task id"). The q4_0 28928 escalations are imputed; the default window's have measured redo rows for 6 of 9,
+  so its cloud USD is 0.00442 per task (43.3%) vs 0.00409 (40.1%). KV q4_0 saves memory, not cloud spend.
+- **Rolling cache breakpoint.** The live message builder (scripts/cloud_redo.py::with_cache_control, also used by
+  scripts/all_cloud_b3.py and scripts/longtask_cloud.py) now puts the second cache breakpoint on the latest message
+  (src/cloud/prompt_cache.py), so a tool loop's rounds are written to the cache and read on the next call; before, it
+  sat on the last user message and the rounds after it were sent uncached (the long-task observation in
+  docs/EXPERIMENTS.md). The pricing model gains the same placement (analysis/cloud_task_cost.py case "rolling") in
+  place of the ASSUMED 0.7 hit rate, and analysis/rolling_cache_reprice.py reprices the recorded B3 v2 runs from
+  their per-call tokens. New rows keep OLD and NEW side by side: `all-cloud-b3-cost-rolling-cache`,
+  `hybrid-route-at-start-rolling-cache`, `operating-point-q4-28928-rolling-cache`,
+  `cloud-cost-per-real-task-rolling-cache`, `pitch-allcloud-bill-year-rolling-cache`. The old rows are unchanged.
+  Billed spend of past runs (the ledger, each row's usd) does not change. The NEW real-task figures assume steps
+  under the 5-minute cache lifetime and a byte-identical prefix, and no billed long run under the new placement
+  exists yet to check them.

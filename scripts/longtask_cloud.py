@@ -4,9 +4,9 @@ Pre-registered in docs/EXPERIMENTS.md, 2026-10-22, "Long-task cloud priced vs bi
 Same task definitions, tool loop and grader as harness/x2_longtask.py (x2_longtask.run_long_task with
 longtask_env's tasks; "long-horizon synthetic, trace-length matched", never SWE-Gym): CLOUD_TASKS (5 tasks spanning
 the step range) x seed 20260901 on claude-haiku-5-5, thinking disabled as scripts/all_cloud_b3.py does
-(all_cloud_b3.THINKING_OFF), temperature 0, max_tokens 384, prompt caching on (breakpoints on the system prompt and
-the last user message, all_cloud_b3.CloudRuntime unchanged except that a final call after the step cap keeps this
-task set's tools).
+(all_cloud_b3.THINKING_OFF), temperature 0, max_tokens 384, prompt caching on (breakpoints on the system prompt and,
+since 2026-11-02, a rolling breakpoint on the latest message; the recorded runs before that date used the last user
+message; all_cloud_b3.CloudRuntime unchanged except that a final call after the step cap keeps this task set's tools).
 
 Per task: provider tokens (input, uncached, cache read, cache write, output), billed USD (the client's billed cost,
 src/cloud/client.py billed_cost_usd, ledger column cost_usd), upper bound USD (every input token uncached, ledger
@@ -160,6 +160,7 @@ def run(client, out=OUT, price_file=PRICE_FILE, task_ids=CLOUD_TASKS, seed=SEED,
               "seed": seed, "tasks": list(task_ids), "task_label": L.LABEL, "models_planned": [HAIKU],
               "thinking": {HAIKU: ACB.THINKING_OFF.get(HAIKU), SONNET: ACB.THINKING_OFF.get(SONNET)},
               "temperature_sent": temp, "max_tokens": ag.MAX_TOKENS_PER_CALL, "prompt_caching": True,
+              "cache_breakpoints": CR.CACHE_BREAKPOINTS,
               "job_cap_usd": job_cap, "ledger_total_at_start_usd": ledger_total_at_start,
               "spend_cap_usd": client.spend_cap_usd, "ledger": client.ledger_path.name})
         emit({**warm, "ts_utc": ag.utc_iso()})

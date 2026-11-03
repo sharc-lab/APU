@@ -11,6 +11,11 @@ claude-haiku-5-5, mid claude-sonnet-5-5; Standard, 5-minute cache writes) for th
   realistic:  ASSUMPTION, a hit rate h (default 0.7) of the re-sent prefix is read from cache, the rest of the
               re-sent prefix and all new tokens are written at the cache-write premium;
   best:       every re-sent prefix is read from cache, only the new tokens are written.
+  rolling:    (added 2026-11-02, external review) the client's actual placement since that date, a rolling breakpoint on
+              the latest message (src/cloud/prompt_cache.py::rolling_split): each step reads the previous step's whole
+              prompt and writes only the new tokens; a step whose prompt shrank (history condensed) reads nothing and
+              writes its prompt. It replaces the realistic case's ASSUMED 0.7 hit rate with the placement's own
+              mechanics; it equals best except on shrinking steps, where it is more conservative.
 Re-sent prefix of a step = min(previous prompt, this prompt) when the previous prompt reaches the model's minimum
 cacheable prefix (cloud_budget_forecast.resent_tokens); a prompt under that minimum is never written to cache.
 Token basis: the trace file counts are qwen3 tokens; every count (input and output) is multiplied by the trace set's
@@ -28,6 +33,9 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "analysis"))
 import cloud_budget_forecast as cb  # noqa: E402
 
+sys.path.insert(0, str(REPO / "src"))
+from cloud import prompt_cache as pc  # noqa: E402
+
 TRACE_FILE = "results/traces/agent_step_lengths.parquet"
 OUTPUT_FILE = "results/traces/agent_step_outputs.parquet"
 CALIB_FILE = "results/anthropic_token_calibration_20261021.jsonl"
@@ -43,6 +51,8 @@ TRACE_SETS = (("nebius/SWE-rebench-openhands-trajectories", "nebius-rebench-open
 TIERS = ("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1")
 BASE_TIERS = TIERS[:2]  # the tiers row cloud-cost-per-real-task reports (its text is unchanged by the two additions)
 CASES = ("none", "realistic", "best")
+ROLLING_CASE = "rolling"   # priced beside CASES, never inside their text (rows cloud-cost-per-real-task* unchanged)
+ALL_CASES = CASES + (ROLLING_CASE,)
 HIT_RATE = 0.7  # ASSUMPTION: share of the re-sent prefix read from cache in the realistic case
 
 
@@ -73,6 +83,9 @@ def load_calibration(repo=REPO) -> dict:
 def task_cost(prices, model, prompts, outputs, case, hit_rate=HIT_RATE) -> float:
     """USD for one trajectory: prompts = full prompt tokens per step in order, outputs = output tokens per step."""
     mc = cb.min_cacheable(prices, model)
+    if case == ROLLING_CASE:
+        return sum(cb.call_cost(prices, model, "standard", p, o, cached=r, write=w)
+                   for (r, w, _u), p, o in zip(pc.rolling_split(list(prompts), mc), prompts, outputs))
     resent = cb.resent_tokens([(p, 0) for p in prompts], mc)
     total = 0.0
     for p, o, r in zip(prompts, outputs, resent):
@@ -113,7 +126,7 @@ def summarize(trajs: dict, prices, factors: dict, hit_rate=HIT_RATE) -> dict:
              "output_median": _q(bout, 0.5), "output_p90": _q(bout, 0.9),
              "output_per_step_median": _q(step_out, 0.5), "usd": {}}
         for m in TIERS:
-            for c in CASES:
+            for c in ALL_CASES:
                 v = [task_cost(prices, m, ps, os_, c, hit_rate) for ps, os_ in cal]
                 e["usd"][(m, c)] = {"median": _q(v, 0.5), "p90": _q(v, 0.9)}
         out[label] = e

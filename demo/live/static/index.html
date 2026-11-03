@@ -165,7 +165,7 @@ async function init() {
   meta = await (await fetch("/api/meta")).json();
   $("#scenario").innerHTML = Object.entries(meta.scenarios).map(([k, s]) => `<option value="${k}">${esc(s.label)}</option>`).join("");
   const h = meta.headline;
-  $("#hl-sub").textContent = h && h.status === "VERIFIED" ? `Recorded headline (MEASURED, replay of recorded runs): AMD workstation at memory 8,192, ${h.ours.n} tasks, cloud ${h.cloud_model}; register row ${h.row}. Cloud cost per task: billed by the provider from the demo ledger, prompt cache included (a second cloud call on the same task can read the first one's cache).` : "";
+  $("#hl-sub").textContent = h && h.status === "VERIFIED" ? `Recorded headline (MEASURED, replay of recorded runs): AMD workstation, 8,192 window (memory-constrained), ${h.ours.n} tasks, cloud ${h.cloud_model}; register row ${h.row}. Cloud cost per task: billed by the provider from the demo ledger, prompt cache included (a second cloud call on the same task can read the first one's cache).` : "";
   $("#mode").textContent = meta.mode === "replay" ? "REPLAYED" : meta.mode === "laptop" ? "LIVE (development)" : "LIVE";
   $("#mode").className = "mode " + (meta.mode === "replay" ? "REPLAYED" : "LIVE");
   $("#detector-note").textContent = meta.detector === "v2"

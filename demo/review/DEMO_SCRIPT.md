@@ -30,8 +30,10 @@ browser tab: `.\demo\live\start.ps1 -Mode replay -Port 8801` and `http://127.0.0
   it to the cloud from the first step."
 
 ## 3. The three numbers (bottom of each card, "recorded headline", 90 tasks)
-- **Say:** "On its own, at this memory size, the computer got 57 of 90 tasks right."
-  <!-- 57/90: register row hybrid-route-at-start-measured (naive local, ollama_ctx_8192) -->
+- **Say:** "On its own, at this memory size (an 8,192 window, memory-constrained), the computer got 57 of 90 tasks right."
+  <!-- 57/90: register row hybrid-route-at-start-measured (naive local, ollama_ctx_8192). 8,192 window (memory-constrained):
+  the 16x fewer wrong answers (33 vs 2) holds at this window only; at the default window (40960) the router keeps
+  every task local, wrong 10 vs 10, 1.0x: register row route-at-start-default-window -->
 - **Say:** "With our tool deciding at the start of each task: 88 of 90 right, at under one cent per task."
   <!-- 88/90 and USD 0.00819 per task: register row hybrid-route-at-start-measured (hybrid, ollama_ctx_8192 vs claude-sonnet-5-5) -->
 - **Say:** "Sending everything to the cloud: 90 of 90, at about one cent per task, and nothing stays on the computer."
