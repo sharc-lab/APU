@@ -5932,6 +5932,10 @@ VERIFIED to PENDING (results/t2s_r2_mechanism_cpu_v1.jsonl has no run_end).
 
 ## PRE-REGISTRATION: Intel laptop task accuracy, qwen3:14b B3 v2 tasks validation and default-window task real run on evo-t2s Intel CPU (4096) and Intel iGPU (32768) (2026-10-22, NOT YET RUN)
 
+**Correction (2026-11-02):** evo-t2s is an Intel mini PC, not a laptop. The heading above and the docs/EXPERIMENTS.md
+title quoted below keep the original wording only because scripts, harness files and other docs cite them by that
+exact name; read "Intel laptop" in both as "Intel mini PC".
+
 **Status:** PRE-REGISTRATION, committed before the jobs are loaded or run; staged only in queues/t2s_oct26_queue.json
 (entries t2s_o26_b3_val_cpu, t2s_o26_b3_real_cpu, t2s_o26_b3_val_igpu, t2s_o26_b3_real_igpu, after A5 and before the
 B5 cells). The full entry, in the Mandatory Run Template, is docs/EXPERIMENTS.md "2026-10-22: Intel laptop task

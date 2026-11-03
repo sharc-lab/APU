@@ -115,3 +115,12 @@ Words per section (md2tex count, register comments excluded; figure and table sp
 Figure spec words in the body went from 725 to 523 (F3, F4 and F8 removed). The audit decisions added about 110
 words, included in the "after" column. The body ends about a third of a column before the end of page 9, so real
 figures taller than the placeholders would need a further cut.
+
+## Review fixes of 2026-11-02
+
+External review fixes (operator approved): the self-report count in 4.1 withdrawn, "backend alone", "nearly free"
+and "wrong on two of three" softened or removed, evo-t2s called a mini PC throughout, a "No reliable detector"
+paragraph added at the end of 4.7, and every degenerate bootstrap interval replaced by a session-level one-sided
+Fisher exact test (row `session-exact-tests`). To pay for the added words, five sentences were cut (listed in
+`SUPPLEMENT.md`, "Changes of 2026-11-02"). Rebuilt the same way: 10 pages in total, the body ends on page 9 and the
+references start in page 9's right column, within one line of where they started in the build before these fixes.
