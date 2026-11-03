@@ -1,0 +1,476 @@
+{
+ "call2_tools": false,
+ "call2_mode": "off",
+ "baseline_table": {
+  "llama3.3:70b": {
+   "n_sessions": 3,
+   "n_turns": 30,
+   "n_calls": 60,
+   "rules": {
+    "rule1_json_keys": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    },
+    "rule2_log_event_called": {
+     "rate": 0.8333333333333334,
+     "n": 30,
+     "status": "fail"
+    },
+    "rule3_no_zebra": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    },
+    "rule4_metres": {
+     "rate": 1.0,
+     "n": 15,
+     "status": "pass"
+    },
+    "rule5_session_code": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    }
+   },
+   "tool_validity": {
+    "rate": 1.0,
+    "n_calls": 30
+   },
+   "tool_args": {
+    "rate": 1.0,
+    "n_valid_calls": 30
+   },
+   "task_tool_ok": {
+    "rate": 0.6666666666666666,
+    "n": 30
+   },
+   "recall": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "recall_key_looked_up": 0,
+   "canary_sys": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "canary_hist": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "two_call_turn_rate": 1.0,
+   "final_content_empty": 0,
+   "any_content_empty_calls": 0,
+   "thinking_present_calls": 0,
+   "text_fallback_calls": 0,
+   "http_error_turns": 0,
+   "call2_modes": [
+    "off"
+   ],
+   "two_call_turns": 30,
+   "call2_tool_call_turns": 0,
+   "call2_protocol_violations": 0,
+   "prompt_or_tools_changed_within_turn": 30,
+   "think": [
+    "None"
+   ],
+   "mean_call_s": 485.8327999999999
+  },
+  "qwen3:32b": {
+   "n_sessions": 3,
+   "n_turns": 30,
+   "n_calls": 54,
+   "rules": {
+    "rule1_json_keys": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    },
+    "rule2_log_event_called": {
+     "rate": 0.8,
+     "n": 30,
+     "status": "fail"
+    },
+    "rule3_no_zebra": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    },
+    "rule4_metres": {
+     "rate": 1.0,
+     "n": 15,
+     "status": "pass"
+    },
+    "rule5_session_code": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    }
+   },
+   "tool_validity": {
+    "rate": 1.0,
+    "n_calls": 43
+   },
+   "tool_args": {
+    "rate": 0.9069767441860465,
+    "n_valid_calls": 43
+   },
+   "task_tool_ok": {
+    "rate": 0.8,
+    "n": 30
+   },
+   "recall": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "recall_key_looked_up": 2,
+   "canary_sys": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "canary_hist": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "two_call_turn_rate": 0.8,
+   "final_content_empty": 0,
+   "any_content_empty_calls": 0,
+   "thinking_present_calls": 0,
+   "text_fallback_calls": 0,
+   "http_error_turns": 0,
+   "call2_modes": [
+    "off"
+   ],
+   "two_call_turns": 24,
+   "call2_tool_call_turns": 0,
+   "call2_protocol_violations": 0,
+   "prompt_or_tools_changed_within_turn": 24,
+   "think": [
+    "False"
+   ],
+   "mean_call_s": 261.7217222222222
+  }
+ },
+ "controls": {
+  "negative": {
+   "llama3.3:70b": {
+    "n_sessions": 3,
+    "canary_checks": 6,
+    "canary_misses": 0,
+    "loaded_context_values": [
+     32768
+    ],
+    "max_transcript_tokens_calibrated": 15145
+   },
+   "qwen3:32b": {
+    "n_sessions": 3,
+    "canary_checks": 6,
+    "canary_misses": 0,
+    "loaded_context_values": [
+     32768
+    ],
+    "max_transcript_tokens_calibrated": 17350
+   }
+  },
+  "positive": {
+   "llama3.3:70b": {
+    "n_sessions": 1,
+    "truncation_detected_turns": [
+     10
+    ],
+    "canary_sys_misses": 1,
+    "canary_hist_misses": 2,
+    "first_over_window_turns": [
+     6
+    ],
+    "loaded_context_values": [
+     8192
+    ]
+   },
+   "qwen3:32b": {
+    "n_sessions": 1,
+    "truncation_detected_turns": [
+     10
+    ],
+    "canary_sys_misses": 0,
+    "canary_hist_misses": 2,
+    "first_over_window_turns": [
+     5
+    ],
+    "loaded_context_values": [
+     8192
+    ]
+   }
+  }
+ },
+ "gates": {
+  "baseline": {
+   "llama3.3:70b": {
+    "pass": false,
+    "failing_rules": [
+     "rule2_log_event_called"
+    ],
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code"
+    ]
+   },
+   "qwen3:32b": {
+    "pass": false,
+    "failing_rules": [
+     "rule2_log_event_called"
+    ],
+    "rules_in_use": [
+     "rule1_json_keys",
+     "rule3_no_zebra",
+     "rule4_metres",
+     "rule5_session_code"
+    ]
+   }
+  },
+  "negative_control": {
+   "llama3.3:70b": {
+    "pass": true,
+    "n_sessions": 3,
+    "canary_checks": 6,
+    "canary_misses": 0,
+    "loaded_context_values": [
+     32768
+    ],
+    "max_transcript_tokens_calibrated": 15145
+   },
+   "qwen3:32b": {
+    "pass": true,
+    "n_sessions": 3,
+    "canary_checks": 6,
+    "canary_misses": 0,
+    "loaded_context_values": [
+     32768
+    ],
+    "max_transcript_tokens_calibrated": 17350
+   }
+  },
+  "positive_control": {
+   "llama3.3:70b": {
+    "pass": true,
+    "n_sessions": 1,
+    "truncation_detected_turns": [
+     10
+    ],
+    "canary_sys_misses": 1,
+    "canary_hist_misses": 2,
+    "first_over_window_turns": [
+     6
+    ],
+    "loaded_context_values": [
+     8192
+    ]
+   },
+   "qwen3:32b": {
+    "pass": true,
+    "n_sessions": 1,
+    "truncation_detected_turns": [
+     10
+    ],
+    "canary_sys_misses": 0,
+    "canary_hist_misses": 2,
+    "first_over_window_turns": [
+     5
+    ],
+    "loaded_context_values": [
+     8192
+    ]
+   }
+  },
+  "content_nonempty": {
+   "llama3.3:70b": {
+    "pass": true,
+    "final_content_empty": 0
+   },
+   "qwen3:32b": {
+    "pass": true,
+    "final_content_empty": 0
+   }
+  },
+  "thinking_off": {
+   "llama3.3:70b": {
+    "pass": true,
+    "thinking_present_calls": 0
+   },
+   "qwen3:32b": {
+    "pass": true,
+    "thinking_present_calls": 0
+   }
+  },
+  "task_tool": {
+   "llama3.3:70b": {
+    "pass": false,
+    "rate": 0.6666666666666666,
+    "n": 30,
+    "n_ok": 20,
+    "threshold": 0.9
+   },
+   "qwen3:32b": {
+    "pass": false,
+    "rate": 0.8,
+    "n": 30,
+    "n_ok": 24,
+    "threshold": 0.9
+   }
+  }
+ },
+ "diagnostic_mode": "on",
+ "diagnostic_other_call2_variant_table": {
+  "llama3.3:70b": {
+   "n_sessions": 3,
+   "n_turns": 30,
+   "n_calls": 60,
+   "rules": {
+    "rule1_json_keys": {
+     "rate": 0.0,
+     "n": 30,
+     "status": "fail"
+    },
+    "rule2_log_event_called": {
+     "rate": 0.9666666666666667,
+     "n": 30,
+     "status": "pass"
+    },
+    "rule3_no_zebra": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    },
+    "rule4_metres": {
+     "rate": 1.0,
+     "n": 15,
+     "status": "pass"
+    },
+    "rule5_session_code": {
+     "rate": 0.0,
+     "n": 30,
+     "status": "fail"
+    }
+   },
+   "tool_validity": {
+    "rate": 0.7166666666666667,
+    "n_calls": 60
+   },
+   "tool_args": {
+    "rate": 1.0,
+    "n_valid_calls": 43
+   },
+   "task_tool_ok": {
+    "rate": 0.9666666666666667,
+    "n": 30
+   },
+   "recall": {
+    "rate": 0.0,
+    "n": 6
+   },
+   "recall_key_looked_up": 0,
+   "canary_sys": {
+    "rate": 0.0,
+    "n": 6
+   },
+   "canary_hist": {
+    "rate": 0.0,
+    "n": 6
+   },
+   "two_call_turn_rate": 1.0,
+   "final_content_empty": 30,
+   "any_content_empty_calls": 0,
+   "thinking_present_calls": 0,
+   "text_fallback_calls": 0,
+   "http_error_turns": 0,
+   "call2_modes": [
+    "on"
+   ],
+   "two_call_turns": 30,
+   "call2_tool_call_turns": 30,
+   "call2_protocol_violations": 0,
+   "prompt_or_tools_changed_within_turn": 0,
+   "think": [
+    "None"
+   ],
+   "mean_call_s": 354.70676666666014
+  },
+  "qwen3:32b": {
+   "n_sessions": 3,
+   "n_turns": 30,
+   "n_calls": 54,
+   "rules": {
+    "rule1_json_keys": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    },
+    "rule2_log_event_called": {
+     "rate": 0.8,
+     "n": 30,
+     "status": "fail"
+    },
+    "rule3_no_zebra": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    },
+    "rule4_metres": {
+     "rate": 1.0,
+     "n": 15,
+     "status": "pass"
+    },
+    "rule5_session_code": {
+     "rate": 1.0,
+     "n": 30,
+     "status": "pass"
+    }
+   },
+   "tool_validity": {
+    "rate": 1.0,
+    "n_calls": 43
+   },
+   "tool_args": {
+    "rate": 0.9069767441860465,
+    "n_valid_calls": 43
+   },
+   "task_tool_ok": {
+    "rate": 0.8,
+    "n": 30
+   },
+   "recall": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "recall_key_looked_up": 2,
+   "canary_sys": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "canary_hist": {
+    "rate": 1.0,
+    "n": 6
+   },
+   "two_call_turn_rate": 0.8,
+   "final_content_empty": 0,
+   "any_content_empty_calls": 0,
+   "thinking_present_calls": 0,
+   "text_fallback_calls": 0,
+   "http_error_turns": 0,
+   "call2_modes": [
+    "on"
+   ],
+   "two_call_turns": 24,
+   "call2_tool_call_turns": 0,
+   "call2_protocol_violations": 0,
+   "prompt_or_tools_changed_within_turn": 0,
+   "think": [
+    "False"
+   ],
+   "mean_call_s": 155.63338888888634
+  }
+ },
+ "diagnostic_call2_notools_table": null
+}
