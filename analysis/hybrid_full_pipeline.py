@@ -47,6 +47,13 @@ CONFIGS = {
     "f16 4096": (B3_V2_FILE, "ollama_ctx_4096_call2_notools", "ollama_ctx_4096"),
 }
 PRIMARY = "q4_0 28928"
+# Comparison configs (external review 2026-11-02): replayed through the same pipeline but not cells of
+# hybrid-full-pipeline-v1 (its row text and target are unchanged). "f16 default" = the B3 v2 real run at Ollama's own
+# window (loaded 40960), to test whether the q4_0 28928 operating point's saving comes from the post-run check rather
+# than from q4_0 itself.
+COMPARE_CONFIGS = {
+    "f16 default": (B3_V2_FILE, "ollama_default_call2_notools", "ollama_default"),
+}
 DATA_FILES = tuple(sorted({v[0] for v in CONFIGS.values()}))
 
 # The grader's per-task scoring fields: A must not read them (it would be reading the answer key).
@@ -173,7 +180,7 @@ def config_sessions(repo, cfg: str) -> tuple:
     """({(seed, task): task turn row}, {seed: first K (turn_idx, prompt)}, ceiling) of a config's completed
     sessions on SEEDS."""
     from fit_predictor import turn_prompt
-    rel, arm, _tier = CONFIGS[cfg]
+    rel, arm, _tier = CONFIGS[cfg] if cfg in CONFIGS else COMPARE_CONFIGS[cfg]
     rows = _rows(Path(repo) / rel)
     done = {(r["seed"], r.get("attempt_id")) for r in rows if r.get("record") == "r2a_session" and r["arm_id"] == arm}
     sess = {}
@@ -253,6 +260,35 @@ def hybrid_full_pipeline(repo=REPO, check=None, budget=None) -> dict:
     return {"status": "VERIFIED", "cells": cells, "all_cloud": allc, "imputed_usd": refs["imputed_usd"],
             "check_source": getattr(check, "source", type(check).__name__),
             "budget_source": getattr(budget, "source", type(budget).__name__)}
+
+
+def escalation_set_comparison(repo=REPO, a=PRIMARY, b="f16 default", check=None, budget=None) -> dict:
+    """Do two configs, run through the same pipeline (route at start + post-run check + rollback + cloud under the
+    budget), escalate the same tasks? Each config's cell plus the escalated (seed, task_id) sets, their intersection
+    and differences. Replay of recorded runs; no call is made."""
+    check = check if check is not None else load_post_run_check(repo)
+    if check is None or (budget is None and load_task_budget(repo) is None):
+        return {"status": "PENDING", "reason": PENDING_A if check is None else PENDING_C}
+    refs = replay_refs(repo)
+    cloud = refs["cloud"]
+    cells = {}
+    for cfg in (a, b):
+        _rel, _arm, tier = CONFIGS[cfg] if cfg in CONFIGS else COMPARE_CONFIGS[cfg]
+        local, first, ceiling = config_sessions(repo, cfg)
+        tasks = sorted(k for k in local if k in cloud)
+        esc = escalation_outcomes(repo, tier, cloud, refs["redo"], refs["rb"], refs["imputed_usd"])
+        r = run_pipeline(tasks, local, first, ceiling, cloud, esc, check,
+                         budget if budget is not None else load_task_budget(repo))
+        escalated = sorted(k for k, v in r["per_task"].items() if v == "escalated")
+        cells[cfg] = {**r, "config": cfg, "ceiling": ceiling, "escalated_set": escalated,
+                      "esc_src": {k: esc[k]["src"] for k in escalated},
+                      "naive_local": {"correct": sum(local[k]["end_state_ok"] is True for k in tasks),
+                                      "n": len(tasks)}}
+    sa, sb = set(cells[a]["escalated_set"]), set(cells[b]["escalated_set"])
+    return {"status": "VERIFIED", "a": cells[a], "b": cells[b], "same": sa == sb, "both": sorted(sa & sb),
+            "only_a": sorted(sa - sb), "only_b": sorted(sb - sa),
+            "all_cloud_usd": statistics.fmean(c["usd"] for c in cloud.values()), "imputed_usd": refs["imputed_usd"],
+            "check_source": getattr(check, "source", type(check).__name__)}
 
 
 def hybrid_full_pipeline_text(d: dict) -> str:

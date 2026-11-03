@@ -29,12 +29,14 @@ loudly, with HTTP errors (`xruntime-llamacpp-wrong-rate`). Every figure below is
 resample whole sessions (10000 resamples, seed 20261014, stratified by memory setting where there is more than one).
 
 ### Claim L-01 (LEAD): local wrong answers are frequent under a small memory setting, and silent on Ollama
-**At the 8192 memory setting route at start gives 16x fewer wrong answers than naive local, and on Ollama 0.34.4
+**At the 8,192 window (memory-constrained) route at start gives 16x fewer wrong answers than naive local, and on Ollama 0.34.4
 (evo-x2) 0/197 wrong local tasks surfaced a warning.**
 
 - Evidence: naive local wrong 36.7% (33/90), route at start wrong 2.2% (2/90), 16.5x, session-level CI [6.0x, 19.0x]
   over 3 sessions (very coarse) (`hybrid-route-at-start-measured`, `headline-ci-session-hybrid`); at the default
-  window naive local wrong 11.1% (10/90) (`hybrid-savings-v1`, `cost-target-scenario`); surfaced 0.0% (0/197),
+  window naive local wrong 11.1% (10/90) (`hybrid-savings-v1`, `cost-target-scenario`); at the default window (40960)
+  the router keeps 90/90 local, wrong 10 vs 10, 1.0x, and router at 8,192 vs naive local at the default window is wrong
+  "10/2 = 5.0x", median "2.00x" (`route-at-start-default-window`); surfaced 0.0% (0/197),
   task-level Wilson [0.0%, 1.9%], session-level point at 0 over 25 sessions (`x2-evalset-tasks-real-v2-silent-total`).
 - Cross-runtime (added 2026-10-26): the 4096 effect replicates on llama-server (build b10970, evo-x2), with loud
   failures. Row `xruntime-llamacpp-wrong-rate`: "(b) 4096 over the server default (a) +92.0 points (95% CI +88.7 to
@@ -47,7 +49,7 @@ resample whole sessions (10000 resamples, seed 20261014, stratified by memory se
   +0.0, 5 vs 5 sessions); reading: matches Ollama's default-window rate".
 - Files: results/x2_evalset_tasks_real_v2.jsonl, results/all_cloud_b3_v1.jsonl, results/cloud_redo_full_context_v1*.jsonl, results/own_rollback_redo_v1.jsonl, results/xruntime_llamacpp_qwen3_14b.jsonl.
 - Hardware: evo-x2.
-- **Status: ON-TARGET (evo-x2), measured; the 16x is a replay at 8192 only; "silent" holds on Ollama 0.34.4, not on llama-server.**
+- **Status: ON-TARGET (evo-x2), measured; the 16x (and the 5.6x faster) is a replay at the 8,192 window (memory-constrained) only; "silent" holds on Ollama 0.34.4, not on llama-server.**
 
 ### Claim L-02 (LEAD): the cloud rescues 99% of wrong local tasks with rollback, under a stand-in
 **The cloud rescued 99.0% (195/197) of the wrong local tasks.**
@@ -62,9 +64,10 @@ resample whole sessions (10000 resamples, seed 20261014, stratified by memory se
 - **Status: ON-TARGET (evo-x2), measured, STAND-IN for the rollback part.**
 
 ### Claim L-03 (LEAD, cost): measured 20% below all-cloud at 88/90 vs 90/90; 75% is a target scenario only
-**Route at start at 8192 costs 19.7% less than all-cloud (n = 90 tasks), at 97.8% (88/90) vs 100.0% (90/90) correct.**
+**Route at start at the 8,192 window (memory-constrained) costs 19.7% less than all-cloud (n = 90 tasks), at 97.8% (88/90) vs 100.0% (90/90) correct.**
 
-- Evidence: USD 0.00819 vs 0.01020 per task (`hybrid-route-at-start-measured`); session-level CI for the saving
+- Evidence: USD 0.00819 vs 0.01020 per task (`hybrid-route-at-start-measured`); repriced under the rolling cache
+  breakpoint "NEW USD 0.00750 vs all-cloud 0.00936/task, saving 19.9%" (`hybrid-route-at-start-rolling-cache`); session-level CI for the saving
   [16.8%, 22.4%], 3 sessions, very coarse (`headline-ci-session-hybrid`). The 75.3% figure is a target scenario
   under a perfect detector that does not exist (`cost-target-scenario`), not a result.
 - Files: results/x2_evalset_tasks_real_v2.jsonl, results/all_cloud_b3_v1.jsonl, results/cloud_redo_full_context_v1*.jsonl.

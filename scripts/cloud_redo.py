@@ -61,6 +61,7 @@ import x2_r2_agent as ag  # noqa: E402
 import x2_r2_evalset as EV  # noqa: E402
 from cloud import client as cc  # noqa: E402
 from cloud import console_gate  # noqa: E402
+from cloud import prompt_cache  # noqa: E402
 from cloud import task_budget as TB  # noqa: E402
 
 SOURCE = REPO / "results" / "x2_evalset_tasks_real_v2.jsonl"
@@ -342,14 +343,15 @@ def local_regrade(es, item, env_before, row) -> bool:
 
 # ── live path ───────────────────────────────────────────────────────────────────────────────────────
 
+CACHE_BREAKPOINTS = "system prompt and latest message (rolling)"
+
+
 def with_cache_control(messages: list[dict]) -> list[dict]:
-    """Prompt caching on: cache breakpoints on the system prompt and on the last user message."""
-    out = copy.deepcopy(messages)
-    last_user = max(i for i, m in enumerate(out) if m["role"] == "user")
-    for i in (0, last_user):
-        if isinstance(out[i]["content"], str):
-            out[i]["content"] = [{"type": "text", "text": out[i]["content"], "cache_control": {"type": "ephemeral"}}]
-    return out
+    """Prompt caching on: cache breakpoints on the system prompt and a ROLLING breakpoint on the latest message with
+    text (user, tool result or assistant), src/cloud/prompt_cache.py::with_rolling_breakpoints, at most 4 per request.
+    Until 2026-11-02 the second breakpoint sat on the last user message, so a tool loop's rounds after the request
+    were never cached (runs recorded before that date used that placement; their run_start says so)."""
+    return prompt_cache.with_rolling_breakpoints(messages)
 
 
 def _usage(resp: dict) -> dict:
@@ -728,7 +730,8 @@ def run(live: bool, source: Path = SOURCE, out: Path = OUT, price_file: Path = P
         "model_id": model_id, "source": source.relative_to(REPO).as_posix() if source.is_relative_to(REPO)
         else source.name, "source_git_blob": git_blob(source), "n_wrong_tasks": n_all,
         "n_tasks_this_run": len(wrong),
-        "wrong_tasks_per_tier": per_tier, "prompt_caching": True, "spend_cap_usd": client.spend_cap_usd,
+        "wrong_tasks_per_tier": per_tier, "prompt_caching": True, "cache_breakpoints": CACHE_BREAKPOINTS,
+        "spend_cap_usd": client.spend_cap_usd,
         "hard_spend_cap_usd": cc.HARD_SPEND_CAP_USD,
         "pricing_model": ("cache on, cold per task: call 1 writes its prompt (5m write rate), call k reads call k-1's "
                           "prompt (hit rate) and writes the rest; usd_all_uncached = every input token at input rate"),

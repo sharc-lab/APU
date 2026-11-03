@@ -79,10 +79,12 @@ def test_runtime_final_call_keeps_tools_with_choice_none(tmp_path):
     assert seen[-1]["kw"]["tool_choice"] == "none" and seen[-1]["kw"]["tools"]
     assert seen[-1]["kw"]["custom_llm_provider"] == "anthropic" and seen[-1]["kw"]["max_tokens"] == 384
     assert seen[-1]["kw"]["temperature"] == 0.0
-    # cache breakpoints on system and last user message
+    # cache breakpoints on the system prompt and, rolling, on the latest message (here the tool result), not on the
+    # earlier user message (2026-11-02: the tool round after the request is now cached)
     sent = seen[-1]["messages"]
     assert sent[0]["content"][0]["cache_control"] == {"type": "ephemeral"}
-    assert sent[1]["content"][0]["cache_control"] == {"type": "ephemeral"}
+    assert sent[-1]["role"] == "tool" and sent[-1]["content"][0]["cache_control"] == {"type": "ephemeral"}
+    assert sent[1]["content"] == "u"
     c = rt.drain()[0]
     assert c["cache_read_tokens"] + c["cache_write_tokens"] + c["uncached_input_tokens"] == c["input_tokens"]
     assert c["usd_ledger_upper_bound"] == pytest.approx(cc.estimate_cost_usd("claude-haiku-5-5", c["input_tokens"], 12))

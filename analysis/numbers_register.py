@@ -4547,6 +4547,171 @@ def compute_pitch_allcloud_bill_year(repo):
         f"not a saving: local quality on long tasks not measured"), "n": "1 priced point"}
 
 
+# ── rolling cache breakpoint repricing (external review 2026-11-02). New rows beside the old ones: every old row
+# keeps its value (the ASSUMED 0.7 hit rate, or the recorded runs' own placement); these give OLD and NEW side by side.
+# Billed spend of past runs (the cloud ledger, each row's usd) is what was paid and does not change. ──
+ROLLING_FILES = ["results/all_cloud_b3_v1.jsonl", "results/cloud_redo_full_context_v1.jsonl",
+                 "results/cloud_redo_full_context_v1_part2.jsonl", "results/cloud_redo_full_context_v1_part3.jsonl",
+                 "results/own_rollback_redo_v1.jsonl", "results/cloud_prices_anthropic_20261014.json"]
+REAL_TASK_FILES = ["results/traces/agent_step_lengths.parquet", "results/traces/agent_step_outputs.parquet",
+                   "results/anthropic_token_calibration_20261021.jsonl", "results/cloud_prices_anthropic_20261014.json"]
+_ROLL_CACHE = {}
+
+
+def _rolling():
+    import sys as _sys
+    for sub in ("analysis", "src", "harness", "scripts", ""):
+        p = str(REPO / sub) if sub else str(REPO)
+        if p not in _sys.path:
+            _sys.path.insert(0, p)
+    import rolling_cache_reprice as rr
+    return rr
+
+
+def rolling_data(repo) -> dict:
+    key = str(repo)
+    if key not in _ROLL_CACHE:
+        rr = _rolling()
+        ac = rr.all_cloud_rolling(repo)
+        rd = rr.redo_rolling(repo)
+        _ROLL_CACHE[key] = {"ac": ac, "rd": rd, "summary": rr.b3_all_cloud_summary(ac)}
+    return _ROLL_CACHE[key]
+
+
+def _rolling_head(rr) -> str:
+    return (f"REPRICED from recorded per-call tokens, no call made: OLD = the recorded runs' own placement "
+            f"({rr.OLD_PLACEMENT}), NEW = {rr.pc.ROLLING_LABEL} (src/cloud/prompt_cache.py, the live client's "
+            f"placement from 2026-11-02); {rr.ASSUMPTIONS}; billed spend of these runs unchanged (what was paid)")
+
+
+def compute_all_cloud_b3_cost_rolling_cache(repo):
+    rr = _rolling()
+    d = rolling_data(repo)
+    parts = []
+    for m, s in d["summary"].items():
+        parts.append(f"{m}: OLD USD {s['usd_old']:.5f}/task (recorded usd {s['usd_recorded']:.5f}), NEW USD "
+                     f"{s['usd_new']:.5f}/task ({100 * (s['usd_new'] / s['usd_old'] - 1):+.1f}%), n={s['n']}, "
+                     f"{s['correct']}/{s['n']} correct (unchanged); input tokens OLD read {s['read_old']:,}, write "
+                     f"{s['write_old']:,}, uncached {s['uncached_old']:,}; NEW read {s['read_new']:,}, write "
+                     f"{s['write_new']:,}, uncached {s['uncached_new']:,}")
+    return {"value": (f"{_rolling_head(rr)}; B3 v2 all-cloud (all_cloud_b3_v1, seeds 20260901-03; a session's first "
+                      f"call keeps its recorded split, every later call across task turns reads the previous call's "
+                      f"prompt; what changes is the tool round after each task's request, sent uncached and never "
+                      f"written under OLD) / " + " / ".join(parts)),
+            "n": f"{sum(s['n'] for s in d['summary'].values())} task turns"}
+
+
+def compute_hybrid_route_at_start_rolling_cache(repo):
+    rr = _rolling()
+    d = rolling_data(repo)
+    r = rr.route_at_start_rolling(repo, d["ac"], d["rd"])
+    parts = []
+    for c in r["cells"]:
+        o, n = c["usd_recorded"], c["usd_new"]
+        parts.append(f"vs {c['model']}: route at start OLD USD {o['hybrid']:.5f} vs all-cloud {o['all_cloud']:.5f}/task, "
+                     f"saving {100 * o['saving']:.1f}%; NEW USD {n['hybrid']:.5f} vs all-cloud {n['all_cloud']:.5f}/task, "
+                     f"saving {100 * n['saving']:.1f}%; accuracy {n['correct']}/{n['n']} (unchanged), routed "
+                     f"{n['routed']}, escalated {n['escalated']}")
+    return {"value": (f"{_rolling_head(rr)}; hybrid-route-at-start-measured's replay unchanged (per-task route at "
+                      f"start + window flag) at evo-x2 {r['tier']} (window {r['window']}, memory-constrained), qwen3:14b, "
+                      f"B3 v2, seeds 20260901-03, with every cloud row's USD replaced by its rolling USD (all-cloud rows "
+                      f"and full-history redo rows) / " + " / ".join(parts)), "n": f"{len(r['cells'])} cloud tiers x 90 tasks"}
+
+
+def compute_operating_point_q4_28928_rolling_cache(repo):
+    rr = _rolling()
+    d = rolling_data(repo)
+    op = rr.operating_point_rolling(repo, d["ac"], d["rd"])
+    parts = []
+    for cfg in op["usd_recorded"]["cells"]:
+        o, n = op["usd_recorded"]["cells"][cfg], op["usd_new"]["cells"][cfg]
+        parts.append(f"{cfg} (loaded window {n['ceiling']}): OLD cloud USD {o['usd_task']:.5f}/task = {o['pct_bill']:.1f}% "
+                     f"of the all-cloud bill; NEW USD {n['usd_task']:.5f}/task = {n['pct_bill']:.1f}%; kept local "
+                     f"{n['kept_local']}/{n['n']}, accuracy {n['correct']}/{n['n']}, escalated {n['escalated']} (imputed "
+                     f"{n['imputed_escalations']}) (unchanged)")
+    o, n = op["usd_recorded"], op["usd_new"]
+    return {"value": (f"{_rolling_head(rr)}; hybrid-full-pipeline-v1's replay unchanged (post-run check escalations), "
+                      f"replay, escalations imputed where no redo exists, claude-sonnet-5-5, seeds 20260901-03; "
+                      f"all-cloud bill OLD USD {o['all_cloud']:.5f}/task, NEW {n['all_cloud']:.5f}/task; imputed "
+                      f"escalation USD OLD {o['imputed_usd']:.5f}, NEW {n['imputed_usd']:.5f} (highest tier-mean "
+                      f"full-history redo USD) / " + " / ".join(parts)
+                      + " / the share of the bill rises because the all-cloud denominator falls more than the "
+                        "escalation numerator: a full-history redo writes its history once on its first call under "
+                        "either placement"), "n": f"{len(parts)} configs x 90 tasks"}
+
+
+ROLLING_TIERS_SHOWN = ("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1")
+
+
+_CT_CACHE = {}
+
+
+def _ct_rolling(repo):
+    """(cloud_task_cost module, its compute() result), once per register run (the two rolling real-task rows)."""
+    key = str(repo)
+    if key not in _CT_CACHE:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cloud_task_cost", Path(repo) / "analysis" / "cloud_task_cost.py")
+        ct = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ct)
+        _CT_CACHE[key] = (ct, ct.compute(Path(repo)))
+    return _CT_CACHE[key]
+
+
+def compute_cloud_cost_per_real_task_rolling_cache(repo):
+    ct, res = _ct_rolling(repo)
+    parts = []
+    for label, e in res["sets"].items():
+        segs = []
+        for m in ROLLING_TIERS_SHOWN:
+            o, n = e["usd"][(m, "realistic")], e["usd"][(m, ct.ROLLING_CASE)]
+            segs.append(f"{m}: OLD (realistic, ASSUMED hit rate {res['hit_rate']}) ${o['median']:.4f} / ${o['p90']:.4f}, "
+                        f"NEW (rolling breakpoint) ${n['median']:.4f} / ${n['p90']:.4f}")
+        parts.append(f"{label} (n={e['n_tasks']} tasks, median {e['steps_median']:.0f} steps): " + "; ".join(segs))
+    return {"value": ("PRICED, NOT RUN (no generation call): USD per real agent task, median / p90, rows "
+                      "cloud-cost-per-real-task and cloud-cost-per-real-task-all-tiers' method and inputs unchanged; "
+                      "OLD = their realistic case, an ASSUMED 0.7 share of each re-sent prefix read from cache; NEW = "
+                      "the rolling breakpoint the live client uses from 2026-11-02 (src/cloud/prompt_cache.py: each step "
+                      "reads the previous step's whole prompt and writes only its new tokens; a step whose prompt "
+                      "shrank reads nothing); ASSUMPTIONS: steps under the 5-minute cache lifetime, byte-identical "
+                      "prefix, at most 20 blocks added per step (the traces carry no timing) / " + " / ".join(parts)),
+            "n": f"{sum(e['n_tasks'] for e in res['sets'].values())} tasks x {len(ROLLING_TIERS_SHOWN)} tiers"}
+
+
+def compute_pitch_allcloud_bill_year_rolling_cache(repo):
+    ct, res = _ct_rolling(repo)
+    im = _impact()
+    label, q = PITCH_YEAR_POINT.rsplit(" ", 1)
+    e = res["sets"][label]
+    old = e["usd"][(PITCH_YEAR_MODEL, "realistic")][q]
+    new = e["usd"][(PITCH_YEAR_MODEL, ct.ROLLING_CASE)][q]
+    v, days = PITCH_YEAR_VOLUME, im.DAYS_PER_MONTH
+
+    def fig(t):
+        m = t * v * days
+        return m, 12 * m, t * v * 365
+    om, oy, o365 = fig(old)
+    nm, ny, n365 = fig(new)
+    return {"value": (
+        f"PRICED, NOT RUN (no generation call): all-cloud bill on {PITCH_YEAR_MODEL}, {PITCH_YEAR_POINT} task size, "
+        f"{v:,} tasks/day; OLD (row pitch-allcloud-bill-year, realistic caching, ASSUMED cache hit rate "
+        f"{res['hit_rate']}): USD {old:.5f}/task, USD {om:,.2f} per {days}-day month, 12 months USD {oy:,.2f} "
+        f"(USD {oy / 1000:,.0f}K), 365 days USD {o365:,.2f}; NEW (rolling cache breakpoint on the latest message, "
+        f"src/cloud/prompt_cache.py, the live client's placement from 2026-11-02; row "
+        f"cloud-cost-per-real-task-rolling-cache): USD {new:.5f}/task, USD {nm:,.2f} per {days}-day month, 12 months "
+        f"USD {ny:,.2f} (USD {ny / 1000:,.0f}K), 365 days USD {n365:,.2f} (USD {n365 / 1000:,.1f}K); NEW / OLD "
+        f"{new / old:.3f}; an all-cloud bill, not a saving: local quality on long tasks not measured"),
+        "n": "1 priced point"}
+
+
+def compute_route_at_start_default_window(repo):
+    im = _impact()
+    d = im.route_default_window(repo)
+    if d["status"] != "VERIFIED":
+        raise ValueError(im.route_default_text(d))
+    return {"value": im.route_default_text(d), "n": f"{len(d['cells'])} cloud tiers x {d['cells'][0]['router']['n']} tasks"}
+
+
 def compute_hybrid_savings_tradeoff(repo):
     """Measured trade-off lead (operator decision 2026-10-22, savings curve lead): per device, cloud tier, task-size
     point and volume, savings per month and accuracy for all-cloud, naive local and the window-overflow-flag hybrid,
@@ -7995,6 +8160,77 @@ def _op_point_text(c, allc) -> str:
             f"of the all-cloud bill)")
 
 
+_ATTR_CACHE = {}
+
+
+def check_attribution_data(repo) -> dict:
+    """hybrid_full_pipeline.escalation_set_comparison(q4_0 28928, f16 default), once per register run (external
+    review 2026-11-02: is the operating point's saving the post-run check's or KV q4_0's?)."""
+    key = str(repo)
+    if key not in _ATTR_CACHE:
+        _fp, hfp = _fp_modules(repo)
+        _ATTR_CACHE[key] = hfp.escalation_set_comparison(repo)
+    return _ATTR_CACHE[key]
+
+
+def _attribution_clause(repo, c, o) -> str:
+    """The operating-point row's attribution: computed, never asserted."""
+    head = "replay, escalations imputed"
+    if c["routed"] != 0:
+        return f"{head}; routed {c['routed']}, so the cost is not the post-run check's alone"
+    d = check_attribution_data(repo)
+    if d["status"] != "VERIFIED":
+        return f"{head}; the whole cloud cost is the post-run check's {c['escalated']} escalations"
+    b = d["b"]
+    if d["same"]:
+        return (f"{head}; the whole cloud cost is the post-run check's {c['escalated']} escalations, and Ollama's default "
+                f"window (loaded {b['ceiling']}) with the same check escalates the same {len(d['both'])} tasks (same "
+                f"seeds and task ids), so the {o['pct_bill']:.1f}% is the check's, not KV q4_0's; row "
+                f"operating-point-check-attribution")
+    return (f"{head}; the whole cloud cost is the post-run check's {c['escalated']} escalations; Ollama's default window "
+            f"with the same check escalates {len(d['b']['escalated_set'])} tasks, {len(d['both'])} shared; row "
+            f"operating-point-check-attribution")
+
+
+def _task_list(keys) -> str:
+    return ", ".join(f"{s}:{t}" for s, t in keys) or "none"
+
+
+def compute_operating_point_check_attribution(repo):
+    """The 9-task comparison: the escalated (seed, task_id) sets of q4_0 28928 and of the default window, both through
+    the same route-at-start + post-run check + rollback + cloud pipeline (replay of recorded runs)."""
+    d = check_attribution_data(repo)
+    if d["status"] != "VERIFIED":
+        raise ValueError(f"PENDING: {d['reason']}")
+    a, b = d["a"], d["b"]
+
+    def cell(x):
+        src = {}
+        for s in x["esc_src"].values():
+            src[s] = src.get(s, 0) + 1
+        return (f"{x['config']} (loaded window {x['ceiling']}): kept local {x['kept_local']}/{x['n']}, accuracy "
+                f"{x['correct']}/{x['n']} ({100 * x['accuracy']:.1f}%), cloud USD {x['usd_task']:.5f}/task "
+                f"({100 * x['usd_task'] / d['all_cloud_usd']:.1f}% of the claude-sonnet-5-5 all-cloud bill USD "
+                f"{d['all_cloud_usd']:.5f}/task), routed {x['routed']}, escalated {x['escalated']} (escalation USD "
+                f"source: " + ", ".join(f"{k} {v}" for k, v in sorted(src.items())) + f"), naive local "
+                f"{x['naive_local']['correct']}/{x['naive_local']['n']}; escalated tasks (seed:task) "
+                + _task_list(x["escalated_set"]))
+    verdict = (f"SAME SET: {len(d['both'])} of {len(d['both'])} escalated tasks match by seed and task id"
+               if d["same"] else f"DIFFERENT: shared {len(d['both'])}; only {a['config']} "
+               f"{_task_list(d['only_a'])}; only {b['config']} {_task_list(d['only_b'])}")
+    return {"value": (
+        f"replay of recorded runs (not a live run), hybrid-full-pipeline-v1's pipeline unchanged (route at start, A = "
+        f"{d['check_source']}, rollback, claude-sonnet-5-5 under the per-task budget), B3 v2 tasks, qwen3:14b on evo-x2, "
+        f"seeds 20260901-03; imputed escalation USD {d['imputed_usd']:.5f} (highest tier-mean full-history redo USD); "
+        f"{verdict} / " + cell(a) + " / " + cell(b)
+        + " / reading: neither config routes a task, and the post-run check escalates the same tasks, so the "
+        "operating point's saving and its cloud cost come from the check, not from KV q4_0; the cloud USD differs "
+        "because some of the default window's escalations have measured redo rows where all of q4_0 28928's are "
+        "imputed"
+        if d["same"] and a["routed"] == 0 and b["routed"] == 0 else
+        f"{verdict} / " + cell(a) + " / " + cell(b)), "n": f"{a['n']} tasks x 2 configs"}
+
+
 def compute_operating_point_q4_28928(repo):
     o = operating_point_data(repo)
     if o["status"] != "VERIFIED":
@@ -8005,7 +8241,8 @@ def compute_operating_point_q4_28928(repo):
         f"{o['budget']}), B3 v2 tasks, qwen3:14b local on evo-x2, claude-sonnet-5-5 cloud, seeds 20260901-03 / named "
         f"operating point q4_0 28928 (KV q4_0 at num_ctx 28928): kept local {c['kept_local']}/{c['n']}, accuracy "
         f"{c['correct']}/{c['n']} ({100 * c['accuracy']:.1f}%), cloud USD {c['usd_task']:.5f}/task = {o['pct_bill']:.1f}% "
-        f"of the claude-sonnet-5-5 all-cloud bill (USD {a['usd_task']:.5f}/task, {a['correct']}/{a['n']}); routed "
+        f"of the claude-sonnet-5-5 all-cloud bill (USD {a['usd_task']:.5f}/task, {a['correct']}/{a['n']}) "
+        f"({_attribution_clause(repo, c, o)}); routed "
         f"{c['routed']}, escalated {c['escalated']} of which IMPUTED {c['imputed_escalations']} (caveat: no redo exists "
         f"for the q4_0 28928 history, so an escalated task takes the all-cloud outcome at USD {o['imputed_usd']:.5f}, the "
         f"highest tier-mean full-history redo USD); wrong and kept local {c['wrong_kept_local']}; naive local "
@@ -10187,6 +10424,50 @@ NUMBER_ENTRIES = [
      "data_files": ["results/x2_own_config_probe_q4_28928.jsonl", "results/x2_evalset_tasks_real_v2.jsonl",
                     ALL_CLOUD_B3_V1, CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2],
      "script_function": "analysis/numbers_register.py::operating_point_data"},
+    {"claim_id": "operating-point-check-attribution", "description": "External review 2026-11-02: is the q4_0 28928 "
+     "operating point's saving the post-run check's or KV q4_0's? The same replayed pipeline (route at start, post-run "
+     "check, rollback, claude-sonnet-5-5 under the per-task budget) on q4_0 28928 and on Ollama's default window "
+     "(B3 v2 real run, loaded 40960): kept local, accuracy, cloud USD and the escalated (seed, task_id) sets, compared",
+     "compute": compute_operating_point_check_attribution, "pending_reason": _hfp_pending_reason,
+     "data_files": ["results/x2_own_config_probe_q4_28928.jsonl", "results/x2_evalset_tasks_real_v2.jsonl",
+                    ALL_CLOUD_B3_V1, CLOUD_REDO_FULL_CONTEXT, CLOUD_REDO_FULL_CONTEXT_PART2,
+                    "results/own_rollback_redo_v1.jsonl"],
+     "script_function": "analysis/hybrid_full_pipeline.py::escalation_set_comparison"},
+    {"claim_id": "route-at-start-default-window", "description": "External review 2026-11-02: the router (per-task "
+     "route at start plus window flag, hybrid-route-at-start-measured's policy) vs naive local at Ollama's DEFAULT "
+     "window (ollama_default, loaded 40960), beside the 8,192 window (memory-constrained) where the 16x fewer wrong "
+     "answers and 5.6x faster headline were measured: wrong answers and median-latency ratios, by replay",
+     "compute": compute_route_at_start_default_window, "data_files": ROUTE_MEASURED_FILES,
+     "script_function": "analysis/impact_model.py::route_default_window"},
+    {"claim_id": "all-cloud-b3-cost-rolling-cache", "description": "External review 2026-11-02: the B3 v2 all-cloud "
+     "cost per task repriced from its recorded per-call tokens under the rolling cache breakpoint (system prompt + "
+     "latest message) the live client uses from 2026-11-02, OLD (recorded placement, system + last user message) vs "
+     "NEW; billed spend unchanged",
+     "compute": compute_all_cloud_b3_cost_rolling_cache, "data_files": ROLLING_FILES,
+     "script_function": "analysis/rolling_cache_reprice.py::all_cloud_rolling"},
+    {"claim_id": "hybrid-route-at-start-rolling-cache", "description": "External review 2026-11-02: "
+     "hybrid-route-at-start-measured at the 8,192 window (memory-constrained) with every cloud row repriced under the "
+     "rolling cache breakpoint: route-at-start and all-cloud USD per task and the saving, OLD vs NEW",
+     "compute": compute_hybrid_route_at_start_rolling_cache, "data_files": ROLLING_FILES + ROUTE_MEASURED_FILES[:1],
+     "script_function": "analysis/rolling_cache_reprice.py::route_at_start_rolling"},
+    {"claim_id": "operating-point-q4-28928-rolling-cache", "description": "External review 2026-11-02: the "
+     "operating point (q4_0 28928) and the default window through hybrid-full-pipeline-v1's replay with every cloud "
+     "row repriced under the rolling cache breakpoint: cloud USD per task and share of the all-cloud bill, OLD vs NEW "
+     "(replay, escalations imputed)",
+     "compute": compute_operating_point_q4_28928_rolling_cache, "pending_reason": _hfp_pending_reason,
+     "data_files": ROLLING_FILES + ["results/x2_own_config_probe_q4_28928.jsonl",
+                                    "results/x2_evalset_tasks_real_v2.jsonl"],
+     "script_function": "analysis/rolling_cache_reprice.py::operating_point_rolling"},
+    {"claim_id": "cloud-cost-per-real-task-rolling-cache", "description": "External review 2026-11-02: cloud cost per "
+     "real agent task at every Anthropic tier, priced not run, the realistic case (ASSUMED 0.7 hit rate) beside the "
+     "rolling cache breakpoint case (each step reads the previous step's prompt, writes only new tokens)",
+     "compute": compute_cloud_cost_per_real_task_rolling_cache, "data_files": REAL_TASK_FILES,
+     "script_function": "analysis/cloud_task_cost.py::task_cost"},
+    {"claim_id": "pitch-allcloud-bill-year-rolling-cache", "description": "External review 2026-11-02: the pitch's "
+     "all-cloud bill (claude-sonnet-5-5, OpenHands median task, 1,000 tasks/day; 30-day month, 12 months and 365 days), "
+     "priced not run, OLD (ASSUMED 0.7 cache hit, row pitch-allcloud-bill-year) vs NEW (rolling cache breakpoint)",
+     "compute": compute_pitch_allcloud_bill_year_rolling_cache, "data_files": REAL_TASK_FILES,
+     "script_function": "analysis/numbers_register.py::compute_pitch_allcloud_bill_year_rolling_cache"},
     {"claim_id": "hybrid-live-hours", "description": "ESTIMATE, not a measurement: hours and cloud spend (billed and "
      "upper bound) of the E design: hybrid-live-amd on evo-x2, 3 seeds, approved once the tuned post-run check "
      "exists; hybrid-live-intel SKIPPED (operator 2026-10-30, strict preflight not relaxed); not queued",

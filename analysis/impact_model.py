@@ -2977,6 +2977,73 @@ def route_measured_text(d) -> str:
             + " / ".join(parts))
 
 
+# Router vs naive local at the DEFAULT window (external review 2026-11-02; row route-at-start-default-window). The
+# headline 16x / 5.6x of hybrid-route-at-start-measured / task-latency-by-policy are at the 8,192 window, a
+# memory-constrained setting; this row puts the same replay at Ollama's own window (ollama_default, recorded loaded
+# window 40960) beside it, so a deck can show both. Same policy and inputs as route_measured_policy; the window is the
+# run's recorded loaded window (the default tier forces none).
+ROUTE_DEFAULT_ROW = "route-at-start-default-window"
+CONSTRAINED_LABEL = "8,192 window (memory-constrained)"
+
+
+def _wrong_ratio(a: int, b: int) -> str:
+    return f"{a}/{b} = {a / b:.1f}x" if b else f"{a} vs 0 (ratio undefined)"
+
+
+def route_default_window(repo=REPO, route=None) -> dict:
+    route = route or route_at_start_measured(repo)
+    if route["status"] != "VERIFIED":
+        return {"status": "PENDING", "pending": route["pending"]}
+    local = replay_local_tasks(repo)[DEFAULT_TIER]
+    ac = replay_cloud_tasks(repo)
+    redo, redo_model = replay_redo_tasks(repo)
+    seeds = ac["seeds"]
+    loaded = {v["loaded"] for k, v in local.items() if k[0] in set(seeds)}
+    if len(loaded) != 1:
+        raise ValueError(f"{DEFAULT_TIER}: recorded loaded windows {sorted(loaded)}")
+    w = loaded.pop()
+    proj = {}
+    for s in seeds:
+        for tid, (_idx, p) in projected_task_prompts(repo, s).items():
+            proj[(s, tid)] = p
+    t_redo = {(s, t): v for (tr, s, t), v in redo.items() if tr == DEFAULT_TIER}
+    t_usd = statistics.fmean(v["usd"] for v in t_redo.values()) if t_redo else None
+    c8 = {c["model"]: c for c in route["cells"] if c["tier"] == "ollama_ctx_8192"}
+    cells = []
+    for m in sorted(ac["models"]):
+        measured = m == redo_model
+        h = route_measured_policy(local, ac["models"][m], proj, w, seeds, redo=t_redo if measured else None,
+                                  redo_tier_usd=t_usd,
+                                  esc_cloud=ac["models"][redo_model] if measured else ac["models"][m])
+        ref = _ref_policies(local, ac["models"][m], sorted(h["tasks"]))
+        cells.append({"model": m, "window": w, "router": h, "naive": ref["naive_local"], "all_cloud": ref["all_cloud"],
+                      "router_8192": c8[m]["hybrid"], "naive_8192": c8[m]["naive_local"]})
+    return {"status": "VERIFIED", "cells": cells, "seeds": seeds, "label": REPLAY_LABEL, "window": w}
+
+
+def route_default_text(d) -> str:
+    if d["status"] != "VERIFIED":
+        return f"PENDING: rows {', '.join(d['pending'])} not VERIFIED"
+    parts = []
+    for c in d["cells"]:
+        h, nv, h8, n8 = c["router"], c["naive"], c["router_8192"], c["naive_8192"]
+        wr, wn, wr8, wn8 = h["n"] - h["correct"], nv["n"] - nv["correct"], h8["n"] - h8["correct"], n8["n"] - n8["correct"]
+        parts.append(
+            f"cloud {c['model']}: DEFAULT window ({c['window']}): route at start {_pc(h['correct'], h['n'])} correct, "
+            f"wrong {wr}, cloud USD {h['usd_task']:.5f}/task, kept local {h['kept_local']}/{h['n']} (routed "
+            f"{h['routed']}, escalated {h['escalated']}), median {h['median_s']:.2f} s; naive local "
+            f"{_pc(nv['correct'], nv['n'])} correct, wrong {wn}, median {nv['median_s']:.2f} s; wrong naive / wrong "
+            f"route {_wrong_ratio(wn, wr)}; median naive / route {nv['median_s'] / h['median_s']:.2f}x; "
+            f"{CONSTRAINED_LABEL}: route at start wrong {wr8}, median {h8['median_s']:.2f} s; naive local wrong {wn8}, "
+            f"median {n8['median_s']:.2f} s; wrong naive / wrong route {_wrong_ratio(wn8, wr8)}; median naive / route "
+            f"{n8['median_s'] / h8['median_s']:.2f}x; route at start at 8,192 vs naive local at the default window: "
+            f"wrong {_wrong_ratio(wn, wr8)}, median {nv['median_s'] / h8['median_s']:.2f}x")
+    return (f"{d['label']} (hybrid-route-at-start-measured's per-task policy and inputs unchanged; default window = the "
+            f"run's recorded loaded window {d['window']}, Ollama's own; seconds as task-latency-by-policy), B3 v2 tasks, "
+            f"qwen3:14b on evo-x2, seeds {', '.join(map(str, d['seeds']))}; the 16x / 5.6x headline holds at the "
+            f"{CONSTRAINED_LABEL} only / " + " / ".join(parts))
+
+
 def long_task_files(repo=REPO) -> list:
     return sorted(Path(repo).glob(LONG_TASK_GLOB))
 

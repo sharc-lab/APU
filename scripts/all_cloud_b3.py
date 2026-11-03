@@ -12,7 +12,9 @@ transcript to the provider's tool-call shape and sends it through src/cloud/clie
 "anthropic"). Declared differences, forced by the provider: the final call after the round cap keeps the tool
 definitions with tool_choice "none"; no context window applies. max_tokens 384 (as local), temperature 0 (as local).
 
-Prompt caching on: breakpoints on the system prompt and the last user message (as scripts/cloud_redo.py). USD per task
+Prompt caching on: breakpoints on the system prompt and, since 2026-11-02, a rolling breakpoint on the latest message
+(scripts/cloud_redo.py::with_cache_control; all_cloud_b3_v1 was recorded with the earlier placement, system prompt and
+last user message, and its run_start says so; analysis/rolling_cache_reprice.py reprices it). USD per task
 is priced from the provider usage at the price file's Standard rates (uncached input, 5-minute cache write, cache hit,
 output); usd_ledger is client.py's estimate (all input at the input rate), the basis of the cap check.
 
@@ -394,7 +396,7 @@ def run(client, out: Path = OUT, price_file: Path = PRICE_FILE, local_source: Pa
               "max_tokens": ag.MAX_TOKENS_PER_CALL, "temperature_requested": 0.0, "temperature_per_model": temps,
               "thinking_per_model": {m: THINKING_OFF.get(m) for m in models},
               "prompt_caching": True,
-              "cache_breakpoints": "system prompt and last user message", "job_cap_usd": job_cap,
+              "cache_breakpoints": CR.CACHE_BREAKPOINTS, "job_cap_usd": job_cap,
               "ledger_total_at_start_usd": ledger_total_at_start, "spend_cap_usd": client.spend_cap_usd,
               "ledger": client.ledger_path.name, "projection_margin": margin,
               "local_reference": {"file": _rel(local_source), "arm": LOCAL_REF_ARM,

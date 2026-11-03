@@ -15,12 +15,15 @@ wrong without saying so, and routing plus a cloud fallback removes most of those
 sending everything to the cloud. On llama-server (build b10970, evo-x2) the same 4096 window also gets tasks wrong, but
 loudly, with HTTP errors [xruntime-llamacpp-wrong-rate].
 
-- **16x fewer wrong answers, at the 8192 memory setting.** Naive local was wrong on 36.7% (33/90) tasks; route at
+- **16x fewer wrong answers, 8,192 window (memory-constrained).** Naive local was wrong on 36.7% (33/90) tasks; route at
   start (claude-sonnet-5-5 as the cloud model) was wrong on 2.2% (2/90): 33 vs 2 = 16.5x
   [hybrid-route-at-start-measured] [headline-ci-session-hybrid]. Session-level 95% CI for the ratio [6.0x, 19.0x], over only 3 sessions (one per
   seed), so very coarse; 3003 of 10000 resamples had 0 route-at-start wrong and are left out of the ratio
   [headline-ci-session-hybrid]. The setting matters: 8192 is the setting the hybrid also uses, and at the default
-  window naive local was wrong on 11.1% (10/90) tasks [hybrid-savings-v1] [cost-target-scenario].
+  window naive local was wrong on 11.1% (10/90) tasks [hybrid-savings-v1] [cost-target-scenario]. At the default
+  window (40960) the router keeps every task local and changes nothing: wrong 10 vs 10, 1.0x, median 9.67 s vs 9.67 s
+  [route-at-start-default-window]. Router at 8,192 vs naive local at the default window: wrong "10/2 = 5.0x", median
+  "2.00x" [route-at-start-default-window].
 - **0/197 warnings, on Ollama.** Of the 197 wrong local task turns of the B3 v2 real run (qwen3:14b on Ollama 0.34.4,
   evo-x2, 5 memory settings x 5 seeds = 25 sessions), 0.0% (0/197) surfaced an HTTP error or an error field to the client; 100.0% (197/197) were
   silent. Task-level 95% Wilson CI for the surfaced share [0.0%, 1.9%] (task turns are nested in sessions, so not
@@ -54,7 +57,7 @@ prompt fits the window it runs locally, otherwise the whole task goes to the clo
 whose recorded prompt exceeded the window would be escalated (none was). Measured by replay of recorded runs; the
 replay assumes a task's outcome does not depend on whether earlier tasks ran local or on the cloud.
 
-| Policy (memory setting 8192) | Correct | Cloud USD per task | Median s per task |
+| Policy (8,192 window, memory-constrained) | Correct | Cloud USD per task | Median s per task |
 |---|---|---|---|
 | Route at start, cloud = claude-sonnet-5-5 | 97.8% (88/90) | 0.00819 | 4.84 |
 | All cloud, claude-sonnet-5-5 | 100.0% (90/90) | 0.01020 | 4.59 |
@@ -161,21 +164,41 @@ CPU and iGPU. These replace the projected Intel figures in section 5 with measur
 The operator approved every pitch fix in docs/AUDIT_20261025.md section 1c on 2026-10-31. These are the pitch's lines
 with the conditions each figure needs; the deck is not in this repo, so copy them from here.
 
-- **Cost-first operating point (replay, not a live run).** qwen3:14b with KV q4_0 at num_ctx 28928 on evo-x2 keeps
-  81/90 tasks local at 94.4% (85/90) accuracy for 40.1% of the claude-sonnet-5-5 all-cloud bill (USD 0.00409 vs
-  0.01020 per task); its 9 escalations are imputed (no redo exists for that history), and it is below the
-  pre-registered 97% [operating-point-q4-28928] [pitch-savings-table].
-- **16x fewer wrong answers at 8192** (the 8192 memory setting): 33 vs 2 of 90, 16.5x
-  [hybrid-route-at-start-measured]; at the default window naive local had 10 wrong of 90 [hybrid-savings-v1].
-- **5.6x faster at 8192**: median 27.27 s naive local vs 4.84 s route at start per task, at 57/90 vs 88/90 correct
-  [task-latency-by-policy] [hybrid-route-at-start-measured]; 8192 is the slowest local tier (default 9.67 s).
-- **20% cheaper at 88/90 vs 90/90**: USD 0.00819 vs 0.01020 per task, 19.7% [hybrid-route-at-start-measured].
+- **The post-run check's operating point (replay, escalations imputed).** With the post-run check, qwen3:14b with KV
+  q4_0 at num_ctx 28928 on evo-x2 keeps 81/90 tasks local at 94.4% (85/90) accuracy for 40.1% of the
+  claude-sonnet-5-5 all-cloud bill (USD 0.00409 vs 0.01020 per task) [operating-point-q4-28928]
+  [pitch-savings-table]. The 40.1% is the check's, not KV q4_0's: no task is routed, the whole cloud cost is the
+  check's 9 escalations (imputed, no redo exists for that history), and Ollama's default window (40960) with the same
+  check escalates the same 9 tasks, same seeds and task ids ("SAME SET: 9 of 9 escalated tasks match by seed and task
+  id"), at USD 0.00442 per task, 43.3% of the bill, because some of its escalations have measured redo rows
+  [operating-point-check-attribution]. Below the pre-registered 97%.
+- **16x fewer wrong answers, 8,192 window (memory-constrained)**: 33 vs 2 of 90, 16.5x
+  [hybrid-route-at-start-measured]. At the default window (40960) the router keeps every task local: wrong 10 vs 10,
+  1.0x [route-at-start-default-window]. Show both: router at 8,192 vs naive local at the default window is wrong
+  "10/2 = 5.0x" [route-at-start-default-window].
+- **5.6x faster, 8,192 window (memory-constrained)**: median 27.27 s naive local vs 4.84 s route at start per task, at
+  57/90 vs 88/90 correct [task-latency-by-policy] [hybrid-route-at-start-measured]; 8192 is the slowest local tier.
+  At the default window: 9.67 s vs 9.67 s, 1.00x; router at 8,192 vs naive local at the default window "2.00x"
+  [route-at-start-default-window].
+- **20% cheaper at 88/90 vs 90/90**: USD 0.00819 vs 0.01020 per task, 19.7% [hybrid-route-at-start-measured]
+  (8,192 window, memory-constrained). Repriced under the rolling cache breakpoint: "NEW USD 0.00750 vs all-cloud
+  0.00936/task, saving 19.9%" [hybrid-route-at-start-rolling-cache].
 - **Intel laptop: 10/10 vs 0/10 after the window**: gated silent sessions after the window was exceeded, Intel CPU
   (window 4096) 5/5 + 5/5 vs Intel iGPU (window 32768) 0/5 + 0/5 [t2s-r2-real-cpu] [t2s-r2-real-igpu]; device and
   window change together.
-- **Cloud cost per long agent task, priced not run** (OpenHands rebench, median 62 steps, ASSUMPTION cache hit rate
-  0.7): claude-sonnet-5-5 $2.53 median, $4.34 at the 90th percentile [cloud-cost-per-real-task]; claude-opus-5-5
-  $5.06 and claude-fable-5-1 $12.21 median [cloud-cost-per-real-task-all-tiers].
-- **About USD 911K per 12 30-day months (USD 923.7K over 365 days), priced not run**: the all-cloud claude-sonnet-5-5
-  bill at 1,000 coding tasks a day at the OpenHands median task size, assumed 0.7 cache hit, USD 75,921.17 a month
-  [pitch-allcloud-bill-year] [hybrid-savings-curve]. It is an all-cloud bill, not a saving.
+- **Cloud cost per long agent task, priced not run** (OpenHands rebench, median 62 steps). OLD, ASSUMPTION cache hit
+  rate 0.7: claude-sonnet-5-5 $2.53 median, $4.34 at the 90th percentile [cloud-cost-per-real-task]; claude-opus-5-5
+  $5.06 and claude-fable-5-1 $12.21 median [cloud-cost-per-real-task-all-tiers]. NEW, rolling cache breakpoint on
+  the latest message (the live client's placement from 2026-11-02): claude-sonnet-5-5 "$0.7182 / $1.0996",
+  claude-opus-5-5 "$1.4365", claude-fable-5-1 "$2.8786" median [cloud-cost-per-real-task-rolling-cache]. Use NEW in
+  the deck; it assumes steps under the 5-minute cache lifetime and is not yet checked against a billed long run.
+- **All-cloud bill, priced not run**: the claude-sonnet-5-5 bill at 1,000 coding tasks a day at the OpenHands median
+  task size. OLD (assumed 0.7 cache hit): USD 75,921.17 a month, about USD 911K per 12 30-day months (USD 923.7K over
+  365 days) [pitch-allcloud-bill-year] [hybrid-savings-curve]. NEW (rolling cache breakpoint): "USD 21,547.48 per
+  30-day month, 12 months USD 258,569.72 (USD 259K), 365 days USD 262,160.97 (USD 262.2K)"
+  [pitch-allcloud-bill-year-rolling-cache]. It is an all-cloud bill, not a saving.
+- **Rolling cache breakpoint, the B3 v2 baselines** (replayed from recorded per-call tokens): claude-sonnet-5-5
+  all-cloud "OLD USD 0.01020/task", "NEW USD 0.00936/task (-8.2%)" [all-cloud-b3-cost-rolling-cache]; the operating
+  point "OLD cloud USD 0.00409/task = 40.1% of the all-cloud bill; NEW USD 0.00406/task = 43.4%"
+  [operating-point-q4-28928-rolling-cache]. Billed spend of past runs does not change; only priced and replayed
+  figures do.
