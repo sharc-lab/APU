@@ -4704,6 +4704,140 @@ def compute_pitch_allcloud_bill_year_rolling_cache(repo):
         "n": "1 priced point"}
 
 
+# ── Opus all-cloud baseline beside Sonnet under the rolling breakpoint (2026-11-02). Current-generation list prices
+# from the shared price table; nothing was run on Opus: the B3 figures are the Sonnet runs' recorded tokens at Opus
+# prices. ──
+OPUS_MODEL = "claude-opus-5-5"
+SONNET_MODEL = "claude-sonnet-5-5"
+OPUS_PRICE_FILE = "results/cloud_prices_anthropic_20261014.json"
+_OPUS_CACHE = {}
+
+
+def _opus_price_source(repo) -> str:
+    import re
+    t = json.loads((Path(repo) / OPUS_PRICE_FILE).read_text(encoding="utf-8"))
+    cur = re.search(r"current models[^(]*\(([^)]*)\)", t["model_ids_note"])
+    if not cur or OPUS_MODEL not in cur.group(1) or SONNET_MODEL not in cur.group(1):
+        raise ValueError(f"{OPUS_MODEL} / {SONNET_MODEL} not listed as current models in {OPUS_PRICE_FILE}")
+
+    def r(m):
+        x = t["models"][m]["standard"]["short"]
+        return (f"{m} input {x['input']:g} / 5-minute cache write {x['cache_write']:g} / cache hit "
+                f"{x['cached_input']:g} / output {x['output']:g} USD per MTok")
+    o, s = (t["models"][m]["standard"]["short"] for m in (OPUS_MODEL, SONNET_MODEL))
+    ks = ("input", "cache_write", "cached_input", "output")
+    ratios = {round(o[k] / s[k], 6) for k in ks}
+    same_min = t["models"][OPUS_MODEL].get("min_cacheable_tokens") == t["models"][SONNET_MODEL].get("min_cacheable_tokens")
+    note = (f"; every {OPUS_MODEL} price component is {ratios.pop():g}x {SONNET_MODEL}'s and both have the same minimum "
+            f"cacheable prefix, so from the same tokens every Opus USD is that multiple of the Sonnet USD and every "
+            f"saving or bill share is identical" if len(ratios) == 1 and same_min else "")
+    return (f"list prices {OPUS_PRICE_FILE} (Standard, fetched {t['fetched_local_date']} local, {t['fetched_utc']}, "
+            f"{t['source_url']}; current models per the file: {cur.group(1)}): {r(OPUS_MODEL)}; {r(SONNET_MODEL)}"
+            + note)
+
+
+def _opus_data(repo) -> dict:
+    """Sonnet's recorded B3 v2 all-cloud and redo rows, rolling-repriced at Opus list prices (priced, not run)."""
+    key = str(repo)
+    if key not in _OPUS_CACHE:
+        rr = _rolling()
+        ac = rr.all_cloud_rolling(repo, price_model=OPUS_MODEL, source_model=SONNET_MODEL)
+        rd = rr.redo_rolling(repo, price_model=OPUS_MODEL)
+        _OPUS_CACHE[key] = {"ac": ac, "rd": rd, "summary": rr.b3_all_cloud_summary(ac)}
+    return _OPUS_CACHE[key]
+
+
+OPUS_NOT_RUN = (f"{OPUS_MODEL} figures PRICED FROM SONNET TOKEN COUNTS, NOT RUN ON OPUS: no all-cloud run and no "
+                f"escalation redo was executed on {OPUS_MODEL}; the recorded {SONNET_MODEL} per-call tokens are "
+                f"repriced at {OPUS_MODEL} list prices, Opus accuracy is NOT MEASURED (the outcomes shown are "
+                f"{SONNET_MODEL}'s) and Opus's own token counts and turn counts on these tasks may differ")
+
+
+def compute_allcloud_baseline_opus_rolling_cache(repo):
+    ct, res = _ct_rolling(repo)
+    im = _impact()
+    label, q = PITCH_YEAR_POINT.rsplit(" ", 1)
+    e = res["sets"][label]
+    v, days = PITCH_YEAR_VOLUME, im.DAYS_PER_MONTH
+    parts, per = [], {}
+    for m in (OPUS_MODEL, SONNET_MODEL):
+        t = e["usd"][(m, ct.ROLLING_CASE)][q]
+        per[m] = t
+        mo = t * v * days
+        parts.append(f"{m}: USD {t:.5f}/task, USD {mo:,.2f} per {days}-day month, 12 months USD {12 * mo:,.2f} "
+                     f"(USD {12 * mo / 1000:,.0f}K), 365 days USD {t * v * 365:,.2f}")
+    return {"value": (
+        f"PRICED, NOT RUN (no generation call on either model): all-cloud bill, {PITCH_YEAR_POINT} task size (long "
+        f"real agent tasks, n={e['n_tasks']}, median {e['steps_median']:.0f} steps; row "
+        f"cloud-cost-per-real-task-rolling-cache's method and inputs), {v:,} tasks/day, rolling cache breakpoint on "
+        f"the latest message (src/cloud/prompt_cache.py) / " + " / ".join(parts)
+        + f" / {OPUS_MODEL} / {SONNET_MODEL} = {per[OPUS_MODEL] / per[SONNET_MODEL]:.3f}; {_opus_price_source(repo)}; "
+          f"same token counts for both models (the traces are not Anthropic-tokenized); an all-cloud bill, not a "
+          f"saving: local quality on long tasks not measured, Opus accuracy not measured"), "n": "1 priced point x 2 models"}
+
+
+def compute_all_cloud_b3_cost_opus_rolling_cache(repo):
+    rr = _rolling()
+    so = _opus_data(repo)["summary"][OPUS_MODEL]
+    ss = rolling_data(repo)["summary"][SONNET_MODEL]
+    return {"value": (
+        f"{_rolling_head(rr)}; B3 v2 all-cloud per-task denominator (all_cloud_b3_v1, seeds 20260901-03, rolling "
+        f"breakpoint) / {SONNET_MODEL} (RUN, measured tokens and outcomes): NEW USD {ss['usd_new']:.5f}/task (OLD "
+        f"placement {ss['usd_old']:.5f}), {ss['correct']}/{ss['n']} correct / {OPUS_MODEL} (PRICED from the "
+        f"{SONNET_MODEL} run's tokens): NEW USD {so['usd_new']:.5f}/task (OLD placement {so['usd_old']:.5f}), "
+        f"n={so['n']}, accuracy NOT MEASURED / {OPUS_MODEL} / {SONNET_MODEL} = {so['usd_new'] / ss['usd_new']:.3f}; "
+        f"{OPUS_NOT_RUN}; {_opus_price_source(repo)}"), "n": f"{so['n']} task turns (priced) + {ss['n']} (run)"}
+
+
+def compute_hybrid_route_at_start_opus_rolling_cache(repo):
+    rr = _rolling()
+    d, o = rolling_data(repo), _opus_data(repo)
+    rs = next(c for c in rr.route_at_start_rolling(repo, d["ac"], d["rd"])["cells"] if c["model"] == SONNET_MODEL)
+    ro = rr.route_at_start_rolling(repo, o["ac"], o["rd"])
+    co = next(c for c in ro["cells"] if c["model"] == OPUS_MODEL)
+
+    def seg(m, c, how):
+        n = c["usd_new"]
+        return (f"{m} as the cloud model ({how}): route at start USD {n['hybrid']:.5f} vs all-cloud USD "
+                f"{n['all_cloud']:.5f}/task, saving {100 * n['saving']:.1f}%; routed {n['routed']}, escalated "
+                f"{n['escalated']}, accuracy {n['correct']}/{n['n']}")
+    return {"value": (
+        f"{_rolling_head(rr)}; hybrid-route-at-start-measured's replay unchanged at evo-x2 {ro['tier']} (window "
+        f"{ro['window']}, memory-constrained), qwen3:14b, B3 v2, seeds 20260901-03, every cloud row (all-cloud and "
+        f"full-history redo) at its rolling USD / " + seg(SONNET_MODEL, rs, "run")
+        + " / " + seg(OPUS_MODEL, co, f"PRICED from {SONNET_MODEL} tokens; the accuracy shown is {SONNET_MODEL}'s on "
+                                      "the cloud tasks, Opus accuracy NOT MEASURED")
+        + f"; {OPUS_NOT_RUN}; {_opus_price_source(repo)}"), "n": "2 cloud models x 90 tasks"}
+
+
+def compute_operating_point_q4_28928_opus_rolling_cache(repo):
+    rr = _rolling()
+    d, o = rolling_data(repo), _opus_data(repo)
+    ops = rr.operating_point_rolling(repo, d["ac"], d["rd"])["usd_new"]
+    opo = rr.operating_point_rolling(repo, o["ac"], o["rd"], cloud_model=OPUS_MODEL)["usd_new"]
+    parts = []
+    for cfg in ops["cells"]:
+        s, p = ops["cells"][cfg], opo["cells"][cfg]
+        parts.append(f"{cfg} (loaded window {s['ceiling']}): {SONNET_MODEL} cloud USD {s['usd_task']:.5f}/task = "
+                     f"{s['pct_bill']:.1f}% of its all-cloud bill; {OPUS_MODEL} USD {p['usd_task']:.5f}/task = "
+                     f"{p['pct_bill']:.1f}% of its all-cloud bill; kept local {p['kept_local']}/{p['n']}, escalated "
+                     f"{p['escalated']} (imputed {p['imputed_escalations']}), accuracy {p['correct']}/{p['n']} with "
+                     f"{SONNET_MODEL}'s cloud outcomes")
+    return {"value": (
+        f"{_rolling_head(rr)}; hybrid-full-pipeline-v1's replay unchanged (post-run check escalations), replay, "
+        f"escalations imputed where no redo exists, seeds 20260901-03, rolling USD; all-cloud bill {SONNET_MODEL} "
+        f"USD {ops['all_cloud']:.5f}/task, {OPUS_MODEL} USD {opo['all_cloud']:.5f}/task; imputed escalation USD "
+        f"{SONNET_MODEL} {ops['imputed_usd']:.5f}, {OPUS_MODEL} {opo['imputed_usd']:.5f} / " + " / ".join(parts)
+        + f"; {OPUS_NOT_RUN}; {_opus_price_source(repo)}"), "n": f"{len(parts)} configs x 90 tasks x 2 models"}
+
+
+def compute_post_run_check_live_8192_estimate_rolling(repo):
+    prt = _post_run_check_tuning()
+    e = prt.live_estimate_rolling(repo)
+    return {"value": prt.live8192_rolling_text(e),
+            "n": f"{e['new']['n_escalated']} escalated of {e['n_tasks']} tasks (ESTIMATE)"}
+
+
 def compute_route_at_start_default_window(repo):
     im = _impact()
     d = im.route_default_window(repo)
@@ -10468,6 +10602,37 @@ NUMBER_ENTRIES = [
      "priced not run, OLD (ASSUMED 0.7 cache hit, row pitch-allcloud-bill-year) vs NEW (rolling cache breakpoint)",
      "compute": compute_pitch_allcloud_bill_year_rolling_cache, "data_files": REAL_TASK_FILES,
      "script_function": "analysis/numbers_register.py::compute_pitch_allcloud_bill_year_rolling_cache"},
+    {"claim_id": "allcloud-baseline-opus-rolling-cache", "description": "All-cloud baseline on claude-opus-5-5 beside "
+     "claude-sonnet-5-5 (OpenHands median long task, 1,000 tasks/day; 30-day month, 12 months, 365 days), rolling "
+     "cache breakpoint, current-generation list prices; priced, not run",
+     "compute": compute_allcloud_baseline_opus_rolling_cache, "data_files": REAL_TASK_FILES,
+     "script_function": "analysis/numbers_register.py::compute_allcloud_baseline_opus_rolling_cache"},
+    {"claim_id": "all-cloud-b3-cost-opus-rolling-cache", "description": "B3 v2 all-cloud per-task denominator under "
+     "the rolling cache breakpoint, claude-sonnet-5-5 (run) beside claude-opus-5-5 (priced from the Sonnet run's "
+     "recorded tokens, not run on Opus; Opus accuracy not measured)",
+     "compute": compute_all_cloud_b3_cost_opus_rolling_cache, "data_files": ROLLING_FILES,
+     "script_function": "analysis/rolling_cache_reprice.py::all_cloud_rolling"},
+    {"claim_id": "hybrid-route-at-start-opus-rolling-cache", "description": "Route-at-start saving at the 8,192 window "
+     "(memory-constrained) under the rolling cache breakpoint with claude-opus-5-5 as the cloud model (priced from "
+     "Sonnet token counts, not run on Opus) beside claude-sonnet-5-5",
+     "compute": compute_hybrid_route_at_start_opus_rolling_cache, "data_files": ROLLING_FILES + ROUTE_MEASURED_FILES[:1],
+     "script_function": "analysis/rolling_cache_reprice.py::route_at_start_rolling"},
+    {"claim_id": "operating-point-q4-28928-opus-rolling-cache", "description": "The cost-first operating point (q4_0 "
+     "28928) and the default window: share of the all-cloud bill under the rolling cache breakpoint with "
+     "claude-opus-5-5 as the cloud model (priced from Sonnet token counts, not run on Opus) beside claude-sonnet-5-5",
+     "compute": compute_operating_point_q4_28928_opus_rolling_cache, "pending_reason": _hfp_pending_reason,
+     "data_files": ROLLING_FILES + ["results/x2_own_config_probe_q4_28928.jsonl",
+                                    "results/x2_evalset_tasks_real_v2.jsonl"],
+     "script_function": "analysis/rolling_cache_reprice.py::operating_point_rolling"},
+    {"claim_id": "post-run-check-live-8192-estimate-rolling", "description": "ESTIMATE for the cloud phase of the live "
+     "post-run check at evo-x2 num_ctx 8192 (seed 20260905) under the rolling cache breakpoint, from the ACTUAL "
+     "escalation set of the finished local phase: billed point, high, upper bound, job cap, hours; measured vs "
+     "imputed per task",
+     "compute": compute_post_run_check_live_8192_estimate_rolling,
+     "data_files": [POST_RUN_CHECK_TUNED_FILE, *POST_RUN_CHECK_DATA, "results/x2_post_run_check_local_v1.jsonl",
+                    *ROLLING_FILES],
+     "pending_ok": True, "require_run_end": ["results/x2_post_run_check_local_v1.jsonl"],
+     "script_function": "analysis/post_run_check_tuning.py::live_estimate_rolling"},
     {"claim_id": "hybrid-live-hours", "description": "ESTIMATE, not a measurement: hours and cloud spend (billed and "
      "upper bound) of the E design: hybrid-live-amd on evo-x2, 3 seeds, approved once the tuned post-run check "
      "exists; hybrid-live-intel SKIPPED (operator 2026-10-30, strict preflight not relaxed); not queued",

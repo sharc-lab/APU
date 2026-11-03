@@ -67,10 +67,12 @@ with trimming against 40 of 40 without).
 
 ## Step 4 (3:00 to 4:00): What it costs
 
-Say: "A whole long task in a top cloud model costs about $2.53. Fixing one wrong answer later costs 1.76 times a fresh
+Say: "A whole long task in a top cloud model costs about 72 cents. Fixing one wrong answer later costs 1.76 times a fresh
 cloud run of the same task, and actions already taken cannot be undone. How much accuracy gap you accept decides where
-it runs; we measure that gap per device." Move the slider to 12, then back to 5. Priced: cloud-cost-per-real-task
-(Sonnet, realistic caching, assumed 0.7 cache hit rate; OLD). With the rolling cache breakpoint the client uses from 2026-11-02 the same task prices at $0.72 median (NEW, cloud-cost-per-real-task-rolling-cache); say "about 72 cents" once the dashboard reads that row. Measured: late-escalation-cost-vs-fresh (1.76x on the mean,
+it runs; we measure that gap per device." Move the slider to 12, then back to 5. Priced: cloud-cost-per-real-task-rolling-cache
+(Sonnet, median $0.72 per long task under the rolling cache breakpoint the client uses from 2026-11-02; the dashboard
+reads this row). The old figure, $2.53 under an assumed 0.7 cache hit rate (cloud-cost-per-real-task), is the old
+assumption only; do not say it. Measured: late-escalation-cost-vs-fresh (1.76x on the mean,
 matched on 119 rows over 53 tasks), cloud-redo-full-context (84.8% fixed, 95% Wilson CI 79.1% to 89.1%; 28 of 30
 unfixed inherited earlier actions) and hybrid-route-at-start (the slider).
 
@@ -96,7 +98,7 @@ you can decide where it runs." Then "Finish" for questions in the engineering vi
 | Default memory setting 16.6x slower than the tightest (which is 42% wrong) | measured | impact-session-time-by-window, x2-evalset-tasks-real-v2-wrong-rate |
 | The quick fix: still 30% wrong | measured | x2-evalset-tasks-real-v2-wrong-rate |
 | Trimming old history breaks a different rule | measured | R2-qwen3-14b-4096-reconciliation |
-| $2.53 per long task in the cloud | priced | cloud-cost-per-real-task |
+| $0.72 per long task in the cloud | priced | cloud-cost-per-real-task-rolling-cache |
 | Fixing a wrong answer later: 1.76x a fresh cloud run | measured | late-escalation-cost-vs-fresh |
 | Slider and tool card: route, expected accuracy, savings per month | measured | hybrid-route-at-start; Intel saving t2s-config-comparison |
 | NVIDIA laptop | not measured | none |

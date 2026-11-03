@@ -95,11 +95,21 @@ def reprice_all_cloud_sessions(turn_rows: list, rates_by_model: dict) -> dict:
     return out
 
 
-def all_cloud_rolling(repo=REPO) -> dict:
+def all_cloud_rolling(repo=REPO, price_model=None, source_model=None) -> dict:
+    """Default: every recorded model at its own prices. With price_model (and source_model, the recorded run whose
+    tokens are used): the source run's recorded per-call tokens priced at price_model's list prices, keyed by
+    price_model. That is a PRICED figure, not a run on price_model: the outcomes (ok) and token counts are the source
+    model's, and usd_recorded is replaced by usd_old (the source run's billed USD was paid at the source's prices)."""
     rows = [r for r in _rows(Path(repo) / ALL_CLOUD_FILE)
             if r.get("record") == "r2a_turn" and r.get("item_kind") == "task" and r.get("end_state_ok") is not None]
-    models = sorted({r["model_id"] for r in rows})
-    return reprice_all_cloud_sessions(rows, {m: rates_for(repo, m) for m in models})
+    if price_model is None:
+        models = sorted({r["model_id"] for r in rows})
+        return reprice_all_cloud_sessions(rows, {m: rates_for(repo, m) for m in models})
+    rows = [r for r in rows if r["model_id"] == source_model]
+    if not rows:
+        raise ValueError(f"no recorded all-cloud rows for {source_model}")
+    out = reprice_all_cloud_sessions(rows, {source_model: rates_for(repo, price_model)})[source_model]
+    return {price_model: {k: {**v, "usd_recorded": v["usd_old"]} for k, v in out.items()}}
 
 
 # ── redo rows (full-history redo, own-rollback redo) ──────────────────────────────────────────────────
@@ -116,23 +126,29 @@ def reprice_redo_row(row: dict, rates: dict) -> dict:
     return {"usd_recorded": float(row["usd"]), "usd_old": old, "usd_new": pc.split_cost(rates, split, prompts, outputs)}
 
 
-def redo_rolling(repo=REPO) -> dict:
+def redo_rolling(repo=REPO, price_model=None) -> dict:
     """{(tier, seed, task_id): {ok, usd_recorded, usd_old, usd_new}} of the merged full-history redo (superseded rows
-    excluded, as impact_model.replay_redo_tasks) and {(tier, seed, task_id): ...} of the own-rollback redo."""
+    excluded, as impact_model.replay_redo_tasks) and {(tier, seed, task_id): ...} of the own-rollback redo.
+    With price_model: the same recorded rows (run on the recorded model) priced at price_model's list prices, keyed
+    model = price_model; usd_recorded is replaced by usd_old (PRICED from the recorded tokens, not run on it)."""
     import impact_model as im
     with contextlib.redirect_stdout(io.StringIO()):
         tasks, model, _n, _p = im.redo_rows_and_model(repo)
-    rates = rates_for(repo, model)
-    redo = {(r["tier"], r["seed"], r["task_id"]): {"ok": bool(r.get("cloud_end_state_ok")), **reprice_redo_row(r, rates)}
+    rates = rates_for(repo, price_model or model)
+
+    def rep(r, rt):
+        x = reprice_redo_row(r, rt)
+        return {**x, "usd_recorded": x["usd_old"]} if price_model else x
+    redo = {(r["tier"], r["seed"], r["task_id"]): {"ok": bool(r.get("cloud_end_state_ok")), **rep(r, rates)}
             for r in tasks}
     rb = {}
     p = Path(repo) / ROLLBACK_FILE
     if p.exists():
         for r in _rows(p):
             if r.get("record") == "cloud_redo_task" and r.get("mode") == "executed":
-                rb[(r["tier"], r["seed"], r["task_id"])] = {"ok": bool(r.get("cloud_end_state_ok")),
-                                                             **reprice_redo_row(r, rates_for(repo, r["model_id"]))}
-    return {"model": model, "redo": redo, "rb": rb}
+                rt = rates if price_model else rates_for(repo, r["model_id"])
+                rb[(r["tier"], r["seed"], r["task_id"])] = {"ok": bool(r.get("cloud_end_state_ok")), **rep(r, rt)}
+    return {"model": price_model or model, "recorded_model": model, "redo": redo, "rb": rb}
 
 
 # ── the figures the deck quotes ───────────────────────────────────────────────────────────────────────
@@ -187,7 +203,7 @@ def route_at_start_rolling(repo=REPO, ac=None, rd=None, tier="ollama_ctx_8192") 
 
 
 def operating_point_rolling(repo=REPO, ac=None, rd=None, configs=("q4_0 28928", "f16 default"), check=None,
-                            budget=None) -> dict:
+                            budget=None, cloud_model=None) -> dict:
     """hybrid-full-pipeline-v1's replay (hybrid_full_pipeline.run_pipeline, unchanged) for the named configs, once at
     the recorded USD and once at the rolling USD: the escalation USD of every escalated task (own-rollback redo, else
     full-history redo, else IMPUTED at the highest tier-mean full-history redo USD) and the all-cloud bill."""
@@ -198,7 +214,8 @@ def operating_point_rolling(repo=REPO, ac=None, rd=None, configs=("q4_0 28928", 
     budget_factory = (lambda: budget) if budget is not None else (lambda: hfp.load_task_budget(repo))
     out = {}
     for col in ("usd_recorded", "usd_new"):
-        cloud = {k: {"ok": v["ok"], "usd": v[col]} for k, v in ac[hfp.CLOUD_MODEL].items() if k[0] in set(hfp.SEEDS)}
+        cloud = {k: {"ok": v["ok"], "usd": v[col]} for k, v in ac[cloud_model or hfp.CLOUD_MODEL].items()
+                 if k[0] in set(hfp.SEEDS)}
         redo = {k: {"ok": v["ok"], "usd": v[col]} for k, v in rd["redo"].items()}
         rb = {k: {"ok": v["ok"], "usd": v[col]} for k, v in rd["rb"].items()}
         tier_mean = {t: _mean([v["usd"] for (tr, _s, _t), v in redo.items() if tr == t])

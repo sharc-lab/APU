@@ -465,23 +465,43 @@
     }
    },
    {
-    "model": "claude-haiku-5-5",
-    "what": "One long agent task (nebius-rebench-openhands, median 62 steps), realistic caching",
+    "model": "claude-fable-5-1",
+    "what": "One long agent task (nebius-rebench-openhands, median 62 steps), rolling cache breakpoint",
     "accuracy": null,
-    "usd_per_task": "median USD 0.1354, p90 USD 0.2454",
+    "usd_per_task": "median USD 2.8786, p90 USD 4.3734 (old assumption, 0.7 cache hit: median USD 12.2122)",
     "label": "priced, not executed",
     "src": {
-     "register": "cloud-cost-per-real-task"
+     "register": "cloud-cost-per-real-task-rolling-cache"
+    }
+   },
+   {
+    "model": "claude-haiku-5-5",
+    "what": "One long agent task (nebius-rebench-openhands, median 62 steps), rolling cache breakpoint",
+    "accuracy": null,
+    "usd_per_task": "median USD 0.0495, p90 USD 0.0815 (old assumption, 0.7 cache hit: median USD 0.1354)",
+    "label": "priced, not executed",
+    "src": {
+     "register": "cloud-cost-per-real-task-rolling-cache"
+    }
+   },
+   {
+    "model": "claude-opus-5-5",
+    "what": "One long agent task (nebius-rebench-openhands, median 62 steps), rolling cache breakpoint",
+    "accuracy": null,
+    "usd_per_task": "median USD 1.4365, p90 USD 2.1992 (old assumption, 0.7 cache hit: median USD 5.0614)",
+    "label": "priced, not executed",
+    "src": {
+     "register": "cloud-cost-per-real-task-rolling-cache"
     }
    },
    {
     "model": "claude-sonnet-5-5",
-    "what": "One long agent task (nebius-rebench-openhands, median 62 steps), realistic caching",
+    "what": "One long agent task (nebius-rebench-openhands, median 62 steps), rolling cache breakpoint",
     "accuracy": null,
-    "usd_per_task": "median USD 2.5307, p90 USD 4.3387",
+    "usd_per_task": "median USD 0.7182, p90 USD 1.0996 (old assumption, 0.7 cache hit: median USD 2.5307)",
     "label": "priced, not executed",
     "src": {
-     "register": "cloud-cost-per-real-task"
+     "register": "cloud-cost-per-real-task-rolling-cache"
     }
    }
   ]

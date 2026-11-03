@@ -561,7 +561,7 @@ def test_views_js_renders_every_view(app, tmp_path):
     assert "5 of 5" in w[0]["items"] and "No error shown" in w[0]["items"]
     assert "Enough memory" in w[1]["items"] and "42%" in w[1]["items"] and "Error messages shown: 0" in w[1]["items"]
     assert "16.6x" in w[2]["items"] and "30% wrong" in w[2]["items"]
-    assert "$2.53" in w[3]["items"] and views.ROUTE_TAKEAWAY in w[3]["items"] and 'value="5"' in w[3]["html"]
+    assert "$0.72" in w[3]["items"] and "$2.53" not in w[3]["items"] and views.ROUTE_TAKEAWAY in w[3]["items"] and 'value="5"' in w[3]["html"]
     assert "Saves per month" in w[4]["items"]
     for s in w[:5]:
         main, _, details = s["html"].partition('<details class="s-details">')
@@ -599,7 +599,9 @@ def test_story_steps_from_committed_files(app):
     assert [t["text"] for t in s3["tiles"]] == ["Default memory setting: 16.6x slower than Tighter, which is 42% wrong",
                                                 "The quick fix: still 30% wrong",
                                                 "Trimming old history: breaks a different rule"]
-    assert s4["numbers"][0]["big"] == "$2.53" and s4["numbers"][0]["tag"] == "priced"
+    # 2026-11-02: the rolling cache breakpoint figure, not the old ASSUMED 0.7 cache hit $2.53
+    assert s4["numbers"][0]["big"] == "$0.72" and s4["numbers"][0]["tag"] == "priced"
+    assert s4["numbers"][0]["src"] == {"register": "cloud-cost-per-real-task-rolling-cache"}
     assert s4["numbers"][1]["big"] == "1.76x"
     assert s4["numbers"][1]["src"] == {"register": "late-escalation-cost-vs-fresh"}
     assert s4["numbers"][1]["text"] == ("Fixing a wrong answer later costs 1.76x a fresh cloud run; actions taken "
@@ -634,7 +636,8 @@ def test_story_steps_from_committed_files(app):
     cpu = next(i for i in money if i["text"].startswith("evo-t2s Intel CPU at 4096"))
     assert "MORE than all-cloud" in cpu["text"] and cpu["label"] == "projected"
     assert any("interim" in i["text"] and "claude-haiku-5-5" in i["text"] for i in money)
-    assert any(i["label"] == "priced, not executed" and "USD 2.53 median" in i["text"] for i in money)
+    assert any(i["label"] == "priced, not executed" and "USD 0.72 median" in i["text"]
+               and "old assumption, 70% cache hit: USD 2.53" in i["text"] for i in money)
     late = next(i for i in money if i["text"].startswith("Late full-history escalation"))
     assert late["label"] in ("being measured", "measured")
     # the ceiling is never a headline item and never an option in the trade-off table
@@ -803,6 +806,16 @@ def test_story_parsers():
     assert tc["median_steps"] == 62 and tc["models"]["claude-sonnet-5-5"]["realistic"] == (1.5367, 2.6348)
     assert tc["priced"] is True
     assert views.parse_task_cost("") == {}
+    tr = views.parse_task_cost_rolling(
+        "PRICED, NOT RUN (x): y / long-set (n=36 tasks, median 62 steps): claude-sonnet-5-5: OLD (realistic, ASSUMED "
+        "hit rate 0.7) $2.5307 / $4.3387, NEW (rolling breakpoint) $0.7182 / $1.0996; claude-opus-5-5: OLD (realistic, "
+        "ASSUMED hit rate 0.7) $5.0614 / $8.6773, NEW (rolling breakpoint) $1.4365 / $2.1992 / short-set (n=600 tasks, "
+        "median 6 steps): claude-sonnet-5-5: OLD (realistic, ASSUMED hit rate 0.7) $0.0266 / $0.6620, NEW (rolling "
+        "breakpoint) $0.0173 / $0.2340")
+    assert tr["trace_set"] == "long-set" and tr["median_steps"] == 62 and tr["hit_rate"] == 0.7 and tr["priced"]
+    assert tr["models"]["claude-sonnet-5-5"] == {"old": (2.5307, 4.3387), "new": (0.7182, 1.0996)}
+    assert set(tr["models"]) == {"claude-sonnet-5-5", "claude-opus-5-5"}   # the short set is not read
+    assert views.parse_task_cost_rolling("") == {}
 
 
 def test_fix_rate_redacted_everywhere(app):
@@ -857,7 +870,7 @@ def test_engineering_view_has_no_openai_stub_rows(app):
     f = get(app, "/api/frontier")
     assert f["cloud"] == [] and {r["label"] for r in f["cloud_measured"]["rows"]} <= {"measured", "priced, not executed"}
     rows = {r["src"]["register"] for r in f["cloud_measured"]["rows"]}
-    assert rows >= {"all-cloud-b3-cost", "cloud-redo-full-context", "cloud-cost-per-real-task"}
+    assert rows >= {"all-cloud-b3-cost", "cloud-redo-full-context", "cloud-cost-per-real-task-rolling-cache"}
     assert f["cloud_measured"]["prices"] == "results/cloud_prices_anthropic_20261014.json"
     assert "gpt-" not in (STATIC / "app.js").read_text(encoding="utf-8")
 

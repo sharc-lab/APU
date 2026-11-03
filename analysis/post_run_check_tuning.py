@@ -195,7 +195,123 @@ def live_estimate(tasks, config, src, repo) -> dict:
             "prompt_check_s": statistics.median(mech), "n_checks": n_checks, "redo_s": redo_s}
 
 
-# ── register text ──────────────────────────────────────────────────────────────────────────────
+LIVE_LOCAL_FILE = "results/x2_post_run_check_local_v1.jsonl"
+
+
+def live_escalations(repo: Path = REPO, source: str = LIVE_LOCAL_FILE) -> dict:
+    """The check decisions on the FINISHED local phase of the live run (scripts/post_run_check_cloud.py's own
+    local_rows and decide_turn, the code the controller runs; no client, no file written). Refuses without run_end."""
+    import contextlib
+    import io
+    mod = R._load("scripts/post_run_check_cloud.py", "post_run_check_cloud", Path(repo))
+    rows = mod.CR.load_rows(Path(repo) / source)
+    if not any(r.get("record") == "run_end" for r in rows):
+        raise ValueError(f"{source} has no run_end (local phase unfinished)")
+    turns, l2_calls, checks = mod.local_rows(rows)
+    cache, out = {}, []
+    with contextlib.redirect_stdout(io.StringIO()):
+        for r in turns:
+            d = mod.decide_turn(r, mod.CR.build_session_for(r, cache), l2_calls, checks)
+            out.append({"seed": r["seed"], "turn_idx": r["turn_idx"], "task_id": r["task_id"],
+                        "decision": d["decision"], "fired": d["fired"], "local_ok": r["end_state_ok"] is True,
+                        "turn_wall_s": r.get("turn_wall_s")})
+    ts = sorted(r["ts_utc"] for r in rows if r.get("ts_utc"))
+    t0 = datetime.fromisoformat(ts[0])
+    t1 = datetime.fromisoformat(next(r["ts_utc"] for r in rows if r.get("record") == "run_end"))
+    return {"tier": mod.TIER, "tasks": out, "local_wall_h": (t1 - t0).total_seconds() / 3600}
+
+
+def estimate_rolling(esc_tasks: list[dict], tier: str, redo_new: dict, rb_new: dict, uppers: dict, seconds: dict,
+                     cap: float = R.TASK_CAP_USD, col: str = "usd_new") -> dict:
+    """Pure. esc_tasks: the escalated tasks [{seed, task_id, ...}]. redo_new / rb_new: {(tier, seed, task): {ok,
+    usd_new, usd_recorded, ...}} (rolling_cache_reprice.redo_rolling); uppers / seconds: {(tier, seed, task): USD all
+    input uncached / redo seconds} of the full-history redo rows. Per task: own-rollback redo row, else full-history
+    redo row at (tier, seed, task) = MEASURED; else IMPUTED at the tier mean of the full-history redo rows (as
+    live_estimate). Cap rule as post_run_check_replay.grade: an upper above the per-task cap is billed at most the cap."""
+    tier_keys = [k for k in redo_new if k[0] == tier]
+    mean_usd = statistics.fmean(redo_new[k][col] for k in tier_keys)
+    mean_upper = statistics.fmean(uppers[k] for k in tier_keys)
+    per = []
+    for t in esc_tasks:
+        key = (tier, t["seed"], t["task_id"])
+        if key in rb_new:
+            usd, up, src = rb_new[key][col], uppers.get(key, mean_upper), "measured_rollback_redo"
+        elif key in redo_new:
+            usd, up, src = redo_new[key][col], uppers[key], "measured_full_history_redo"
+        else:
+            usd, up, src = mean_usd, mean_upper, "imputed_tier_mean"
+        capped = up > cap
+        per.append({"task_id": t["task_id"], "turn_idx": t.get("turn_idx"), "local_ok": t.get("local_ok"),
+                    "usd": min(usd, cap) if capped else usd, "upper": cap if capped else up, "src": src,
+                    "budget_exhausted": capped})
+    n = len(esc_tasks)
+    max_billed = max(redo_new[k][col] for k in tier_keys)
+    max_upper = max(uppers[k] for k in tier_keys)
+    redo_s = statistics.fmean(float(seconds[k]) for k in tier_keys if seconds.get(k) is not None)
+    return {"n_escalated": n, "per_task": per, "point_billed": sum(p["usd"] for p in per),
+            "point_upper": sum(p["upper"] for p in per), "high_billed": n * min(max_billed, cap),
+            "upper_bound": n * min(max_upper, cap), "cap_ceiling": n * cap, "max_billed_task": max_billed,
+            "max_upper_task": max_upper, "tier_mean_usd": mean_usd, "tier_mean_upper": mean_upper,
+            "n_tier_rows": len(tier_keys), "redo_s": redo_s, "cloud_hours": n * redo_s / 3600,
+            "measured": [p["task_id"] for p in per if p["src"].startswith("measured")],
+            "imputed": [p["task_id"] for p in per if p["src"] == "imputed_tier_mean"]}
+
+
+def live_estimate_rolling(repo: Path = REPO) -> dict:
+    """ESTIMATE of the live run's cloud phase under the rolling cache breakpoint (src/cloud/prompt_cache.py, used by
+    scripts/cloud_redo.py from 2026-11-02): the ACTUAL escalation set of the finished local phase, redo USD repriced
+    with the rolling model (analysis/rolling_cache_reprice.py), and the same set at the recorded (old) placement."""
+    import contextlib
+    import io
+    R._paths(Path(repo))
+    import rolling_cache_reprice as rr
+    le = live_escalations(repo)
+    with contextlib.redirect_stdout(io.StringIO()):
+        rd = rr.redo_rolling(repo)
+        src = R.cloud_sources(Path(repo))
+    tier = le["tier"]
+    esc = [t for t in le["tasks"] if t["decision"] == "escalate"]
+    uppers = {k: v["upper"] for k, v in src["redo"].items()}
+    secs = {k: v["seconds"] for k, v in src["redo"].items()}
+    new = estimate_rolling(esc, tier, rd["redo"], rd["rb"], uppers, secs)
+    old = estimate_rolling(esc, tier, rd["redo"], rd["rb"], uppers, secs, col="usd_recorded")
+    return {"tier": tier, "seed": HOLDOUT, "model": rd["model"], "n_tasks": len(le["tasks"]),
+            "wrong_escalated": sum(1 for t in esc if not t["local_ok"]),
+            "right_escalated": sum(1 for t in esc if t["local_ok"]),
+            "kept_local": len(le["tasks"]) - len(esc), "local_wall_h": le["local_wall_h"],
+            "job_cap": LIVE_JOB_CAP_USD, "task_cap": R.TASK_CAP_USD, "new": new, "old": old,
+            "replay_escalated": load(Path(repo))["live"]["escalated_replay"]}
+
+
+def live8192_rolling_text(e: dict) -> str:
+    n, o = e["new"], e["old"]
+    esc = ", ".join(f"{p['task_id']} (turn {p['turn_idx']}, {'right' if p['local_ok'] else 'wrong'} locally, "
+                    f"{'measured' if p['src'].startswith('measured') else 'imputed'} USD {p['usd']:.5f})"
+                    for p in n["per_task"])
+    return (f"ESTIMATE, not measured: cloud phase of the live post-run check at evo-x2 num_ctx 8192, seed {e['seed']}, "
+            f"on {e['model']}, under the ROLLING cache breakpoint (system prompt + latest message, src/cloud/"
+            f"prompt_cache.py, the placement scripts/cloud_redo.py uses from 2026-11-02); escalation set = the ACTUAL "
+            f"decisions of the finished local phase ({LIVE_LOCAL_FILE}, run_end present; scripts/post_run_check_cloud.py "
+            f"decide_turn, dry, no client): {n['n_escalated']} of {e['n_tasks']} escalated ({e['wrong_escalated']} wrong "
+            f"locally, {e['right_escalated']} right locally), {e['kept_local']} kept local (the earlier row "
+            f"post-run-check-live-8192-estimate used the held-out replay's {e['replay_escalated']} escalations and the "
+            f"recorded placement); billed point USD {n['point_billed']:.4f} (the same {n['n_escalated']} tasks at the "
+            f"recorded placement USD "
+            f"{o['point_billed']:.4f}); high USD {n['high_billed']:.4f} ({n['n_escalated']} tasks at the tier's largest "
+            f"rolling-repriced per-task redo USD {n['max_billed_task']:.4f}); upper bound USD {n['upper_bound']:.4f} "
+            f"({n['n_escalated']} tasks at the tier's largest measured all-input-uncached USD "
+            f"{n['max_upper_task']:.4f}, capped at the USD {e['task_cap']:.2f} per-task cap; cap ceiling USD "
+            f"{n['cap_ceiling']:.2f}); job cap USD {e['job_cap']:.2f} billed, enforced in code (unchanged; spend "
+            f"beyond it is refused, so an upper bound above it cannot be billed); hours "
+            f"{n['cloud_hours']:.2f} for the cloud phase ({n['n_escalated']} redos x {n['redo_s']:.2f} s mean redo "
+            f"time of the tier's {n['n_tier_rows']} full-history redo rows; the local phase already took "
+            f"{e['local_wall_h']:.2f} h wall, run_start to run_end); per-task USD MEASURED for {len(n['measured'])} "
+            f"tasks ({', '.join(n['measured'])}: full-history redo rows at this tier and seed, recorded per-call tokens "
+            f"repriced with prompt_cache.rolling_split, analysis/rolling_cache_reprice.py), IMPUTED for "
+            f"{len(n['imputed'])} tasks ({', '.join(n['imputed'])}: no redo row exists because they were right "
+            f"locally; each at the tier mean rolling-repriced redo USD {n['tier_mean_usd']:.5f}, upper "
+            f"{n['tier_mean_upper']:.5f}, over the tier's {n['n_tier_rows']} full-history redo rows, as "
+            f"live_estimate); tasks: {esc}")
 
 def load(repo: Path = REPO, path: str = OUT) -> dict:
     rows = R._rows(Path(repo) / path)

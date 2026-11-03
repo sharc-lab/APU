@@ -159,7 +159,9 @@ Staged, not loaded (docs/T2S_WEEK_PLAN.md): Intel laptop task accuracy on the B3
 4096 default and Intel iGPU at 32768, validation then real run each), then the B5 context-policy cells on the Intel
 CPU and iGPU. These replace the projected Intel figures in section 5 with measured ones.
 
-## 7. Pitch lines, as worded after the number audit (2026-10-31)
+## 7. Spillway pitch lines, as worded after the number audit (2026-10-31)
+
+Company name on the deck: **Spillway**. The research repo, its packages and its research docs keep their existing names.
 
 The operator approved every pitch fix in docs/AUDIT_20261025.md section 1c on 2026-10-31. These are the pitch's lines
 with the conditions each figure needs; the deck is not in this repo, so copy them from here.

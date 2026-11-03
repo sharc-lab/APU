@@ -994,12 +994,24 @@ def build_cloud_measured(register: dict) -> dict:
                                   f"actions"),
                      "usd_per_task": f"mean USD {fr['mean_usd']:.4f}, median USD {fr['median_usd']:.4f}",
                      "label": MEASURED, "src": reg_src("cloud-redo-full-context")})
+    # 2026-11-02: the rolling cache breakpoint (the live client's placement) is the current figure; the old ASSUMED
+    # 0.7 cache hit figure is kept only as a labelled old assumption beside it
+    tr = parse_task_cost_rolling(val(TASK_COST_ROLLING))
     tc = parse_task_cost(val("cloud-cost-per-real-task"))
-    for model, v in sorted((tc.get("models") or {}).items()):
-        rows.append({"model": model, "what": f"One long agent task ({tc['trace_set']}, median {tc['median_steps']} "
-                                             f"steps), realistic caching", "accuracy": None,
-                     "usd_per_task": f"median USD {v['realistic'][0]:.4f}, p90 USD {v['realistic'][1]:.4f}",
-                     "label": PRICED, "src": reg_src("cloud-cost-per-real-task")})
+    if tr.get("models"):
+        for model, v in sorted(tr["models"].items()):
+            rows.append({"model": model, "what": f"One long agent task ({tr['trace_set']}, median {tr['median_steps']} "
+                                                 f"steps), rolling cache breakpoint", "accuracy": None,
+                         "usd_per_task": (f"median USD {v['new'][0]:.4f}, p90 USD {v['new'][1]:.4f} (old assumption, "
+                                          f"{tr['hit_rate']} cache hit: median USD {v['old'][0]:.4f})"),
+                         "label": PRICED, "src": reg_src(TASK_COST_ROLLING)})
+    else:
+        for model, v in sorted((tc.get("models") or {}).items()):
+            rows.append({"model": model, "what": f"One long agent task ({tc['trace_set']}, median {tc['median_steps']} "
+                                                 f"steps), OLD ASSUMPTION realistic caching (0.7 cache hit)",
+                         "accuracy": None,
+                         "usd_per_task": f"median USD {v['realistic'][0]:.4f}, p90 USD {v['realistic'][1]:.4f}",
+                         "label": PRICED, "src": reg_src("cloud-cost-per-real-task")})
     return {"prices": ANTHROPIC_PRICES, "rows": rows}
 
 
@@ -1153,7 +1165,7 @@ def cost_view(cache, repo: Path = REPO) -> dict:
 
 STORY_IDS = ["t2s-r2-real-cpu", "t2s-r2-real-igpu", "x2-evalset-tasks-real-v2-wrong-rate",
              "R2-qwen3-14b-4096-reconciliation", "H-scale-verdict", "H-scale-family-verdict", "R2-v1b-gated-per-model",
-             "cloud-cost-per-real-task", "b5-fa-control", "b5-policy-metrics", "cloud-redo-full-context",
+             "cloud-cost-per-real-task", "cloud-cost-per-real-task-rolling-cache", "b5-fa-control", "b5-policy-metrics", "cloud-redo-full-context",
              "hybrid-savings-tradeoff", "t2s-config-comparison", "hybrid-route-at-start",
              "late-escalation-cost-vs-fresh", "impact-session-time-by-window", "fh1-amd-boundary-qwen3-32b"]
 
@@ -1200,6 +1212,27 @@ def parse_task_cost(value: str) -> dict:
                          "best": (float(mm[6]), float(mm[7]))}
     return {"trace_set": m[1], "n_tasks": int(m[2]), "median_steps": int(m[3]), "models": models,
             "priced": "priced, not executed" in value}
+
+
+TASK_COST_ROLLING = "cloud-cost-per-real-task-rolling-cache"
+
+
+def parse_task_cost_rolling(value: str) -> dict:
+    """Row cloud-cost-per-real-task-rolling-cache, the long-task trace set (first set): steps and, per model, OLD
+    (realistic, ASSUMED hit rate) and NEW (rolling breakpoint) median / p90 USD per task."""
+    m = re.search(r"([\w-]+) \(n=(\d+) tasks, median (\d+) steps\): ", value or "")
+    if not m:
+        return {}
+    rest = value[m.end():]
+    nxt = re.search(r" / [\w-]+ \(n=\d+ tasks, median \d+ steps\): ", rest)
+    seg = rest[:nxt.start()] if nxt else rest
+    models = {}
+    for mm in re.finditer(r"(claude-[\w.-]+): OLD \(realistic, ASSUMED hit rate ([\d.]+)\) \$([\d.]+) / \$([\d.]+), "
+                          r"NEW \(rolling breakpoint\) \$([\d.]+) / \$([\d.]+)", seg):
+        models[mm[1]] = {"old": (float(mm[3]), float(mm[4])), "new": (float(mm[5]), float(mm[6]))}
+    hr = re.search(r"ASSUMED hit rate ([\d.]+)", seg)
+    return {"trace_set": m[1], "n_tasks": int(m[2]), "median_steps": int(m[3]), "models": models,
+            "hit_rate": float(hr[1]) if hr else None, "priced": "PRICED, NOT RUN" in value}
 
 
 def _item(text, label, rid=None, src=None):
@@ -1336,12 +1369,13 @@ def _build_story_details(register: dict, silent: dict, cost: dict, escalation: d
     if any(r["escalation_interim"] for r in trade):
         s4.append(_item("Against claude-haiku-5-5 the escalation cost is interim (its all-cloud price): the "
                         "full-history redo ran on claude-sonnet-5-5 only.", None))
-    tc = parse_task_cost(val("cloud-cost-per-real-task"))
-    son = (tc.get("models") or {}).get("claude-sonnet-5-5")
+    tr = parse_task_cost_rolling(val(TASK_COST_ROLLING))
+    son = (tr.get("models") or {}).get("claude-sonnet-5-5")
     if son:
-        s4.append(_item(f"One long agent task ({tc['trace_set']}, median {tc['median_steps']} steps) sent whole to "
-                        f"the cloud: USD {son['realistic'][0]:.2f} median on claude-sonnet-5-5 at an assumed 70% "
-                        f"cache hit rate", PRICED, "cloud-cost-per-real-task"))
+        s4.append(_item(f"One long agent task ({tr['trace_set']}, median {tr['median_steps']} steps) sent whole to "
+                        f"the cloud: USD {son['new'][0]:.2f} median on claude-sonnet-5-5 with the rolling cache "
+                        f"breakpoint (old assumption, {tr['hit_rate']:.0%} cache hit: USD {son['old'][0]:.2f})",
+                        PRICED, TASK_COST_ROLLING))
     steps.append({"n": 4, "title": "The money: local saves the bill, and the screen shows what it costs",
                   "minutes": 1, "items": s4, "panel": "tradeoff",
                   "tradeoff": {"featured": x2, "cpu": cpu, "volume": 1000, "src": reg_src("hybrid-savings-tradeoff")}})
@@ -1465,13 +1499,13 @@ def build_story(register: dict, silent: dict, cost: dict, escalation: dict | Non
     steps.append({"n": 3, "title": "Why not just change one setting?", "kind": "tiles", "minutes": 1,
                   "main": {"tiles": tiles}, "items": d3})
     # 4. what it costs, then the accuracy-tolerance slider
-    tc = parse_task_cost(val("cloud-cost-per-real-task"))
-    son = (tc.get("models") or {}).get("claude-sonnet-5-5")
+    tr = parse_task_cost_rolling(val(TASK_COST_ROLLING))
+    son = (tr.get("models") or {}).get("claude-sonnet-5-5")
     le4 = parse_late_escalation(val("late-escalation-cost-vs-fresh"))
     money = []
     if son:
-        money.append(_num_item(f"${son['realistic'][0]:.2f}", "per long task in the cloud", PRICED,
-                               reg_src("cloud-cost-per-real-task")))
+        money.append(_num_item(f"${son['new'][0]:.2f}", "per long task in the cloud", PRICED,
+                               reg_src(TASK_COST_ROLLING)))
     if le4:
         # audit 2026-10-25 1b (operator approved 2026-10-31): like for like, a late redo vs a fresh run of the same
         # task (matched mean), not a short-task redo in cents beside a priced long task

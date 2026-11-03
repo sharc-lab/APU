@@ -156,18 +156,13 @@
    "main": {
     "tiles": [
      {
-      "big": "16x",
-      "text": "Bigger memory setting: up to 16x slower, or will not start",
+      "big": "16.6x",
+      "text": "Default memory setting: 16.6x slower than Tighter, which is 42% wrong",
       "tag": "measured",
       "src": {
        "register": "impact-session-time-by-window"
       },
-      "tone": null,
-      "also": [
-       {
-        "register": "fh1-amd-boundary-qwen3-32b"
-       }
-      ]
+      "tone": null
      },
      {
       "big": "30%",
@@ -219,14 +214,14 @@
      }
     },
     {
-     "text": "qwen3:14b on the AMD workstation: 202.3 min per 40-turn session at the default memory setting vs 12.2 min at 4096 (shown as up to 16x)",
+     "text": "qwen3:14b on the AMD workstation: 202.3 min per 40-turn session at the default memory setting vs 12.2 min at 4096 (16.6x); the 4096 setting is the one that is 42.0% wrong on the task run (R2 sessions for the time, B3 v2 tasks for the wrong rate)",
      "label": "measured",
      "src": {
       "register": "impact-session-time-by-window"
      }
     },
     {
-     "text": "Will not start: qwen3-32b on the AMD workstation first failed to start at a memory setting of 367360 (exit 3221226505)",
+     "text": "Will not start (a different model and runtime, not on the main screen): qwen3-32b on llama-server on the AMD workstation first failed to start at a memory setting of 367360 (exit 3221226505), a single start",
      "label": "measured",
      "src": {
       "register": "fh1-amd-boundary-qwen3-32b"
@@ -234,7 +229,7 @@
     }
    ],
    "visible": [
-    "Bigger memory setting: up to 16x slower, or will not start",
+    "Default memory setting: 16.6x slower than Tighter, which is 42% wrong",
     "The quick fix: still 30% wrong",
     "Trimming old history: breaks a different rule"
    ]
@@ -247,20 +242,20 @@
    "main": {
     "numbers": [
      {
-      "big": "$2.53",
+      "big": "$0.72",
       "text": "per long task in the cloud",
       "tag": "priced",
       "src": {
-       "register": "cloud-cost-per-real-task"
+       "register": "cloud-cost-per-real-task-rolling-cache"
       },
       "tone": null
      },
      {
-      "big": "about 2 cents",
-      "text": "Fixing a wrong answer later: about 2 cents, but actions already taken cannot be undone",
+      "big": "1.76x",
+      "text": "Fixing a wrong answer later costs 1.76x a fresh cloud run; actions taken cannot be undone",
       "tag": "measured",
       "src": {
-       "register": "cloud-redo-full-context"
+       "register": "late-escalation-cost-vs-fresh"
       },
       "tone": null
      }
@@ -322,11 +317,12 @@
        "tolerance_local": 16.7,
        "at_matched": "cloud",
        "saves_local": {
-        "100": 2.01,
-        "1000": 20.12,
-        "10000": 201.25
+        "100": 1.61,
+        "1000": 16.1,
+        "10000": 161.0
        },
        "r2_basis": true,
+       "saves_src": "t2s-config-comparison",
        "machine": "Intel laptop"
       },
       {
@@ -342,11 +338,12 @@
        "tolerance_local": 20.0,
        "at_matched": "cloud",
        "saves_local": {
-        "100": 30.61,
-        "1000": 306.1,
-        "10000": 3060.99
+        "100": 16.99,
+        "1000": 169.89,
+        "10000": 1698.93
        },
        "r2_basis": true,
+       "saves_src": "t2s-config-comparison",
        "machine": "Intel laptop"
       }
      ],
@@ -365,7 +362,7 @@
      }
     },
     {
-     "text": "Fix after the fact: about 2 cents (mean USD 0.0227 per task, cache-priced), 84.8% fixed (95% Wilson CI 79.1% to 89.1%), but executed actions cannot be undone; decide up front instead. 28 of the 30 unfixed inherited the local model's earlier executed actions. (Full-history redo on claude-sonnet-5-5, up to 2048 output tokens per call; the local run had 384.)",
+     "text": "Fix after the fact: mean USD 0.0227 per short B3 task (cache-priced; compare it with a fresh run of the same task, row late-escalation-cost-vs-fresh, not with a long task), 84.8% fixed (95% Wilson CI 79.1% to 89.1%), but executed actions cannot be undone; decide up front instead. 28 of the 30 unfixed inherited the local model's earlier executed actions. (Full-history redo on claude-sonnet-5-5, up to 2048 output tokens per call; the local run had 384.)",
      "label": "measured",
      "src": {
       "register": "cloud-redo-full-context"
@@ -391,10 +388,10 @@
      "src": null
     },
     {
-     "text": "One long agent task (nebius-rebench-openhands, median 62 steps) sent whole to the cloud: USD 2.53 median on claude-sonnet-5-5 at an assumed 70% cache hit rate",
+     "text": "One long agent task (nebius-rebench-openhands, median 62 steps) sent whole to the cloud: USD 0.72 median on claude-sonnet-5-5 with the rolling cache breakpoint (old assumption, 70% cache hit: USD 2.53)",
      "label": "priced, not executed",
      "src": {
-      "register": "cloud-cost-per-real-task"
+      "register": "cloud-cost-per-real-task-rolling-cache"
      }
     },
     {
@@ -538,7 +535,7 @@
    },
    "visible": [
     "per long task in the cloud",
-    "Fixing a wrong answer later: about 2 cents, but actions already taken cannot be undone",
+    "Fixing a wrong answer later costs 1.76x a fresh cloud run; actions taken cannot be undone",
     "How much accuracy gap you accept decides where it runs; we measure that gap per device.",
     "Fix one wrong answer now (live)"
    ]
@@ -608,11 +605,12 @@
       "tolerance_local": 16.7,
       "at_matched": "cloud",
       "saves_local": {
-       "100": 2.01,
-       "1000": 20.12,
-       "10000": 201.25
+       "100": 1.61,
+       "1000": 16.1,
+       "10000": 161.0
       },
       "r2_basis": true,
+      "saves_src": "t2s-config-comparison",
       "machine": "Intel laptop"
      },
      {
@@ -628,11 +626,12 @@
       "tolerance_local": 20.0,
       "at_matched": "cloud",
       "saves_local": {
-       "100": 30.61,
-       "1000": 306.1,
-       "10000": 3060.99
+       "100": 16.99,
+       "1000": 169.89,
+       "10000": 1698.93
       },
       "r2_basis": true,
+      "saves_src": "t2s-config-comparison",
       "machine": "Intel laptop"
      }
     ],
@@ -655,17 +654,17 @@
      }
     },
     {
-     "text": "Intel laptop: recommended Intel iGPU, Ollama default, loaded window 32768; vs claude-haiku-5-5: local 4/5 (80.0%, measured by R2 session pass rate (not B3 task accuracy)), cloud 87/90 (96.7%), local saves USD 20.12 a month at 1,000 tasks a day",
+     "text": "Intel laptop: recommended Intel iGPU, Ollama default, loaded window 32768; vs claude-haiku-5-5: local 4/5 (80.0%, measured by R2 session pass rate (not B3 task accuracy)), cloud 87/90 (96.7%), local saves USD 16.10 a month at 1,000 tasks a day (row t2s-config-comparison: kept-local share x bill less the escalation premium, Intel iGPU qwen3:14b)",
      "label": "measured",
      "src": {
-      "register": "hybrid-route-at-start"
+      "register": "t2s-config-comparison"
      }
     },
     {
-     "text": "Intel laptop: recommended Intel iGPU, Ollama default, loaded window 32768; vs claude-sonnet-5-5: local 4/5 (80.0%, measured by R2 session pass rate (not B3 task accuracy)), cloud 90/90 (100.0%), local saves USD 306.10 a month at 1,000 tasks a day",
+     "text": "Intel laptop: recommended Intel iGPU, Ollama default, loaded window 32768; vs claude-sonnet-5-5: local 4/5 (80.0%, measured by R2 session pass rate (not B3 task accuracy)), cloud 90/90 (100.0%), local saves USD 169.89 a month at 1,000 tasks a day (row t2s-config-comparison: kept-local share x bill less the escalation premium, Intel iGPU qwen3:14b)",
      "label": "measured",
      "src": {
-      "register": "hybrid-route-at-start"
+      "register": "t2s-config-comparison"
      }
     },
     {
@@ -690,6 +689,7 @@
   "H-scale-family-verdict",
   "R2-v1b-gated-per-model",
   "cloud-cost-per-real-task",
+  "cloud-cost-per-real-task-rolling-cache",
   "b5-fa-control",
   "b5-policy-metrics",
   "cloud-redo-full-context",

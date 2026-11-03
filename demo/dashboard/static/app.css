@@ -160,6 +160,7 @@ body.story-on main.wrap { max-width: 1520px; }
 .story h2#story-title { font-size: 52px; margin: 12px 0 20px; }
 #story-panel { flex: 1; display: flex; flex-direction: column; justify-content: center; }
 .eng-link { position: absolute; right: 16px; top: 12px; font-size: 16px; color: var(--ink-2); }
+.story .brand { display: block; font-weight: 700; font-size: 18px; letter-spacing: .02em; color: var(--ink-2); margin-bottom: 4px; }
 .s-big { font-size: 96px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
 .s-cards, .s-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 28px; }
 .s-card, .s-tile { border: 2px solid var(--border); border-radius: 16px; padding: 28px 32px; font-size: 28px;
