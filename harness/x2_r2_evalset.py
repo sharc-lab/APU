@@ -1873,6 +1873,9 @@ def main(argv=None, advance=True):
             if not hc.wait_for_ollama_ready(timeout_s=90):
                 raise RuntimeError("ollama did not become ready")
         runtime = ag.OllamaRuntime()
+        # recover() restarts the server from these; without them a restart drops OLLAMA_DEBUG and the log path, and
+        # every call after the restart loses its detector v2 slice (L1)
+        runtime.server_env, runtime.server_log = server_env, serve_log
         if any(a in NUMKEEP_ARMS for a, _, _ in plan):
             runtime = NumKeepSessionRuntime(runtime, host_measure(runtime), emit)
         if serve_log:

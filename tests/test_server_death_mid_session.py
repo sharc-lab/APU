@@ -206,3 +206,40 @@ def test_one_recorded_retry_that_succeeds_completes_the_session():
     calls = [c for r in rows if r.get("record") == "r2a_turn" for c in r["calls"]]
     retried = [c for c in calls if c["retried_after_connection_error"]]
     assert len(retried) == 1 and "connection refused" in retried[0]["first_attempt"]["error"]
+
+
+def test_evalset_main_hands_server_env_and_log_to_runtime_for_recover():
+    """2026-11-02 (review fix): x2_r2_evalset.main must set runtime.server_env and runtime.server_log on the base
+    OllamaRuntime it creates, so recover() restarts the server with OLLAMA_DEBUG and the same log path. Without them a
+    restart loses the detector v2 slice for every later call (L1)."""
+    import ast
+    import inspect
+    src = inspect.getsource(ev.main)
+    tree = ast.parse(src.lstrip() if src[0] != " " else "if 1:\n" + src)
+    found = False
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if not isinstance(body, list):
+            continue
+        for i, st in enumerate(body[:-1]):
+            if (isinstance(st, ast.Assign) and ast.unparse(st.value) == "ag.OllamaRuntime()"
+                    and ast.unparse(st.targets[0]) == "runtime"):
+                nxt = ast.unparse(body[i + 1])
+                assert nxt == "runtime.server_env, runtime.server_log = (server_env, serve_log)", nxt
+                found = True
+    assert found, "x2_r2_evalset.main no longer creates runtime = ag.OllamaRuntime()"
+
+
+def test_recover_restarts_with_runtime_env_and_log(monkeypatch):
+    """recover() passes the runtime's own server_env and server_log to _start_server."""
+    import types
+    calls = []
+    fake_hc = types.SimpleNamespace(wait_for_ollama_ready=lambda timeout_s: calls.append(("wait", timeout_s)) or
+                                    len([c for c in calls if c[0] == "wait"]) > 1,
+                                    stop_ollama_server=lambda: calls.append(("stop",)))
+    monkeypatch.setitem(sys.modules, "host_config", fake_hc)
+    monkeypatch.setattr(ag, "_start_server", lambda hc, env, log: calls.append(("start", env, log)))
+    rt = ag.OllamaRuntime()
+    rt.server_env, rt.server_log = {"OLLAMA_DEBUG": "1"}, "C:/x/serve.log"
+    assert rt.recover() is True
+    assert ("start", {"OLLAMA_DEBUG": "1"}, "C:/x/serve.log") in calls
