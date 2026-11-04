@@ -1,5 +1,13 @@
 # evo-x2 queue plan
 
+## Queued 2026-11-04: long-task scale (positions 97, 98)
+
+x2_longtask_scale_v1_qwen3_32b (97, ESTIMATE 3.75 h, high 8.84 h) then x2_longtask_scale_v1_llama33_70b (98,
+ESTIMATE 8.50 h, high 20.03 h), row long-task-scale-hours; docs/EXPERIMENTS.md "PRE-REGISTRATION (2026-11-03):
+long-task-scale-v1". Appended 11-04 04:36Z with `C:\apu\ovn\ltscale\x2_queue_fill.py --append`; 97 started by 04:48Z.
+Side directory `C:\apu\ovn\ltscale`. Local only, no cloud call, no pause set; no new task after 11-06 00:00Z; each job
+releases itself via tq.advance() on exit. Anything queued later (for example E, once approved) starts after 98.
+
 
 ## Queued 2026-10-31: live post-run check, local phase (position 96)
 
