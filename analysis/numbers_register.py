@@ -5155,6 +5155,16 @@ def compute_pitch1_standard_hybrid_8192(repo):
     return _pitch1_row(repo, "8192")
 
 
+def compute_pitch1_frontier(repo):
+    m, d = _pitch1(repo)
+    return {"value": m.frontier_text(d), "n": "90 jobs x 2 windows"}
+
+
+def compute_allcloud_bill_month_short_tasks(repo):
+    m, d = _pitch1(repo)
+    return {"value": m.short_task_bill_text(d), "n": "90 jobs, 1 priced volume"}
+
+
 def compute_route_at_start_default_window(repo):
     im = _impact()
     d = im.route_default_window(repo)
@@ -11124,12 +11134,26 @@ NUMBER_ENTRIES = [
      "script_function": "analysis/post_run_check_l2_example.py::replay_heldout"},
 
     {"claim_id": "pitch1-standard-hybrid-default", "description": "pitch1 (external reviewer request): standard "
-     "hybrid (Ollama local-first, prompt-length check against the window, cloud fallback on hard errors only) vs the "
+     "hybrid (Ollama local-first, prompt-length check against the window before every local call since the "
+     "2026-11-03 amendment, cloud fallback on hard errors only) vs the "
      "post-run-check pipeline on the same 90 B3 v2 jobs at the default window (loaded 40960), with all-cloud and "
      "local-only; replay, rolling cache breakpoint; pre-registered targets T1 to T3",
      "compute": compute_pitch1_standard_hybrid_default, "pending_reason": _hfp_pending_reason,
      "data_files": ["results/x2_evalset_tasks_real_v2.jsonl", *ROLLING_FILES],
      "script_function": "analysis/pitch1_standard_hybrid.py::compare"},
+    {"claim_id": "pitch1-frontier", "description": "pitch1 amendment 2026-11-03: the pipeline vs the cheapest mix of "
+     "the standard hybrid (every-call check) and all-cloud reaching the same correct count, at the default and 8,192 "
+     "windows; replay, rolling cache breakpoint; pre-registered target TF",
+     "compute": compute_pitch1_frontier, "pending_reason": _hfp_pending_reason,
+     "data_files": ["results/x2_evalset_tasks_real_v2.jsonl", *ROLLING_FILES],
+     "script_function": "analysis/pitch1_standard_hybrid.py::frontier"},
+    {"claim_id": "allcloud-bill-month-short-tasks", "description": "pitch1 amendment 2026-11-03: all-cloud monthly "
+     "and 365-day bill at 1,000 tasks/day on the SHORT task set (the 90 B3 v2 jobs of the PITCH-1 savings), "
+     "claude-sonnet-5-5, rolling cache breakpoint, beside the standard hybrid and the pipeline at both windows; priced "
+     "from recorded runs, not run",
+     "compute": compute_allcloud_bill_month_short_tasks, "pending_reason": _hfp_pending_reason,
+     "data_files": ["results/x2_evalset_tasks_real_v2.jsonl", *ROLLING_FILES],
+     "script_function": "analysis/pitch1_standard_hybrid.py::short_task_bill"},
     {"claim_id": "pitch1-standard-hybrid-8192", "description": "pitch1 (external reviewer request): standard hybrid "
      "vs the post-run-check pipeline on the same 90 B3 v2 jobs at the 8,192 window, with all-cloud and local-only; "
      "replay, rolling cache breakpoint; pre-registered targets T1 to T3",

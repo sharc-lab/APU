@@ -93,3 +93,19 @@ def test_real_replay_shape_and_no_company_name():
         t = P.window_text(d, wname)
         assert "Spillway" not in t and "—" not in t
         assert f"T1-{wname}" in t
+
+
+def test_frontier_mix():
+    std, allc = {"correct": 80, "usd_job": 0.0}, {"correct": 90, "usd_job": 0.01}
+    f = P.frontier({"correct": 86, "usd_job": 0.005}, std, allc)
+    assert f["p"] == pytest.approx(0.6) and f["mix_usd_job"] == pytest.approx(0.006) and f["TF"]
+    assert not P.frontier({"correct": 86, "usd_job": 0.007}, std, allc)["TF"]
+    assert P.frontier({"correct": 79, "usd_job": 0.0}, std, allc)["p"] == 0.0
+    assert not P.frontier({"correct": 91, "usd_job": 0.0}, std, allc)["reachable"]
+
+
+def test_primary_standard_is_every_call():
+    assert P.STD == "standard_chars4_every" and P.ARM_LABELS[2][0] == P.STD
+    import numbers_register as NR
+    ids = {e["claim_id"] for e in NR.NUMBER_ENTRIES}
+    assert {"pitch1-frontier", "allcloud-bill-month-short-tasks"} <= ids

@@ -22,9 +22,9 @@ correct/90, cloud USD per job, latency per job.
 Cloud model: claude-sonnet-5-5 (the price file's escalation model), rolling cache breakpoint, as every live cloud job
 since 2026-11-02.
 
-The standard hybrid definition is written to match the one being implemented for PITCH-1 in analysis/ (not yet in
-this tree). When that lands, compare it with `harness/xps_demo_kit.standard_route` and change one of the two so they
-agree before the cloud step runs.
+Operator decision 2026-11-03: the standard hybrid is the every-call prompt-length check, as here. PITCH-1
+(analysis/pitch1_standard_hybrid.py, `STD`) now uses the same check as its primary, so the kit and the PITCH-1 headline
+agree; the first-call check is reported there as a sensitivity only.
 
 **Declared approximations (arms b and c).** These are the same as the replay rows. (1) A task sent to the cloud is
 deferred in the local step: no local call is made for it, and the local transcript and environment carry on without

@@ -10,8 +10,9 @@ Arms per window:
   all-cloud      each job's all_cloud_b3_v1 row.
   local-only     each job's local turn accepted as is.
   standard       Ollama local-first + LiteLLM-style cloud fallback + a prompt-length check against the window:
-                 estimate > window before the task's first local call (primary; every call as a sensitivity) sends the
-                 task to the cloud (its all-cloud row, as a pipeline route); otherwise local, with a cloud fallback only
+                 estimate > window before any local call of the task (primary since the 2026-11-03 amendment, chosen
+                 after the first results were seen; before the first call only, the original primary, is now a
+                 sensitivity) sends the task to the cloud (its all-cloud row, as a pipeline route); otherwise local, with a cloud fallback only
                  on a hard error (HTTP error, call outcome not "ok", empty final response), taking the pipeline's
                  escalation source (own-rollback redo, else full-history redo, else IMPUTED). No correctness check.
                  Estimate: chars/4, the client's recorded pre-call prompt_tokens_est (primary), or the model's own
@@ -30,6 +31,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 WINDOWS = {"default": "f16 default", "8192": "f16 8192"}   # window name -> hybrid_full_pipeline config
 ESTIMATES = ("chars4", "tokenizer")
+STD = "standard_chars4_every"      # the standard hybrid (2026-11-03 amendment); was standard_chars4_first
+DAYS_PER_MONTH = 30                # impact_model.DAYS_PER_MONTH, checked in short_task_bill
+VOLUME = 1000                      # tasks per day, the pitch volume
 DATA_FILES = ["results/x2_evalset_tasks_real_v2.jsonl", "results/all_cloud_b3_v1.jsonl",
               "results/cloud_redo_full_context_v1.jsonl", "results/cloud_redo_full_context_v1_part2.jsonl",
               "results/cloud_redo_full_context_v1_part3.jsonl", "results/own_rollback_redo_v1.jsonl",
@@ -218,12 +222,13 @@ def compare(repo=REPO, ci=None) -> dict:
             w[f"pipeline_{name}"] = r
         for arm in ("all_cloud", "local_only"):
             w[arm]["pct_bill"] = 100 * w[arm]["usd_job"] / allc
-        w["targets"] = targets(w["pipeline_tuned"], w["standard_chars4_first"])
+        w["targets"] = targets(w["pipeline_tuned"], w[STD])
         w["sensitivity"] = {
-            "tokenizer estimate": targets(w["pipeline_tuned"], w["standard_tokenizer_first"]),
-            "every-call check": targets(w["pipeline_tuned"], w["standard_chars4_every"]),
-            "tokenizer + every call": targets(w["pipeline_tuned"], w["standard_tokenizer_every"]),
-            "L3 CONFIG_V1": targets(w["pipeline_v1"], w["standard_chars4_first"])}
+            "first-call check (the original primary)": targets(w["pipeline_tuned"], w["standard_chars4_first"]),
+            "tokenizer estimate": targets(w["pipeline_tuned"], w["standard_tokenizer_every"]),
+            "tokenizer + first call": targets(w["pipeline_tuned"], w["standard_tokenizer_first"]),
+            "L3 CONFIG_V1": targets(w["pipeline_v1"], w[STD])}
+        w["frontier"] = frontier(w["pipeline_tuned"], w[STD], w["all_cloud"])
         out["windows"][wname] = w
     return out
 
@@ -231,11 +236,11 @@ def compare(repo=REPO, ci=None) -> dict:
 # ── text ───────────────────────────────────────────────────────────────────────────────────────────
 
 ARM_LABELS = (("all_cloud", "all-cloud"), ("local_only", "local-only"),
-              ("standard_chars4_first", "standard hybrid (chars/4, first-call check)"),
+              (STD, "standard hybrid (chars/4, every-call check)"),
               ("pipeline_tuned", "post-run-check pipeline (L3 tuned)"))
-SENS_LABELS = (("standard_tokenizer_first", "standard hybrid (tokenizer count, first-call check)"),
-               ("standard_chars4_every", "standard hybrid (chars/4, every-call check)"),
+SENS_LABELS = (("standard_chars4_first", "standard hybrid (chars/4, first-call check, the original primary)"),
                ("standard_tokenizer_every", "standard hybrid (tokenizer count, every-call check)"),
+               ("standard_tokenizer_first", "standard hybrid (tokenizer count, first-call check)"),
                ("pipeline_v1", "post-run-check pipeline (L3 v1)"))
 
 
@@ -275,12 +280,14 @@ def _mm(b: bool) -> str:
 def window_text(d: dict, wname: str) -> str:
     w = d["windows"][wname]
     t = w["targets"]
-    std, sp = w["standard_chars4_first"], w["pipeline_tuned"]
+    std, sp = w[STD], w["pipeline_tuned"]
     sens = "; ".join(f"{k}: T1 {_mm(v['T1'])}" for k, v in w["sensitivity"].items())
     return (f"replay of recorded runs, no call made; B3 v2, qwen3:14b, evo-x2 {w['tier']} (loaded window "
             f"{w['window']}, the same window for every arm), seeds 20260901-03, claude-sonnet-5-5 at the rolling cache "
-            f"breakpoint (billed basis); standard hybrid = Ollama local-first, prompt-length check (estimate > window "
-            f"sends the task to the cloud, its all-cloud row), cloud fallback only on a hard error (HTTP error, call "
+            f"breakpoint (billed basis); standard hybrid = Ollama local-first, prompt-length check before every local "
+            f"call (estimate > window sends the task to the cloud, its all-cloud row; every-call is the primary since "
+            f"the 2026-11-03 amendment, chosen AFTER the first results were seen, first-call check in the sensitivity "
+            f"list), cloud fallback only on a hard error (HTTP error, call "
             f"outcome not ok, empty response; escalation source), no correctness check; post-run-check pipeline = "
             f"hybrid_full_pipeline.run_pipeline unchanged (route at start, post-run check L1 to L3, rollback, cloud "
             f"redo, USD 0.25 per-task budget), L3 CONFIG_TUNED (tuned on seeds 20260901-04, in-sample here); imputed "
@@ -294,10 +301,80 @@ def window_text(d: dict, wname: str) -> str:
             f"{sens}" + _extra(sp, std))
 
 
+def frontier(spill: dict, std: dict, allc: dict) -> dict:
+    """Pure. The cheapest mix of the standard hybrid and all-cloud reaching the pipeline's correct count: a share p of
+    jobs to all-cloud, the rest to the standard hybrid, so expected correct and USD per job lie on the line between the
+    two arms. p = 0 when the pipeline's correct is at or below the standard's; unreachable when it is above
+    all-cloud's. TF: pipeline USD per job at or below the mix's."""
+    sc, ac, pc = std["correct"], allc["correct"], spill["correct"]
+    if pc <= sc:
+        p = 0.0
+    elif pc > ac:
+        return {"p": None, "mix_usd_job": None, "TF": None, "reachable": False}
+    else:
+        p = (pc - sc) / (ac - sc)
+    mix = std["usd_job"] + p * (allc["usd_job"] - std["usd_job"])
+    return {"p": p, "mix_usd_job": mix, "reachable": True, "TF": spill["usd_job"] <= mix + 1e-12,
+            "ratio": spill["usd_job"] / mix if mix else None}
+
+
+def frontier_text(d: dict) -> str:
+    out = []
+    for wname, w in d["windows"].items():
+        f, sp, std, ac = w["frontier"], w["pipeline_tuned"], w[STD], w["all_cloud"]
+        head = (f"{wname} window: pipeline {sp['correct']}/{sp['n']} at USD {sp['usd_job']:.5f}/job; standard hybrid "
+                f"(every-call) {std['correct']}/{std['n']} at USD {std['usd_job']:.5f}; all-cloud {ac['correct']}/"
+                f"{ac['n']} at USD {ac['usd_job']:.5f}")
+        if not f["reachable"]:
+            out.append(f"{head}; no mix of the two reaches {sp['correct']} (above all-cloud); TF-{wname} not defined")
+            continue
+        out.append(f"{head}; cheapest mix reaching {sp['correct']}: {100 * f['p']:.1f}% of jobs all-cloud, USD "
+                   f"{f['mix_usd_job']:.5f}/job; pipeline / mix = {f['ratio']:.3f}; pre-registered TF-{wname} "
+                   f"(pipeline at or below the frontier): {_mm(f['TF'])}")
+    return ("replay of recorded runs, no call; the 90 B3 v2 jobs of rows pitch1-standard-hybrid-*, claude-sonnet-5-5 "
+            "at the rolling cache breakpoint; mix = a random share p of jobs sent all-cloud, the rest to the standard "
+            "hybrid (expected values on the straight line between the two arms; no per-task oracle); standard hybrid "
+            "= every-call check (2026-11-03 amendment, chosen after the first results were seen) / " + " / ".join(out))
+
+
+def short_task_bill(d: dict) -> dict:
+    """Monthly and yearly bills at VOLUME tasks/day on the 90 short jobs, per window and arm."""
+    _paths(REPO)
+    import impact_model as im
+    if im.DAYS_PER_MONTH != DAYS_PER_MONTH:
+        raise ValueError("impact_model.DAYS_PER_MONTH changed")
+    out = {}
+    for wname, w in d["windows"].items():
+        out[wname] = {k: {"usd_job": w[k]["usd_job"], "correct": w[k]["correct"], "n": w[k]["n"],
+                          "month": w[k]["usd_job"] * VOLUME * DAYS_PER_MONTH, "year": w[k]["usd_job"] * VOLUME * 365}
+                      for k in ("all_cloud", STD, "pipeline_tuned")}
+    return out
+
+
+def short_task_bill_text(d: dict) -> str:
+    b = short_task_bill(d)
+    names = {STD: "standard hybrid (every-call)", "pipeline_tuned": "pipeline"}
+    ac = b["default"]["all_cloud"]
+    if abs(b["8192"]["all_cloud"]["usd_job"] - ac["usd_job"]) > 1e-12:
+        raise ValueError("all-cloud USD per job differs between the windows' job sets")
+    parts = [f"all-cloud: USD {ac['usd_job']:.5f}/task, USD {ac['month']:,.2f} per {DAYS_PER_MONTH}-day month, USD "
+             f"{ac['year']:,.2f} per 365 days ({ac['correct']}/{ac['n']} correct)"]
+    for wname, arms in b.items():
+        for k in (STD, "pipeline_tuned"):
+            x = arms[k]
+            parts.append(f"{names[k]} at the {wname} window: USD {x['usd_job']:.5f}/task, USD {x['month']:,.2f}/month, "
+                         f"USD {x['year']:,.2f}/365 days ({x['correct']}/{x['n']} correct)")
+    return ("PRICED FROM RECORDED RUNS, NOT RUN (no call): SHORT task set = the 90 B3 v2 jobs (qwen3:14b local runs on "
+            f"evo-x2, seeds 20260901-03) of rows pitch1-standard-hybrid-*, claude-sonnet-5-5 at the rolling cache "
+            f"breakpoint, {VOLUME:,} tasks/day; a different workload from the long-task bill (row "
+            f"pitch-allcloud-bill-year-rolling-cache, OpenHands median task) / " + " / ".join(parts))
+
+
 def main():
     d = compare(REPO)
     for wname in WINDOWS:
         print(f"== {wname}\n{window_text(d, wname)}\n")
+    print(f"== frontier\n{frontier_text(d)}\n\n== short-task bill\n{short_task_bill_text(d)}")
 
 
 if __name__ == "__main__":
