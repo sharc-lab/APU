@@ -55,6 +55,7 @@ NO_SUBPROCESS_SCRIPTS = [
     REPO / "scripts" / "longtask_cloud.py",
     REPO / "scripts" / "xps_demo_cloud.py",            # XPS demo kit cloud step (controller); console_gate is covered
     REPO / "analysis" / "xps_intake.py",               # intake parser for Zach's XPS files (controller)
+    REPO / "scripts" / "verification_tier_cloud.py",   # verification tier Run V1 cloud step (controller); console_gate
 ]
 
 

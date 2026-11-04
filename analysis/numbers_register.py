@@ -9606,6 +9606,26 @@ def compute_verification_tier_run_v1_estimate(repo):
     return {"value": vt.run_v1_text(d), "n": f"{d['run']['a']['n_calls']} calls (ESTIMATE)"}
 
 
+# Run V1 itself (scripts/verification_tier_cloud.py --live, waits for the operator's go after the 8192 cloud phase).
+# PENDING until the file exists with run_end.
+VT_RUN_V1_FILE = "results/verification_tier_run_v1.jsonl"
+
+
+def _vt_cloud_module():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("verification_tier_cloud_nr",
+                                                  REPO / "scripts" / "verification_tier_cloud.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def compute_verification_tier_run_v1(repo):
+    m = _vt_cloud_module()
+    s = m.score(Path(repo) / VT_RUN_V1_FILE)
+    return {"value": m.score_text(s), "n": f"{s['n_tasks']} tasks + 1 warm-up"}
+
+
 NUMBER_ENTRIES = [
     {"claim_id": "PX2-TTFT-gap", "description": "PX2 B4-vs-S4 TTFT gap range across 5 models",
      "compute": compute_px2_ttft_gap, "data_files": ["results/t2s_night2_20260930T135145Z.jsonl"],
@@ -11265,6 +11285,12 @@ NUMBER_ENTRIES = [
      "bound, job cap, call count; comparison arm (c) and the (a)+(c) total shown beside; not run",
      "compute": compute_verification_tier_run_v1_estimate, "data_files": VT_FILES,
      "script_function": "analysis/verification_tier_plan.py::run_v1_text"},
+    {"claim_id": "verification-tier-run-v1", "description": "Verification tier Run V1 (pre-registration "
+     "verification-tier-v1): claude-haiku-5-5 verdict on the local task turns L1 to L3 accept, 1 warm-up excluded; "
+     "failures caught /16, false escalations /244, added USD per verified task and median latency against the "
+     "pre-registered targets; per-task cap USD 0.005, no re-derivation arm; PENDING until the live file has run_end",
+     "compute": compute_verification_tier_run_v1, "data_files": [VT_RUN_V1_FILE], "pending_ok": True,
+     "require_run_end": [VT_RUN_V1_FILE], "script_function": "scripts/verification_tier_cloud.py::score"},
 ]
 
 
