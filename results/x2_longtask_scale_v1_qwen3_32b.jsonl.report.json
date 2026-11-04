@@ -1,0 +1,298 @@
+{
+ "summary": {
+  "ctx_40960": {
+   "n_tasks": 30,
+   "correct": 0,
+   "accuracy": 0.0,
+   "wilson95": [
+    0.0,
+    0.11351339476145204
+   ],
+   "wrong": 30,
+   "silent_wrong": 30,
+   "surfaced_wrong": 0,
+   "silent_share_of_wrong": 1.0,
+   "silent_share_of_all": 1.0,
+   "step_cap_hits": 0,
+   "http_error_tasks": 0,
+   "thinking_tasks": 0,
+   "minutes_per_task_mean": 3.532186111111401,
+   "minutes_per_task_median": 3.597775000000062,
+   "calls_per_task_mean": 55.333333333333336,
+   "max_prompt_tokens_est": 10581,
+   "loaded_context": [
+    40960
+   ],
+   "by_stratum": {
+    "openhands": {
+     "n": 30,
+     "correct": 0,
+     "silent_wrong": 30,
+     "minutes_mean": 3.532186111111401
+    }
+   },
+   "by_seed": {
+    "20260901": {
+     "n": 10,
+     "correct": 0,
+     "silent_wrong": 10,
+     "minutes_mean": 3.156850000000559
+    },
+    "20260902": {
+     "n": 10,
+     "correct": 0,
+     "silent_wrong": 10,
+     "minutes_mean": 3.8793450000012917
+    },
+    "20260903": {
+     "n": 10,
+     "correct": 0,
+     "silent_wrong": 10,
+     "minutes_mean": 3.5603633333323526
+    }
+   }
+  }
+ },
+ "per_task_wall": [
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260901,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 42.84400000004098,
+   "n_calls": 11,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260901,
+   "task_id": "lt_openhands_02",
+   "task_wall_s": 105.90599999995902,
+   "n_calls": 27,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260901,
+   "task_id": "lt_openhands_03",
+   "task_wall_s": 233.25,
+   "n_calls": 52,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260901,
+   "task_id": "lt_openhands_04",
+   "task_wall_s": 229.06300000008196,
+   "n_calls": 60,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260901,
+   "task_id": "lt_openhands_05",
+   "task_wall_s": 300.9849999998696,
+   "n_calls": 78,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260901,
+   "task_id": "lt_openhands_06",
+   "task_wall_s": 252.96900000004098,
+   "n_calls": 66,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260901,
+   "task_id": "lt_openhands_07",
+   "task_wall_s": 181.23400000017136,
+   "n_calls": 47,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260901,
+   "task_id": "lt_openhands_08",
+   "task_wall_s": 166.75,
+   "n_calls": 43,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260901,
+   "task_id": "lt_openhands_09",
+   "task_wall_s": 232.8910000002943,
+   "n_calls": 62,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260901,
+   "task_id": "lt_openhands_10",
+   "task_wall_s": 148.21799999987707,
+   "n_calls": 34,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260902,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 128.32800000021234,
+   "n_calls": 34,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260902,
+   "task_id": "lt_openhands_02",
+   "task_wall_s": 163.70300000021234,
+   "n_calls": 44,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260902,
+   "task_id": "lt_openhands_03",
+   "task_wall_s": 106.32799999974668,
+   "n_calls": 30,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260902,
+   "task_id": "lt_openhands_04",
+   "task_wall_s": 263.9220000002533,
+   "n_calls": 70,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260902,
+   "task_id": "lt_openhands_05",
+   "task_wall_s": 276.75,
+   "n_calls": 72,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260902,
+   "task_id": "lt_openhands_06",
+   "task_wall_s": 216.01500000013039,
+   "n_calls": 57,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260902,
+   "task_id": "lt_openhands_07",
+   "task_wall_s": 294.5470000002533,
+   "n_calls": 78,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260902,
+   "task_id": "lt_openhands_08",
+   "task_wall_s": 305.0150000001304,
+   "n_calls": 79,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260902,
+   "task_id": "lt_openhands_09",
+   "task_wall_s": 441.2650000001304,
+   "n_calls": 120,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260902,
+   "task_id": "lt_openhands_10",
+   "task_wall_s": 131.7339999997057,
+   "n_calls": 34,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260903,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 149.54699999978766,
+   "n_calls": 41,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260903,
+   "task_id": "lt_openhands_02",
+   "task_wall_s": 182.95299999974668,
+   "n_calls": 50,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260903,
+   "task_id": "lt_openhands_03",
+   "task_wall_s": 215.71799999987707,
+   "n_calls": 58,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260903,
+   "task_id": "lt_openhands_04",
+   "task_wall_s": 169.70299999974668,
+   "n_calls": 45,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260903,
+   "task_id": "lt_openhands_05",
+   "task_wall_s": 220.70300000021234,
+   "n_calls": 57,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260903,
+   "task_id": "lt_openhands_06",
+   "task_wall_s": 269.76599999982864,
+   "n_calls": 71,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260903,
+   "task_id": "lt_openhands_07",
+   "task_wall_s": 258.6720000002533,
+   "n_calls": 68,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260903,
+   "task_id": "lt_openhands_08",
+   "task_wall_s": 71.03099999995902,
+   "n_calls": 17,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260903,
+   "task_id": "lt_openhands_09",
+   "task_wall_s": 207.375,
+   "n_calls": 57,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260903,
+   "task_id": "lt_openhands_10",
+   "task_wall_s": 390.75,
+   "n_calls": 98,
+   "correct": false
+  }
+ ]
+}
