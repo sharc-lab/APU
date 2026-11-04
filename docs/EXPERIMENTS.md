@@ -3069,6 +3069,34 @@ check's own compute time is not added (sub-second, recorded separately as check_
 
 Results: rows pitch1-standard-hybrid-default and pitch1-standard-hybrid-8192 (analysis/pitch1_standard_hybrid.py).
 
+### AMENDMENT (2026-11-03, after the results above were seen): every-call check as the standard hybrid, frontier, short-task bill
+
+Operator decisions of 2026-11-03, filed before any number below was computed. The first PITCH-1 results (rows above)
+had been seen, including the every-call sensitivity at 8192 (84/90, USD 0.00618 per job), so this change of primary
+definition is made AFTER seeing results and is labelled that way wherever it is reported.
+
+1. Standard hybrid = the every-call prompt-length check (chars/4 estimate before every local call of a task). It
+   becomes the primary standard hybrid in rows pitch1-standard-hybrid-default and -8192 (T1 to T3 now compare against
+   it) and is the definition the XPS kit already uses (harness/xps_demo_kit.py). The first-call check moves to the
+   sensitivity list, so both stay reported. The first-call T1 verdicts filed earlier (MISSED at both windows) remain
+   in this file's history and in the row text.
+2. Frontier row (`pitch1-frontier`, per window): the cheapest mix of the standard hybrid (every-call) and all-cloud
+   that reaches the pipeline's correct count. A mix sends a share p of jobs to all-cloud and the rest to the standard
+   hybrid, so its expected correct count and USD per job lie on the straight line between the two arms' points:
+   p = (pipeline correct - standard correct) / (all-cloud correct - standard correct), mix USD per job = standard USD
+   + p x (all-cloud USD - standard USD). If the pipeline's correct count is at or below the standard hybrid's, p = 0;
+   if it is above all-cloud's, no mix reaches it and the row says so. This is the expected value of a random split,
+   not a per-task choice (choosing which jobs go to the cloud by their outcome would need an oracle).
+   Target TF (per window, fixed now): the pipeline's USD per job is at or below the mix's at the same correct count,
+   i.e. the pipeline is on or below the standard-hybrid/all-cloud frontier. Reported MET/MISSED, with the pipeline's
+   USD per job as a share of the mix's.
+3. Short-task bill row (`allcloud-bill-month-short-tasks`): the all-cloud monthly bill at 1,000 tasks/day for the
+   SHORT task set, the same 90 B3 v2 jobs as the PITCH-1 savings: all-cloud rolling USD per job (claude-sonnet-5-5,
+   rolling cache breakpoint) x 1,000 x the 30-day month (impact_model.DAYS_PER_MONTH), and x 365 for a year; beside it,
+   the standard hybrid (every-call) and the pipeline at both windows on the same basis. Priced from the recorded runs,
+   no call. It is a different workload from the long-task bill of USD 911K, USD 259K under the rolling breakpoint (row
+   pitch-allcloud-bill-year-rolling-cache) and is labelled so.
+
 ## PRE-REGISTRATION (2026-11-03): verification-tier-v1, a Haiku verdict after L1 to L3 accept a local result
 
 **Status: filed before any cloud call.** Design and decisions: docs/VERIFICATION_TIER_PROPOSAL.md. Operator decisions
