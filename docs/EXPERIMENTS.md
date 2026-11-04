@@ -3182,6 +3182,29 @@ A live hybrid result (the replay assumes a task's local outcome does not depend 
 post-run-check row states); results for other models, runtimes or long tasks; anything about the two B3 v2 tiers
 without post-run check rows or about cloud-escalated results.
 
+### NOTE (2026-11-03): live run script written, nothing run
+
+Operator decision 2026-11-03: "Verifier: write the live run script, $0.005 per-task cap, no re-derivation arm. Live run
+waits for my go after the 8192 cloud phase." Script: scripts/verification_tier_cloud.py (dry run by default: builds the
+260 payloads from recorded files and prints 261 calls and the estimate of row verification-tier-run-v1-estimate; no
+client, no key, nothing written). Tests: tests/test_verification_tier_cloud.py (fake client only).
+
+- Per-task cap USD 0.005: a call whose worst case (every payload byte as one input token at the highest input rate,
+  plus max_tokens 256 at the output price) is over it is refused before sending, then BudgetedClient's own reservation
+  check; a billed cost over it stops the job and is recorded. Job cap USD 2.00 (default and maximum).
+- No re-derivation arm: the script accepts arm (a) only and refuses any other arm.
+- The warm-up is the first payload's verdict call, excluded from statistics. Stop rules and the futility rule as above
+  (futility applied as soon as the development-seed false escalations pass 10% of those negatives). A task with no reply
+  (refused, provider error, not run) counts as neither caught nor a false escalation and marks the run incomplete.
+- --live is refused without --operator-approval, ANTHROPIC_API_KEY, results/console_usage_check.json (then the full
+  console_gate.pre_job check) and results/x2_post_run_check_live_v1.jsonl with run_end (the 8192 cloud phase).
+- Result row verification-tier-run-v1 (results/verification_tier_run_v1.jsonl) stays PENDING until that file has
+  run_end. It scores caught/16, false escalations/244, added USD per verified task and median latency; the new
+  correct/90 and share-of-the-Sonnet-bill targets are not scored by it.
+- The live run waits for the operator's go after the 8192 cloud phase. Command, from the main checkout:
+  `py -3.12 scripts/verification_tier_cloud.py --live --ledger results/cloud_ledger.jsonl --job-cap 2.00
+  --operator-approval "approve verification_tier_run_v1 up to USD 2.00: Run V1 go after the 8192 cloud phase"`
+
 ## KIT (2026-11-03, nothing run): XPS demo comparison and the intake of Zach's XPS results
 
 **Status: kit and register rows only. Nothing run, queued or deployed; no cloud call.** Full commands and file formats:
