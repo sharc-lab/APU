@@ -42,6 +42,10 @@ XRT_HOURS = (1.94, 2.91)
 KVFA_HOURS = (11.94, 17.90)
 # register row post-run-check-live-8192-estimate (ESTIMATE; analysis/post_run_check_tuning.py::live_estimate)
 PRC_LIVE_HOURS = 0.38
+# register row long-task-scale-hours (ESTIMATE; analysis/numbers_register.py::long_task_scale_hours), (point, high)
+LTS_HOURS = {"qwen3:32b": (3.75, 8.84), "llama3.3:70b": (8.50, 20.03)}
+LTS_TASKS = ",".join(f"lt_openhands_{i:02d}" for i in range(1, 11))
+LTS_STOP = "2026-11-06T00:00:00+00:00"
 _OC_COMMON = ["--design", "v2", "--mode", "real", "--workload", "evalset", "--guardrails", "off", "--models",
               "qwen3:14b", "--preflight", "v2_te_deviation", "--rules-from", f"{RESULTS}\\x2_evalset_tasks_val_v2.jsonl"]
 
@@ -289,6 +293,29 @@ ENTRIES = {
                 "controller runs scripts/post_run_check_cloud.py afterwards. ESTIMATE "
                 f"{PRC_LIVE_HOURS:.2f} h (register row post-run-check-live-8192-estimate, which includes the cloud "
                 "phase). " + RELEASE,
+    },
+    # ── long-task scale (2026-11-03; docs/EXPERIMENTS.md "PRE-REGISTRATION (2026-11-03): long-task-scale-v1"; side
+    # directory ltscale, x2_longtask.py with the --model option, the longtask directory is left as run; hours: register
+    # row long-task-scale-hours) ──
+    "x2_longtask_scale_v1_qwen3_32b": {
+        "projected_duration_h": LTS_HOURS["qwen3:32b"][0],
+        "cmd": [PY, "ltscale\\x2_longtask.py", "--model", "qwen3:32b", "--arms", "ctx_40960", "--tasks", LTS_TASKS,
+                "--job-id", "x2_longtask_scale_v1", "--out", f"{RESULTS}\\x2_longtask_scale_v1_qwen3_32b.jsonl",
+                "--stop-after-utc", LTS_STOP],
+        "note": "long-task scale, pre-registered in docs/EXPERIMENTS.md 2026-11-03: qwen3:32b on the 10 OpenHands-"
+                "stratum long tasks x seeds 20260901-03 at num_ctx 40960, local only, no cloud call; no new task after "
+                f"{LTS_STOP}. ESTIMATE {LTS_HOURS['qwen3:32b'][0]:.2f} h (high {LTS_HOURS['qwen3:32b'][1]:.2f} h; "
+                "register row long-task-scale-hours). " + RELEASE,
+    },
+    "x2_longtask_scale_v1_llama33_70b": {
+        "projected_duration_h": LTS_HOURS["llama3.3:70b"][0],
+        "cmd": [PY, "ltscale\\x2_longtask.py", "--model", "llama3.3:70b", "--arms", "ctx_40960", "--tasks",
+                LTS_TASKS, "--job-id", "x2_longtask_scale_v1", "--out",
+                f"{RESULTS}\\x2_longtask_scale_v1_llama33_70b.jsonl", "--stop-after-utc", LTS_STOP],
+        "note": "long-task scale, pre-registered in docs/EXPERIMENTS.md 2026-11-03: llama3.3:70b on the 10 OpenHands-"
+                "stratum long tasks x seeds 20260901-03 at num_ctx 40960, local only, no cloud call; no new task after "
+                f"{LTS_STOP}. ESTIMATE {LTS_HOURS['llama3.3:70b'][0]:.2f} h (high {LTS_HOURS['llama3.3:70b'][1]:.2f} "
+                "h; register row long-task-scale-hours). " + RELEASE,
     },
     # ── cross-runtime replication on llama.cpp server (2026-10-26; docs/EXPERIMENTS.md "PRE-REGISTRATION
     # (2026-10-26): cross-runtime replication on llama.cpp server"; side directory xrt; queued after the demo hold) ──

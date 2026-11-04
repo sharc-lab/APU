@@ -3175,3 +3175,54 @@ metadata above); Zach runs the local step on it.
 - Declared approximations of arms b and c: a task sent to the cloud is deferred locally and redone from the pre-task
   state; later local turns never see a cloud answer; arm b falls back per task, not per call; a cloud task's latency
   adds controller-side cloud seconds to XPS-side local seconds.
+
+## PRE-REGISTRATION (2026-11-03): long-task-scale-v1, larger local models on the 30 OpenHands-stratum long tasks
+
+**Status: pre-registered before any run.** Operator decision 4 of 2026-11-03: "Long tasks: replay/local only, try a
+larger local model on the X2 (qwen3:32b, and a 70B if it fits) on the long-task set. Report how many of 30 a bigger
+model gets right locally. If any, re-run long-task savings."
+
+- Why: row `spillway-long-task-savings-rolling` found 0% saving at any check that keeps accuracy, because qwen3:14b got
+  0/30 on the OpenHands stratum (row `long-task-local-accuracy`, ollama_default). This job asks whether a larger local
+  model changes that count.
+- Machine: evo-x2 (hostname EVO-X2), Ollama, the job's own `ollama serve` (no tray app), local only, no cloud call, no
+  spend. Both models are already on the machine (manifests checked 2026-11-04 04:30Z; no pull). "If it fits":
+  llama3.3:70b (Q4_K_M) ran B3 v2 validation on this machine at a 131072 window (queue position 85), so it fits at 40960.
+- Models, in this order: qwen3:32b (think false), then llama3.3:70b (think omitted), the x2_r2_agent.MODELS values.
+  One queue entry each: `x2_longtask_scale_v1_qwen3_32b`, then `x2_longtask_scale_v1_llama33_70b`.
+- Tasks: harness/longtask_env.py, the 10 OpenHands-stratum tasks lt_openhands_01 to 10, seeds 20260901-03 = 30 task runs
+  per model, the same 30 as qwen3:14b's 0/30. Long-horizon synthetic, trace-length matched work orders; not OpenHands
+  tasks. Turn protocol, tools, step cap, max_tokens 384, temperature 0, grader: unchanged from the 2026-10-22
+  pre-registration above.
+- Window: arm `ctx_40960` (new): base server env, num_ctx 40960 sent, the window qwen3:14b's ollama_default arm loaded,
+  so every model is compared at the same window. llama3.3:70b's own default on evo-x2 would load 131072; qwen3:32b's
+  native maximum is 40960. qwen3:14b's longest OpenHands-stratum prompt was 7,820 estimated tokens, so the window is not
+  expected to bind.
+- Statistics convention: 1 warm-up call per server start (excluded), then the 30 measured tasks.
+- Code: harness/x2_longtask.py gains `--model`, `--job-id` and the arm `ctx_40960` (defaults unchanged, so the
+  finished qwen3:14b run is reproducible as committed). Deployed to a new side directory `C:\apu\ovn\ltscale`; the
+  `longtask` directory is left as run.
+- Duration: ESTIMATE in register row `long-task-scale-hours`: qwen3:32b point 3.75 h (high 8.84 h), llama3.3:70b
+  point 8.50 h (high 20.03 h), from qwen3:14b's measured 2.02 s per call on these tasks and the evo-x2 call-time
+  ratios (B3 v2 validation, R2 scale validation). No new task after 2026-11-06 00:00Z (`--stop-after-utc`). Each job
+  calls tq.advance() once on exit and sets no pause.
+
+### Result rows and decision rule
+
+- `long-task-scale-local` (PENDING until both files have run_end): per model, correct/30 with Wilson 95% interval,
+  outcome split (correct / wrong_silent / wrong_surfaced), step-cap hits, minutes per task, loaded window, per seed,
+  beside qwen3:14b's 0/30.
+- `spillway-long-task-savings-scale` (PENDING likewise): the pre-registered rule is that a model with at least 1/30
+  correct gets row `spillway-long-task-savings-rolling`'s computation re-run with its own long-task rows (same workload,
+  same bill, same check cases, the post-run check layers recomputed on its rows); a model with 0/30 is reported as "not
+  re-run". Nothing else about the savings method changes.
+- No accuracy target is set: the operator asked for the count. Stated in advance: a count of 1 or 2 out of 30 is
+  within noise of 0 for a saving claim (Wilson interval reported), and the savings re-run would say so.
+
+### Validity flags, known now
+
+- llama3.3:70b failed the B3 v2 validation gates on evo-x2 (queue position 86 refused to start): baseline rules 1, 2
+  and 5 failed, tool-call validity 39.8% of calls, negative control 4/18 canary misses. Its long-task result is reported
+  but labelled "failed the B3 v2 validation gates"; this job has no validation gate of its own.
+- Synthetic stratum, not OpenHands tasks; 3 seeds; one machine; one quantization per model (the library defaults).
+- A different model family (Llama) differs in more than size from qwen3:14b; qwen3:32b is the same-family size step.

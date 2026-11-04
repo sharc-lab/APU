@@ -350,3 +350,26 @@ def test_check_plan_no_server():
     p = X.check_plan(seeds=(20260901,))
     assert p["oracle_all_ok"] and p["n_tasks"] == 20 and p["think"] is False
     assert p["arms"]["kv_q8_0"]["num_ctx"] == 40960 and p["arms"]["ollama_default"]["num_ctx"] is None
+
+
+def test_main_model_option_and_ctx_40960_arm(tmp_path):
+    # long-task scale (2026-11-03): another model at the window qwen3:14b's default arm loaded, num_ctx sent
+    out = tmp_path / "lt32.jsonl"
+    tids = ["lt_swegym_01"]
+    srv, tq = FakeServer(), FakeTQ()
+    note = X.main(["--out", str(out), "--seeds", "20260901", "--tasks", ",".join(tids), "--arms", "ctx_40960",
+                   "--model", "qwen3:32b", "--job-id", "x2_longtask_scale_v1", "--stop-after-utc", FUTURE_STOP],
+                  deps={"hc": FakeHC(), "hostname": "EVO-X2", "server": srv, "runtime": OracleRT(20260901, tids),
+                        "tq": tq, "log": lambda *_: None})
+    rows = [json.loads(l) for l in out.read_text(encoding="utf-8").splitlines()]
+    assert note == "completed" and rows[0]["model_id"] == "qwen3:32b" and rows[0]["job_id"] == "x2_longtask_scale_v1"
+    tr = [r for r in rows if r["record"] == "longtask_task"]
+    assert len(tr) == 1 and tr[0]["model_id"] == "qwen3:32b" and tr[0]["arm_id"] == "longtask_ctx_40960"
+    assert tr[0]["num_ctx_requested"] == 40960 and srv.starts == [{}]
+    assert "ctx_40960" in rows[-1]["summary"]
+    assert X.ARMS["ctx_40960"]["num_ctx"] == 40960 == X.KV_Q8_NUM_CTX
+
+
+def test_main_refuses_unknown_model(tmp_path):
+    with pytest.raises(SystemExit):
+        X.main(["--out", str(tmp_path / "x.jsonl"), "--model", "nope:1b", "--check-plan"], advance=False)

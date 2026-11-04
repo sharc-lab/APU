@@ -62,6 +62,9 @@ ARMS = {
                        "b5_policy": "a"},
     "kv_q8_0": {"arm_id": "longtask_kv_q8_0", "env": {"OLLAMA_KV_CACHE_TYPE": "q8_0", "OLLAMA_FLASH_ATTENTION": "1"},
                 "num_ctx": KV_Q8_NUM_CTX, "kv": "q8_0", "b5_policy": "g"},
+    # long-task scale (2026-11-03): base server env, num_ctx sent = the window qwen3:14b's ollama_default arm loaded,
+    # so a larger model is compared at the same window (llama3.3:70b's own default on evo-x2 would load 131072)
+    "ctx_40960": {"arm_id": "longtask_ctx_40960", "env": {}, "num_ctx": KV_Q8_NUM_CTX, "kv": None, "b5_policy": None},
 }
 ARM_ORDER = ("ollama_default", "kv_q8_0")
 SERVER_LOG = r"C:\apu\ovn\ollama_serve_longtask.log"
@@ -193,7 +196,7 @@ def arm_summary(rows) -> dict:
 
 
 def summarize(rows) -> dict:
-    return {a: arm_summary(task_rows(rows, ARMS[a]["arm_id"])) for a in ARM_ORDER
+    return {a: arm_summary(task_rows(rows, ARMS[a]["arm_id"])) for a in ARMS
             if task_rows(rows, ARMS[a]["arm_id"])}
 
 
@@ -351,7 +354,7 @@ def provenance() -> dict:
             "agent_blob": git_blob_sha1(ag.__file__)}
 
 
-def check_plan(seeds=SEEDS, arms=ARM_ORDER) -> dict:
+def check_plan(seeds=SEEDS, arms=ARM_ORDER, model=MODEL) -> dict:
     """The plan and the oracle self-check (every task's reference solution passes the grader); no server, no call."""
     per = {}
     for s in seeds:
@@ -362,7 +365,7 @@ def check_plan(seeds=SEEDS, arms=ARM_ORDER) -> dict:
                                                      "items": len(task.items), "oracle_ok": ok,
                                                      "final_prompt_est": ag.prompt_tokens_est(msgs[:-1],
                                                                                               L.tools_payload())})
-    return {"model": MODEL, "think": ag.MODELS.get(MODEL), "seeds": list(seeds),
+    return {"model": model, "think": ag.MODELS.get(model), "seeds": list(seeds),
             "arms": {a: ARMS[a] for a in arms}, "n_tasks": len(L.LONG_TASKS), "label": L.LABEL,
             "oracle_all_ok": all(x["oracle_ok"] for v in per.values() for x in v),
             "ref_steps_total_per_seed": {s: sum(x["ref_steps"] for v in per.values() for x in v if x["seed"] == s)
@@ -378,6 +381,8 @@ def build_arg_parser():
     ap.add_argument("--seeds", default=",".join(map(str, SEEDS)))
     ap.add_argument("--arms", default=",".join(ARM_ORDER))
     ap.add_argument("--tasks", default=None, help="comma-separated task ids (default: all 20)")
+    ap.add_argument("--model", default=MODEL, help="model id, one of x2_r2_agent.MODELS (default qwen3:14b)")
+    ap.add_argument("--job-id", default=JOB_ID)
     ap.add_argument("--stop-after-utc", default=STOP_AFTER_UTC)
     ap.add_argument("--check-plan", action="store_true")
     return ap
@@ -391,8 +396,12 @@ def main(argv=None, advance=True, deps=None) -> str:
     if any(a not in ARMS for a in arms):
         raise SystemExit(f"unknown arm in {arms}")
     task_ids = tuple(t for t in (args.tasks or "").split(",") if t) or None
+    model = args.model
+    if model not in ag.MODELS:
+        raise SystemExit(f"unknown model {model!r}: not in x2_r2_agent.MODELS")
+    think = ag.MODELS.get(model)
     if args.check_plan:
-        print(json.dumps(check_plan(seeds, arms), indent=1, default=str))
+        print(json.dumps(check_plan(seeds, arms, model), indent=1, default=str))
         return "check-plan"
     log = deps.get("log", print)
     note, server, fh = "completed", None, None
@@ -430,11 +439,11 @@ def main(argv=None, advance=True, deps=None) -> str:
                 raise RuntimeError("the Ollama tray app is running; this job starts its own servers and does not stop "
                                    "the tray app")
         server = deps.get("server") or Server(hc)
-        plan = check_plan(seeds, arms)
+        plan = check_plan(seeds, arms, model)
         if not plan["oracle_all_ok"]:
             raise RuntimeError("oracle self-check failed: a reference solution does not pass the grader")
-        emit({"record": "run_start", "harness": HARNESS, "job_id": JOB_ID, "ts_utc": utc_iso(), "model_id": MODEL,
-              "think": ag.MODELS.get(MODEL), "seeds": list(seeds), "arms": {a: ARMS[a] for a in arms},
+        emit({"record": "run_start", "harness": HARNESS, "job_id": args.job_id, "ts_utc": utc_iso(), "model_id": model,
+              "think": think, "seeds": list(seeds), "arms": {a: ARMS[a] for a in arms},
               "arm_order": list(arms), "tasks": [list(t) for t in L.LONG_TASKS if not task_ids or t[0] in task_ids],
               "task_label": L.LABEL, "offered_tools": list(L.OFFERED_TOOLS), "step_cap_rule":
               f"{L.STEP_CAP_FACTOR} x ref_steps + {L.STEP_CAP_EXTRA}", "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL,
@@ -453,7 +462,7 @@ def main(argv=None, advance=True, deps=None) -> str:
                     break
                 server.start(cfg["env"])
                 rt = deps.get("runtime") or server.runtime()
-                w = warmup(rt, MODEL, cfg["num_ctx"], ag.MODELS.get(MODEL))
+                w = warmup(rt, model, cfg["num_ctx"], think)
                 chk = kv_check(server.log_text(), cfg["kv"])
                 emit({"record": "warmup", "excluded_from_stats": True, "seed": s, "arm_id": cfg["arm_id"],
                       "kv_check": chk, "server_env": cfg["env"], "ts_utc": utc_iso(), **w})
@@ -467,16 +476,16 @@ def main(argv=None, advance=True, deps=None) -> str:
                         stopped = True
                         break
                     try:
-                        row = run_long_task(rt, MODEL, cfg["num_ctx"], ag.MODELS.get(MODEL), task, env, log)
+                        row = run_long_task(rt, model, cfg["num_ctx"], think, task, env, log)
                     except ag.SessionIncomplete as e:   # failed after its one recorded retry; the run stops, no run_end
                         first = getattr(e, "first_attempt", None)
                         emit({"record": "longtask_task_incomplete", "incomplete": True, "harness": HARNESS,
-                              "model_id": MODEL, "arm_id": cfg["arm_id"], "arm": a, "seed": s,
+                              "model_id": model, "arm_id": cfg["arm_id"], "arm": a, "seed": s,
                               "task_id": task.task_id, "error": str(e.error)[:400], "failed_call": e.call,
                               "first_attempt": first, "retried": first is not None, "ts_utc": utc_iso()})
                         raise
-                    loaded = rt.loaded_context(MODEL)
-                    row.update({"record": "longtask_task", "harness": HARNESS, "model_id": MODEL,
+                    loaded = rt.loaded_context(model)
+                    row.update({"record": "longtask_task", "harness": HARNESS, "model_id": model,
                                 "arm_id": cfg["arm_id"], "arm": a, "seed": s, "num_ctx_requested": cfg["num_ctx"],
                                 "loaded_context": loaded, "kv": cfg["kv"], "ts_utc": utc_iso(),
                                 "over_loaded_window": bool(loaded and row["max_prompt_tokens_est"]

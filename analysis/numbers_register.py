@@ -4785,7 +4785,7 @@ SLT_OTHER_STRATUM = "swegym"
 SLT_FILES = REAL_TASK_FILES + ["results/x2_longtask_local_v1.jsonl", "results/longtask_cloud_v1.jsonl"]
 
 
-def spillway_long_task_data(repo) -> dict:
+def spillway_long_task_data(repo, local_file=None, arm="ollama_default") -> dict:
     """Per-trace rolling USD on the pitch model, the projected window flag per trace, the measured long-task local
     outcomes and post-run check firings per stratum, and the Spillway monthly bill per case on the pitch workload.
 
@@ -4793,7 +4793,10 @@ def spillway_long_task_data(repo) -> dict:
     task is a local attempt (no cloud USD), a rollback to the pre-task mark (no cloud USD) and a fresh cloud run from
     the clean state, which costs that task's all-cloud USD. Shares that do not depend on task size (perfect check,
     post-run check, no check) apply to the median-based bill directly; the window flag selects the largest tasks, so
-    its share is the flagged traces' share of the summed per-trace USD."""
+    its share is the flagged traces' share of the summed per-trace USD.
+
+    local_file / arm: the long-task local run and arm whose rows give the local outcomes (default: qwen3:14b,
+    x2_longtask_local_v1, ollama_default; row spillway-long-task-savings-scale passes a long-task scale run)."""
     import sys as _sys
     if str(Path(repo)) not in _sys.path:
         _sys.path.insert(0, str(Path(repo)))
@@ -4813,8 +4816,8 @@ def spillway_long_task_data(repo) -> dict:
         raise ValueError("per-trace rolling USD median differs from row cloud-cost-per-real-task-rolling-cache")
     v, days = PITCH_YEAR_VOLUME, im.DAYS_PER_MONTH
     bill = med * v * days
-    local = xl.task_rows(_finished_attempt_rows(_read_jsonl(Path(repo) / LONGTASK_LOCAL_FILE)),
-                         xl.ARMS["ollama_default"]["arm_id"])
+    local = xl.task_rows(_finished_attempt_rows(_read_jsonl(Path(repo) / (local_file or LONGTASK_LOCAL_FILE))),
+                         xl.ARMS[arm]["arm_id"])
     windows = {w for r in local for w in (r["loaded_context"] if isinstance(r["loaded_context"], list)
                                           else [r["loaded_context"]])}
     if len(windows) != 1:
@@ -4834,7 +4837,7 @@ def spillway_long_task_data(repo) -> dict:
                       "esc_ok": sum(1 for r, x in zip(g, esc) if x and r["correct"]),
                       "layer_n": layer_n, "flag_n": sum(1 for r in g if r.get("over_loaded_window")),
                       "unflagged_ok": sum(1 for r in g if r["correct"] and not r.get("over_loaded_window")),
-                      "minutes_mean": statistics.fmean(r["task_wall_s"] for r in g) / 60}
+                      "minutes_mean": statistics.fmean(r["task_wall_s"] for r in g) / 60 if g else None}
     cloud = [r for r in _read_jsonl(Path(repo) / LONGTASK_CLOUD_FILE)
              if r.get("record") == "longtask_cloud_task" and r["model_id"] == PITCH_YEAR_MODEL]
     c_oh = [r for r in cloud if r["task_id"].startswith(f"lt_{SLT_STRATUM}_")]
@@ -4852,7 +4855,7 @@ def spillway_long_task_data(repo) -> dict:
                 "acc": {k: kept_ok + esc_tasks * a / n for k, (a, n) in cacc.items()}}
     p_oh = s["ok"] / s["n"]
     so = strata[SLT_OTHER_STRATUM]
-    p_sw = so["ok"] / so["n"]
+    p_sw = so["ok"] / so["n"] if so["n"] else None   # None: the run has no SLT_OTHER_STRATUM rows (scale run)
     fl_tasks = sum(flag) / len(flag)
     cases = [
         mk("perfect check (ceiling: escalates exactly the locally wrong tasks)", "PROJECTED (no such detector)",
@@ -4865,14 +4868,131 @@ def spillway_long_task_data(repo) -> dict:
            "PROJECTED (trace prompt lengths; local accuracy of kept tasks from the synthetic stratum)",
            fl_tasks, p_oh * (1 - fl_tasks), usd_share=flag_share),
         mk("no check (all local)", "MEASURED local accuracy, synthetic stratum", 0.0, p_oh),
-        mk(f"SENSITIVITY, NOT the matched stratum: perfect check at the {SLT_OTHER_STRATUM} stratum's local rate",
-           "NOT SUPPORTED by the data (wrong stratum)", 1 - p_sw, p_sw),
     ]
+    if p_sw is not None:
+        cases.append(mk(f"SENSITIVITY, NOT the matched stratum: perfect check at the {SLT_OTHER_STRATUM} stratum's "
+                        f"local rate", "NOT SUPPORTED by the data (wrong stratum)", 1 - p_sw, p_sw))
     return {"bill": bill, "per_task": med, "mean_task": tot / len(per), "n_traces": len(per),
             "steps_median": e["steps_median"], "volume": v, "days": days, "window": window,
             "n_flag": sum(flag), "flag_share": flag_share, "strata": strata, "cloud_acc": cacc, "cases": cases,
             "over_cap": sum(1 for u in per if u > POST_RUN_TASK_CAP_USD), "cap": POST_RUN_TASK_CAP_USD,
             "model": PITCH_YEAR_MODEL, "label": label}
+
+
+# ── long-task scale (2026-11-03, operator decision 4; docs/EXPERIMENTS.md "PRE-REGISTRATION (2026-11-03):
+# long-task-scale-v1"): larger local models on the 30 OpenHands-stratum long tasks, evo-x2, num_ctx 40960. ──
+LTS_MODELS = {"qwen3:32b": "results/x2_longtask_scale_v1_qwen3_32b.jsonl",
+              "llama3.3:70b": "results/x2_longtask_scale_v1_llama33_70b.jsonl"}
+LTS_ARM = "ctx_40960"
+LTS_RATIO_FILES = {"b3v2_14b": "results/x2_evalset_tasks_val_v2.jsonl.report.json",
+                   "b3v2_70b": "results/x2_evalset_tasks_val_v2_llama33_70b.jsonl.report.json",
+                   "scale": "results/x2_r2_scale_validation.jsonl.report.json"}
+
+
+def long_task_scale_hours(repo) -> dict:
+    """ESTIMATE. Per-call seconds of qwen3:14b on the OpenHands stratum (x2_longtask_local_v1, ollama_default) x a
+    per-model call-time ratio: llama3.3:70b / qwen3:14b = the B3 v2 validation mean call seconds on evo-x2;
+    qwen3:32b / qwen3:14b = that ratio / (llama3.3:70b / qwen3:32b in the R2 scale validation on evo-x2). Calls: point =
+    reference steps + 1 final call per task (a model that does the work; qwen3:14b stopped early), high = step cap + 1
+    per task at 1.5 x the per-call seconds (longer prompts)."""
+    _lt, xl = _longtask_modules()
+    rows = _finished_attempt_rows(_read_jsonl(Path(repo) / LONGTASK_LOCAL_FILE))
+    g = [r for r in xl.task_rows(rows, xl.ARMS["ollama_default"]["arm_id"]) if r["stratum"] == SLT_STRATUM]
+    per_call = sum(r["task_wall_s"] for r in g) / sum(r["n_calls"] for r in g)
+    rep = {k: json.loads((Path(repo) / f).read_text(encoding="utf-8"))["baseline_table"]
+           for k, f in LTS_RATIO_FILES.items()}
+    r70 = rep["b3v2_70b"]["llama3.3:70b"]["mean_call_s"] / rep["b3v2_14b"]["qwen3:14b"]["mean_call_s"]
+    r70_32 = rep["scale"]["llama3.3:70b"]["mean_call_s"] / rep["scale"]["qwen3:32b"]["mean_call_s"]
+    ratio = {"qwen3:32b": r70 / r70_32, "llama3.3:70b": r70}
+    calls_pt = sum(r["ref_steps"] + 1 for r in g)
+    calls_hi = sum(r["step_cap"] + 1 for r in g)
+    out = {"per_call_14b": per_call, "n_tasks": len(g), "calls_point": calls_pt, "calls_high": calls_hi,
+           "measured_14b_h": sum(r["task_wall_s"] for r in g) / 3600, "models": {}}
+    for m, x in ratio.items():
+        out["models"][m] = {"ratio": x, "point_h": calls_pt * per_call * x / 3600,
+                            "high_h": calls_hi * per_call * x * 1.5 / 3600}
+    out["point_h"] = sum(v["point_h"] for v in out["models"].values())
+    out["high_h"] = sum(v["high_h"] for v in out["models"].values())
+    return out
+
+
+def compute_long_task_scale_hours(repo):
+    h = long_task_scale_hours(repo)
+    per = "; ".join(f"{m}: call-time ratio {v['ratio']:.2f}x qwen3:14b, point {v['point_h']:.2f} h, high "
+                    f"{v['high_h']:.2f} h" for m, v in h["models"].items())
+    return {"value": (
+        f"ESTIMATE, not a measurement: job x2_longtask_scale_v1 (two queue entries, one per model), {h['n_tasks']} "
+        f"OpenHands-stratum long tasks per model at num_ctx 40960; qwen3:14b measured {h['per_call_14b']:.2f} s/call "
+        f"on the same tasks ({h['measured_14b_h']:.2f} h, ollama_default); calls point {h['calls_point']} (reference "
+        f"steps + 1 per task), high {h['calls_high']} (step cap + 1) at 1.5 x the per-call seconds; ratios from the "
+        f"evo-x2 B3 v2 validation (llama3.3:70b / qwen3:14b mean call s) and the R2 scale validation "
+        f"(llama3.3:70b / qwen3:32b) / {per} / total point {h['point_h']:.2f} h, high {h['high_h']:.2f} h"),
+        "n": f"{h['n_tasks']} tasks x {len(h['models'])} models"}
+
+
+def _lts_rows(repo, f):
+    _lt, xl = _longtask_modules()
+    rows = _finished_attempt_rows(_read_jsonl(Path(repo) / f))
+    end = [r for r in rows if r.get("record") == "run_end"][-1]
+    g = [r for r in xl.task_rows(rows, xl.ARMS[LTS_ARM]["arm_id"]) if r["stratum"] == SLT_STRATUM]
+    return g, end
+
+
+def compute_long_task_scale_local(repo):
+    """long-task-scale-v1: per model, correct / 30 on the OpenHands stratum (Wilson 95%), outcome split, minutes per
+    task, loaded window, beside qwen3:14b's result on the same 30. PENDING until every model's file has run_end."""
+    import statistics
+    lt, xl = _longtask_modules()
+    base = [r for r in xl.task_rows(_finished_attempt_rows(_read_jsonl(Path(repo) / LONGTASK_LOCAL_FILE)),
+                                    xl.ARMS["ollama_default"]["arm_id"]) if r["stratum"] == SLT_STRATUM]
+    parts = [f"qwen3:14b (x2_longtask_local_v1, ollama_default, loaded 40960): {sum(1 for r in base if r['correct'])}/"
+             f"{len(base)}"]
+    for m, f in LTS_MODELS.items():
+        g, end = _lts_rows(repo, f)
+        if not g:
+            parts.append(f"{m}: no task rows (run_end note: {end.get('note')})")
+            continue
+        s = xl.arm_summary(g)
+        lo, hi = s["wilson95"]
+        oc = {}
+        for r in g:
+            oc[r["outcome"]] = oc.get(r["outcome"], 0) + 1
+        win = ", ".join(sorted({str(r["loaded_context"]) for r in g}))
+        seeds = ", ".join(f"{k}: {v['correct']}/{v['n']}" for k, v in s["by_seed"].items())
+        parts.append(f"{m}: {s['correct']}/{s['n']} correct (Wilson 95% {100 * lo:.1f}% to {100 * hi:.1f}%), outcomes "
+                     f"{oc}, step cap hit {sum(1 for r in g if r['step_cap_hit'])}, mean "
+                     f"{statistics.fmean(r['task_wall_s'] for r in g) / 60:.1f} min/task, loaded window {win}, by seed "
+                     f"{seeds}; run_end note: {end.get('note')}")
+    return {"value": (f"{lt.LABEL} (not OpenHands tasks), OpenHands stratum (10 tasks x seeds 20260901-03), evo-x2, "
+                      f"local only, no cloud call; num_ctx 40960 sent / " + " / ".join(parts)),
+            "n": f"30 tasks x {len(LTS_MODELS)} models"}
+
+
+def compute_spillway_long_task_savings_scale(repo):
+    """The pre-registered re-run of row spillway-long-task-savings-rolling with each larger model's long-task rows,
+    only for a model with at least 1/30 correct; otherwise that model's entry says so and nothing is re-run."""
+    parts = []
+    for m, f in LTS_MODELS.items():
+        g, _end = _lts_rows(repo, f)
+        ok = sum(1 for r in g if r["correct"])
+        if ok == 0:
+            parts.append(f"{m}: {ok}/{len(g)} correct, not re-run (pre-registered rule: at least 1/30)")
+            continue
+        d = spillway_long_task_data(repo, f, LTS_ARM)
+        s = d["strata"][SLT_STRATUM]
+        (ca, cn), (oa, on) = d["cloud_acc"]["all"], d["cloud_acc"][SLT_STRATUM]
+        cs = "; ".join(f"{c['label']} [{c['basis']}]: escalated {100 * c['esc_tasks']:.1f}% of tasks"
+                       + (f" ({100 * c['usd_share']:.1f}% of the all-cloud USD)" if c["usd_share"] != c["esc_tasks"]
+                          else "")
+                       + f", bill USD {c['bill']:,.2f}/month, saving {100 * c['saving']:.1f}%, implied accuracy "
+                       f"{100 * c['acc']['all']:.1f}% (A = {ca}/{cn}; {100 * c['acc'][SLT_STRATUM]:.1f}% at A = "
+                       f"{oa}/{on})" for c in d["cases"])
+        parts.append(f"{m}: {ok}/{len(g)} correct; post-run check fired {s['esc']}/{s['n']} ({s['esc_ok']} of them "
+                     f"locally correct) / {cs}")
+    return {"value": ("PRICED AND REPLAYED, NOT RUN (no cloud call): row spillway-long-task-savings-rolling's method "
+                      "and workload (claude-sonnet-5-5, OpenHands median task, 1,000 tasks/day, 30-day month, rolling "
+                      "cache breakpoint; all-cloud bill as in that row) with the local outcomes of each larger model / "
+                      + " / ".join(parts)), "n": f"{len(LTS_MODELS)} models"}
 
 
 POST_RUN_TASK_CAP_USD = 0.25   # analysis/post_run_check_replay.py TASK_CAP_USD, read only (not changed here)
@@ -10944,6 +11064,23 @@ NUMBER_ENTRIES = [
      "accuracy per check case, from the measured long-task local outcomes and the post-run check's firing on the "
      "recorded long-task rows; escalation = local attempt + rollback + fresh cloud run; priced and replayed, not run",
      "compute": compute_spillway_long_task_savings_rolling, "data_files": SLT_FILES,
+     "script_function": "analysis/numbers_register.py::spillway_long_task_data"},
+    {"claim_id": "long-task-scale-hours", "description": "ESTIMATE, not a measurement: hours of job "
+     "x2_longtask_scale_v1 (qwen3:32b then llama3.3:70b on the 30 OpenHands-stratum long tasks, evo-x2, num_ctx 40960)",
+     "compute": compute_long_task_scale_hours,
+     "data_files": [LONGTASK_LOCAL_FILE, *LTS_RATIO_FILES.values()],
+     "script_function": "analysis/numbers_register.py::long_task_scale_hours"},
+    {"claim_id": "long-task-scale-local", "description": "long-task-scale-v1 (operator decision 2026-11-03): how many "
+     "of the 30 OpenHands-stratum long tasks qwen3:32b and llama3.3:70b get right locally on evo-x2 at num_ctx 40960, "
+     "beside qwen3:14b; local only; PENDING until both files have run_end",
+     "compute": compute_long_task_scale_local, "data_files": [LONGTASK_LOCAL_FILE, *LTS_MODELS.values()],
+     "pending_ok": True, "require_run_end": list(LTS_MODELS.values()),
+     "script_function": "analysis/numbers_register.py::compute_long_task_scale_local"},
+    {"claim_id": "spillway-long-task-savings-scale", "description": "long-task-scale-v1: row "
+     "spillway-long-task-savings-rolling re-run with each larger model's local outcomes, only for a model with at "
+     "least 1/30 correct (pre-registered rule); priced and replayed, not run; PENDING until both files have run_end",
+     "compute": compute_spillway_long_task_savings_scale, "data_files": SLT_FILES + list(LTS_MODELS.values()),
+     "pending_ok": True, "require_run_end": list(LTS_MODELS.values()),
      "script_function": "analysis/numbers_register.py::spillway_long_task_data"},
     {"claim_id": "all-cloud-b3-cost-opus-rolling-cache", "description": "B3 v2 all-cloud per-task denominator under "
      "the rolling cache breakpoint, claude-sonnet-5-5 (run) beside claude-opus-5-5 (priced from the Sonnet run's "
