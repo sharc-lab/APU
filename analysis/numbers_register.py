@@ -4959,7 +4959,7 @@ def compute_long_task_scale_local(repo):
             oc[r["outcome"]] = oc.get(r["outcome"], 0) + 1
         win = ", ".join(sorted({str(r["loaded_context"]) for r in g}))
         seeds = ", ".join(f"{k}: {v['correct']}/{v['n']}" for k, v in s["by_seed"].items())
-        parts.append(f"{m}: {s['correct']}/{s['n']} correct (Wilson 95% {100 * lo:.1f}% to {100 * hi:.1f}%), outcomes "
+        parts.append(f"{m}: {s['correct']}/{s['n_tasks']} correct (Wilson 95% {100 * lo:.1f}% to {100 * hi:.1f}%), outcomes "
                      f"{oc}, step cap hit {sum(1 for r in g if r['step_cap_hit'])}, mean "
                      f"{statistics.fmean(r['task_wall_s'] for r in g) / 60:.1f} min/task, loaded window {win}, by seed "
                      f"{seeds}; run_end note: {end.get('note')}")
@@ -11449,7 +11449,9 @@ NUMBER_ENTRIES = [
     {"claim_id": "verification-tier-run-v1", "description": "Verification tier Run V1 (pre-registration "
      "verification-tier-v1): claude-haiku-5-5 verdict on the local task turns L1 to L3 accept, 1 warm-up excluded; "
      "failures caught /16, false escalations /244, added USD per verified task and median latency against the "
-     "pre-registered targets; per-task cap USD 0.005, no re-derivation arm; PENDING until the live file has run_end",
+     "pre-registered targets; per-task cap USD 0.005, no re-derivation arm; with the replay of the q4_0 28928 "
+     "operating point for new correct/90 and share of the Sonnet all-cloud bill (amendment 2026-11-07); PENDING until "
+     "the live file has run_end",
      "compute": compute_verification_tier_run_v1, "data_files": [VT_RUN_V1_FILE], "pending_ok": True,
      "require_run_end": [VT_RUN_V1_FILE], "script_function": "scripts/verification_tier_cloud.py::score"},
 ]

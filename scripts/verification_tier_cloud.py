@@ -31,16 +31,21 @@ Caps (none of them can be raised here):
     the output price) must be <= 0.005, else the call is refused (row refused_task_cap, nothing sent); (2)
     src/cloud/task_budget.BudgetedClient's reservation check (row budget_exhausted). After the call, a BILLED cost above
     0.005 stops the job (row outcome task_cap_exceeded_billed, run_end stopped).
-  - stop after 5 replies with no parseable verdict or 5 provider errors (no retries; each failed send counts).
+  - stop after 5 replies with no parseable verdict or 5 provider errors (each failed send counts, retries included).
+    Amendment 2026-11-07: one retry on a provider timeout, HTTP 429 or 5xx, through the same per-task checks; no
+    retry on any other error or on an unparseable reply.
   - futility: stop once false escalations on the development-seed negatives (seeds 20260901 to 20260904) pass 10% of
     those negatives (the count only grows, so this is the pre-registered check, applied as soon as it is decided).
 
-Verdict parsing: the reply must be exactly one JSON object with "verdict" "accept" or "reject"; anything else is
-unparseable and counts as a reject (fail safe), reported separately. A task with no reply (refused, provider error,
+Verdict parsing: after one surrounding code fence is stripped (amendment 2026-11-07), the reply must be exactly one
+JSON object with "verdict" "accept" or "reject"; anything else is unparseable and counts as a reject (fail safe),
+reported separately. A task with no reply (refused, provider error,
 not run) counts as neither caught nor a false escalation and makes the run incomplete; reported separately.
 
 Writes results/verification_tier_run_v1.jsonl: run_start, vt_warmup, vt_call per task, run_end (summary). score()
-scores it against the pre-registered targets (row verification-tier-run-v1, PENDING until run_end exists).
+scores it against the pre-registered targets (row verification-tier-run-v1, PENDING until run_end exists), including
+the replay of the q4_0 28928 operating point (operating_point_replay, amendment 2026-11-07) for new correct/90 and the
+share of the Sonnet all-cloud bill.
 
 This file starts no process of its own (console_gate reads the git head through harness/proc_util.py).
 """
@@ -81,9 +86,10 @@ HELDOUT_SEED = 20260905
 FRAMING_TOKENS = 64            # role and message framing, added to the worst case
 STOP_UNPARSEABLE = 5
 STOP_PROVIDER_ERRORS = 5
+RETRIES_PROVIDER_ERROR = 1     # amendment 2026-11-07: one retry on timeout, 429 or 5xx; none on an unparseable reply
 FUTILITY_FRACTION = 0.10
 TARGETS = {"caught_min": 14, "positives": 16, "false_esc_max": 12, "negatives": 244, "usd_per_task_max": 0.001,
-           "latency_median_max_s": 3.0, "n_calls": 261}
+           "latency_median_max_s": 3.0, "n_calls": 261, "correct_90_min": 88, "pct_bill_max": 75.0}
 KEY_ENV = cc.ENV_VAR_ANTHROPIC_API_KEY
 RECORD = "vt_call"
 
@@ -164,15 +170,45 @@ def payload_sha(payload: dict) -> str:
     return hashlib.sha256((payload["system"] + "\0" + payload["user"]).encode("utf-8")).hexdigest()
 
 
+def strip_fence(text: str) -> str:
+    """One surrounding code fence removed (amendment 2026-11-07): ```json ... ``` or ``` ... ``` around the whole
+    reply. Only one; anything outside it, or a second fence, leaves the text as it was (then unparseable)."""
+    t = text.strip()
+    if not (t.startswith("```") and t.endswith("```") and len(t) >= 6):
+        return t
+    first_nl = t.find("\n")
+    if first_nl < 0:
+        return t
+    head, body = t[3:first_nl].strip(), t[first_nl + 1:-3]
+    if head not in ("", "json") or "```" in body:
+        return t
+    return body.strip()
+
+
 def parse_verdict(content: str | None) -> tuple[str | None, str | None]:
-    """(verdict, reason): verdict None when the reply is not exactly one JSON object with verdict accept or reject."""
+    """(verdict, reason): verdict None when the reply, after one surrounding code fence is stripped, is not exactly one
+    JSON object with verdict accept or reject."""
     try:
-        d = json.loads((content or "").strip())
+        d = json.loads(strip_fence(content or ""))
     except (ValueError, TypeError):
         return None, None
     if not isinstance(d, dict) or d.get("verdict") not in ("accept", "reject"):
         return None, None
     return d["verdict"], (str(d.get("reason")) if d.get("reason") is not None else None)
+
+
+def retryable_error(e: BaseException) -> bool:
+    """A timeout, HTTP 429 or HTTP 5xx from the provider (the only errors retried, once)."""
+    if "timeout" in type(e).__name__.lower():
+        return True
+    code = getattr(e, "status_code", None)
+    if code is None:
+        code = getattr(getattr(e, "response", None), "status_code", None)
+    try:
+        code = int(code)
+    except (TypeError, ValueError):
+        return False
+    return code == 429 or 500 <= code <= 599
 
 
 def _usage(res) -> dict:
@@ -190,20 +226,28 @@ def _one_call(lane, c: dict, key: str, clock) -> dict:
         return {**out, "outcome": "refused_task_cap", "sent": False,
                 "reason": f"worst case USD {c['worst_case_usd']:.6f} > per-task cap USD {TASK_CAP_USD:.3f}"}
     lane.start_task(key)
-    try:
-        prepared = lane.prepare(model_id=MODEL, messages=VT.messages(c["payload"]), max_tokens=MAX_TOKENS,
-                                thinking=THINKING, custom_llm_provider="anthropic")
-    except TB.TaskBudgetExhausted as e:
-        return {**out, "outcome": TB.OUTCOME_EXHAUSTED, "sent": False, "task_budget": e.record, **lane.task_state()}
-    t0 = clock()
-    try:
-        raw = prepared.send()
-    except Exception as e:  # noqa: BLE001 - send() released the reservation; no ledger row was written
-        return {**out, "outcome": "provider_error", "sent": False, "error": f"{type(e).__name__}: {str(e)[:300]}"}
+    errors = []
+    for attempt in range(1 + RETRIES_PROVIDER_ERROR):
+        try:
+            prepared = lane.prepare(model_id=MODEL, messages=VT.messages(c["payload"]), max_tokens=MAX_TOKENS,
+                                    thinking=THINKING, custom_llm_provider="anthropic")
+        except TB.TaskBudgetExhausted as e:
+            return {**out, "outcome": TB.OUTCOME_EXHAUSTED, "sent": False, "task_budget": e.record,
+                    "provider_errors": errors, **lane.task_state()}
+        t0 = clock()
+        try:
+            raw = prepared.send()
+            break
+        except Exception as e:  # noqa: BLE001 - send() released the reservation; no ledger row was written
+            errors.append({"error": f"{type(e).__name__}: {str(e)[:300]}", "retryable": retryable_error(e)})
+            if not errors[-1]["retryable"] or attempt == RETRIES_PROVIDER_ERROR:
+                return {**out, "outcome": "provider_error", "sent": False, "error": errors[-1]["error"],
+                        "provider_errors": errors}
     dt = clock() - t0
     res = prepared.settle(raw)
     verdict, reason = parse_verdict(res.content)
     rec = {**out, "outcome": "sent", "sent": True, "verdict": verdict, "parse_ok": verdict is not None,
+           "fenced": (res.content or "").strip().startswith("```"), "provider_errors": errors,
            "reason": (reason or "")[:500], "reply": (res.content or "")[:2000] if verdict is None else None,
            "usd_billed": float(res.cost_usd), "usd_upper_bound": res.cost_usd_upper_bound, "latency_s": dt,
            "tokens": _usage(res), **lane.task_state()}
@@ -277,7 +321,7 @@ def run(out: Path = OUT, live: bool = False, client=None, job_cap: float = JOB_C
                 r = {"outcome": "not_run_job_cap", "sent": False, "reason": str(e)[:300]}
                 stopped = f"job cap: {e}"
             emit({"record": "vt_warmup", "excluded_from_stats": True, "on_payload_of": _key(c), **r})
-            n_err += r.get("outcome") == "provider_error"
+            n_err += len(r.get("provider_errors") or ())
             if r.get("outcome") == "task_cap_exceeded_billed":
                 stopped = f"per-task cap: warm-up billed USD {r['usd_billed']:.6f} > USD {TASK_CAP_USD:.3f}"
         for c in calls:
@@ -296,7 +340,7 @@ def run(out: Path = OUT, live: bool = False, client=None, job_cap: float = JOB_C
             emit(row)
             if stopped:
                 continue
-            n_err += r["outcome"] == "provider_error"
+            n_err += len(r.get("provider_errors") or ())
             n_unparse += r.get("sent", False) and not r.get("parse_ok")
             if r["outcome"] == "task_cap_exceeded_billed":
                 stopped = f"per-task cap: {_key(c)} billed USD {r['usd_billed']:.6f} > USD {TASK_CAP_USD:.3f}"
@@ -376,12 +420,48 @@ def summarize(rows: list[dict]) -> dict:
     return s
 
 
+def operating_point_replay(rows: list[dict], repo: Path = REPO) -> dict:
+    """Amendment 2026-11-07: the q4_0 28928 operating point through hybrid-full-pipeline-v1's replay at the rolling
+    cache breakpoint (rolling_cache_reprice.operating_point_rolling, usd_new: the 85/90 and 43.4% of row
+    operating-point-q4-28928-rolling-cache), then the verifier's verdicts on the turns it keeps local: a rejected
+    (or unparseable) turn takes its recorded escalation outcome and USD (own-rollback redo, else full-history redo,
+    else IMPUTED, as that row); a turn with no reply stays local. The verifier's billed USD on those turns is added to
+    the pipeline's bill. The per-task budget is not re-applied to the new escalations (as the CEILING row)."""
+    P = _plan()
+    P._paths(repo)
+    import hybrid_full_pipeline as hfp  # noqa: PLC0415
+    import rolling_cache_reprice as rc  # noqa: PLC0415
+    ac, rd = rc.all_cloud_rolling(repo), rc.redo_rolling(repo)
+    op = rc.operating_point_rolling(repo, ac=ac, rd=rd, configs=(P.Q4_CONFIG,))["usd_new"]
+    cell, allc = op["cells"][P.Q4_CONFIG], op["all_cloud"]
+    cloud = {k: {"ok": v["ok"], "usd": v["usd_new"]} for k, v in ac[hfp.CLOUD_MODEL].items() if k[0] in set(hfp.SEEDS)}
+    redo = {k: {"ok": v["ok"], "usd": v["usd_new"]} for k, v in rd["redo"].items()}
+    rb = {k: {"ok": v["ok"], "usd": v["usd_new"]} for k, v in rd["rb"].items()}
+    esc = hfp.escalation_outcomes(repo, hfp.CONFIGS[P.Q4_CONFIG][2], cloud, redo, rb, op["imputed_usd"])
+    local, _first, _ceil = hfp.config_sessions(repo, P.Q4_CONFIG)
+    vt = {(t["seed"], t["task_id"]): t for t in rows if t.get("record") == RECORD and t.get("config") == P.Q4_CONFIG}
+    kept = [k for k, v in cell["per_task"].items() if v == "local"]
+    rejected = [k for k in kept if k in vt and _rejects(vt[k])]
+    correct = cell["correct"] + sum(esc[k]["ok"] - (local[k]["end_state_ok"] is True) for k in rejected)
+    usd_esc = sum(esc[k]["usd"] for k in rejected)
+    usd_vt = sum(float(t.get("usd_billed") or 0.0) for t in vt.values() if t.get("sent"))
+    n = cell["n"]
+    share = 100 * (cell["usd"] + usd_esc + usd_vt) / n / allc
+    return {"config": P.Q4_CONFIG, "n": n, "correct_before": cell["correct"], "pct_bill_before": cell["pct_bill"],
+            "kept_local": len(kept), "verified": sum(1 for k in kept if k in vt and vt[k].get("sent")),
+            "no_reply": sum(1 for k in kept if not (k in vt and vt[k].get("sent"))), "rejected": len(rejected),
+            "rejected_fixed": sum(esc[k]["ok"] for k in rejected),
+            "rejected_were_correct": sum(1 for k in rejected if local[k]["end_state_ok"] is True),
+            "imputed": sum(1 for k in rejected if esc[k].get("src") == "imputed"), "correct": correct,
+            "usd_escalations_added": usd_esc, "usd_verifier": usd_vt, "all_cloud_usd_task": allc, "pct_bill": share}
+
+
 def load_rows(path: Path) -> list[dict]:
     with open(path, encoding="utf-8") as fh:
         return [json.loads(x) for x in fh if x.strip()]
 
 
-def score(path: Path = OUT) -> dict:
+def score(path: Path = OUT, repo: Path = REPO) -> dict:
     """The summary of a finished Run V1 file (needs run_end; the register row stays PENDING without it)."""
     rows = load_rows(path)
     end = [r for r in rows if r.get("record") == "run_end"]
@@ -389,6 +469,9 @@ def score(path: Path = OUT) -> dict:
         raise RuntimeError(f"{Path(path).name} has no run_end; Run V1 not finished")
     s = summarize(rows)
     s["stopped"] = end[-1].get("stopped")
+    s["operating_point"] = op = operating_point_replay(rows, repo)
+    s["targets_met"]["correct_90"] = op["correct"] >= TARGETS["correct_90_min"]
+    s["targets_met"]["pct_bill"] = op["pct_bill"] <= TARGETS["pct_bill_max"]
     return s
 
 
@@ -411,7 +494,20 @@ def score_text(s: dict) -> str:
             f"replies {s['unparseable']} (counted as rejects); tasks with no verdict {s['no_verdict']} "
             f"{s['no_verdict_by_outcome']}; held-out seed {HELDOUT_SEED}: caught {h['caught']}/{h['positives']}, false "
             f"escalations {h['false_esc']}/{h['negatives']}; per config: {by}; stopped: {s.get('stopped')}; "
-            f"complete: {s['complete']}. The new correct/90 and share-of-the-Sonnet-bill targets are not scored here")
+            f"complete: {s['complete']}. " + operating_point_text(s))
+
+
+def operating_point_text(s: dict) -> str:
+    o, t = s["operating_point"], s["targets_met"]
+    met = lambda k: "met" if t[k] else "missed"  # noqa: E731
+    return (f"REPLAY of the {o['config']} operating point with these verdicts (rolling cache breakpoint, escalations "
+            f"from recorded redo rows or IMPUTED as hybrid-full-pipeline-v1): {o['correct_before']}/{o['n']} -> "
+            f"{o['correct']}/{o['n']} correct (target >= {TARGETS['correct_90_min']}/{o['n']}, {met('correct_90')}); "
+            f"{o['rejected']} of {o['kept_local']} kept-local turns rejected ({o['rejected_fixed']} escalations "
+            f"correct, {o['rejected_were_correct']} were correct locally, {o['imputed']} imputed; {o['no_reply']} with "
+            f"no reply stay local); share of the Sonnet all-cloud bill {o['pct_bill_before']:.1f}% -> "
+            f"{o['pct_bill']:.1f}% incl the verifier's USD {o['usd_verifier']:.4f} (target <= "
+            f"{TARGETS['pct_bill_max']:.0f}%, {met('pct_bill')})")
 
 
 # ── command line ───────────────────────────────────────────────────────────────────────────────────

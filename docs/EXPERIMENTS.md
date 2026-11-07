@@ -3205,6 +3205,31 @@ client, no key, nothing written). Tests: tests/test_verification_tier_cloud.py (
   `py -3.12 scripts/verification_tier_cloud.py --live --ledger results/cloud_ledger.jsonl --job-cap 2.00
   --operator-approval "approve verification_tier_run_v1 up to USD 2.00: Run V1 go after the 8192 cloud phase"`
 
+### AMENDMENT (2026-11-07): parsing, retries and the operating-point replay (filed before any Run V1 call)
+
+Operator decisions 2026-11-07, verbatim: "1. Strip one surrounding code fence before parsing; file the dated amendment
+before the run. 2. One retry on provider errors (timeout, 429, 5xx); no retry on unparseable replies. 3. Keep: no-reply
+tasks count as neither caught nor false escalation, run marked incomplete. 4. Keep the script as is; add the replay step
+for correct/90 and bill share to the register row before the live run." No Run V1 call has been made; the verifier
+prompt, model, payloads, caps, targets and held-out split are unchanged.
+
+- Parsing: one surrounding code fence (a first line of ``` or ```json, a last line of ```) is stripped before the reply
+  is parsed. Anything else (text outside the fence, a second fence, another language tag) is unparseable and counts as
+  a reject, as before. Each call row records whether the reply was fenced.
+- Retries: a send that fails with a provider timeout, HTTP 429 or HTTP 5xx is retried once, through the same per-task
+  checks (worst-case refusal, BudgetedClient reservation). Any other error is not retried; an unparseable reply is
+  never retried. Every failed send, retries included, counts toward the stop rule of 5 provider errors.
+- No-reply tasks: unchanged (neither caught nor a false escalation; the run is marked incomplete).
+- Replay (scripts/verification_tier_cloud.py::operating_point_replay, scored with row verification-tier-run-v1): the
+  q4_0 28928 operating point through hybrid-full-pipeline-v1's replay at the rolling cache breakpoint (85/90, 43.4%
+  [REG operating-point-q4-28928-rolling-cache]); each of its kept-local turns the verifier rejects (or answers
+  unparseably) takes its recorded escalation outcome and USD (own-rollback redo, else full-history redo, else
+  IMPUTED, as that row); a turn with no reply stays local; the verifier's billed USD on those turns is added to the
+  pipeline's bill. The per-task budget is not re-applied to the new escalations, as in the CEILING row. Checked before
+  the run: no verdicts reproduce 85/90 and 43.4%; a perfect verifier gives the CEILING's 90/90. Targets as
+  pre-registered: new correct >= 88/90, share of the Sonnet all-cloud bill <= 75%.
+- Tests: tests/test_verification_tier_cloud.py (fence, retry and stop-count cases; the replay check above).
+
 ## KIT (2026-11-03, nothing run): XPS demo comparison and the intake of Zach's XPS results
 
 **Status: kit and register rows only. Nothing run, queued or deployed; no cloud call.** Full commands and file formats:

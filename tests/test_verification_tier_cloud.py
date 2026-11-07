@@ -101,15 +101,69 @@ def test_live_with_fakes_writes_start_warmup_calls_end_and_scores(tmp_path):
     assert s["usd_billed_incl_warmup"] > s["usd_billed_total"]
     assert V.score(tmp_path / "out.jsonl")["false_esc"] == 1
     text = V.score_text(V.score(tmp_path / "out.jsonl"))
-    assert "caught 2/2" in text and "false escalations 1/4" in text and "%" not in text
+    assert "caught 2/2" in text and "false escalations 1/4" in text and "%" not in text.split("REPLAY")[0]
+    assert "REPLAY of the q4_0 28928 operating point" in text and "target >= 88/90" in text
 
 
 def test_parse_verdict_is_strict():
     assert V.parse_verdict(REPLY_REJECT)[0] == "reject"
     assert V.parse_verdict("  " + REPLY_ACCEPT + "\n")[0] == "accept"
-    for bad in ("", "accept", "```json\n" + REPLY_ACCEPT + "\n```", json.dumps({"verdict": "maybe"}),
-                json.dumps([{"verdict": "accept"}]), None):
-        assert V.parse_verdict(bad) == (None, None)
+    for bad in ("", "accept", json.dumps({"verdict": "maybe"}), json.dumps([{"verdict": "accept"}]), None,
+                "```json\n```json\n" + REPLY_ACCEPT + "\n```\n```", "Sure:\n```json\n" + REPLY_ACCEPT + "\n```",
+                "```python\n" + REPLY_ACCEPT + "\n```", "```" + REPLY_ACCEPT + "```"):
+        assert V.parse_verdict(bad) == (None, None), bad
+
+
+def test_parse_verdict_strips_one_surrounding_fence():
+    """Amendment 2026-11-07: one surrounding ``` or ```json fence is stripped before parsing."""
+    assert V.parse_verdict("```json\n" + REPLY_REJECT + "\n```")[0] == "reject"
+    assert V.parse_verdict("```\n" + REPLY_ACCEPT + "\n```\n")[0] == "accept"
+
+
+class _HTTPError(Exception):
+    def __init__(self, code):
+        super().__init__(f"status {code}")
+        self.status_code = code
+
+
+class APITimeoutError(Exception):
+    pass
+
+
+def test_retryable_errors_are_timeout_429_and_5xx_only():
+    assert V.retryable_error(_HTTPError(429)) and V.retryable_error(_HTTPError(503))
+    assert V.retryable_error(APITimeoutError("t"))
+    for e in (_HTTPError(400), _HTTPError(401), RuntimeError("boom"), ValueError("x")):
+        assert not V.retryable_error(e)
+
+
+def test_one_retry_on_provider_error_then_counts_every_failed_send(tmp_path):
+    held = {i: V.HELDOUT_SEED for i in range(4)}
+    # warm-up ok; task 0: 429 then accept (retried); task 1: 503 twice (gives up); task 2: 400 (no retry); task 3 ok
+    fake = Fake([REPLY_ACCEPT, _HTTPError(429), REPLY_ACCEPT, _HTTPError(503), _HTTPError(503), _HTTPError(400),
+                 REPLY_ACCEPT])
+    rows = _run(tmp_path, _calls(4, wrong=(), seeds=held), fake)
+    t = _tasks(rows)
+    assert len(fake.sent) == 7
+    assert t[0]["outcome"] == "sent" and len(t[0]["provider_errors"]) == 1 and t[0]["provider_errors"][0]["retryable"]
+    assert t[1]["outcome"] == "provider_error" and len(t[1]["provider_errors"]) == 2
+    assert t[2]["outcome"] == "provider_error" and len(t[2]["provider_errors"]) == 1
+    assert not t[2]["provider_errors"][0]["retryable"] and t[3]["outcome"] == "sent"
+    # failed sends 1 + 2 + 1 = 4: under the stop rule of 5
+    assert rows[-1]["stopped"] is None and rows[-1]["summary"]["no_verdict"] == 2
+
+
+def test_no_retry_on_unparseable_reply(tmp_path):
+    held = {i: V.HELDOUT_SEED for i in range(2)}
+    fake = Fake([REPLY_ACCEPT, "not json", REPLY_ACCEPT])
+    rows = _run(tmp_path, _calls(2, wrong=(), seeds=held), fake)
+    assert len(fake.sent) == 3 and _tasks(rows)[0]["parse_ok"] is False
+
+
+def test_retry_errors_count_toward_the_stop_rule(tmp_path):
+    held = {i: V.HELDOUT_SEED for i in range(5)}
+    rows = _run(tmp_path, _calls(5, seeds=held), Fake([REPLY_ACCEPT] + [_HTTPError(500)] * 10))
+    assert rows[-1]["stopped"] == "stop rule: 6 provider errors"     # task 2's second failed send passes 5
 
 
 # ── refusals ───────────────────────────────────────────────────────────────────────────────────────
@@ -272,6 +326,20 @@ def test_no_rederivation_arm(tmp_path, capsys):
 @pytest.fixture(scope="module")
 def built():
     return V.build_calls(REPO)
+
+
+def test_operating_point_replay_reproduces_the_register_and_the_ceiling(built):
+    """No verdicts: row operating-point-q4-28928-rolling-cache (85/90, 43.4%). A perfect verifier on the q4_0 28928
+    turns: the CEILING's 90/90 (row verification-tier-ceiling)."""
+    o = V.operating_point_replay([])
+    assert (o["n"], o["correct"], o["correct_before"], o["no_reply"]) == (90, 85, 85, 81)
+    assert round(o["pct_bill"], 1) == 43.4 == round(o["pct_bill_before"], 1)
+    rows = [{"record": V.RECORD, "config": c["config"], "seed": c["seed"], "task_id": c["task_id"], "sent": True,
+             "verdict": "accept" if c["local_ok"] else "reject", "usd_billed": 0.0}
+            for c in built if c["config"] == "q4_0 28928"]
+    o = V.operating_point_replay(rows)
+    assert o["correct"] == 90 and o["rejected"] == o["rejected_fixed"] == 5 and o["rejected_were_correct"] == 0
+    assert o["pct_bill"] > o["pct_bill_before"]
 
 
 def test_dry_run_call_count_matches_the_preregistration(built, capsys):
