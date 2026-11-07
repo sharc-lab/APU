@@ -5458,8 +5458,82 @@ def compute_post_run_check_live_8192_estimate(repo):
     return {"value": prt.live8192_text(d), "n": f"{d['live']['n_tasks']} tasks (ESTIMATE)"}
 
 
+LIVE8192_TARGETS = {"recall": 0.80, "false_esc": 0.10, "final_accuracy": 0.97}   # docs/EXPERIMENTS.md, as registered
+
+
+def post_run_check_live_result(repo) -> dict:
+    """The live 8192 run, recounted from its task rows (not only the run_end summary): recall, false escalations,
+    final accuracy against the registered targets; billed USD vs the ledger rows written during the job; and, for each
+    task still wrong after the cloud, whether every record in the cloud's end-state diff is one an EARLIER local turn
+    of the same session left wrong (a handoff artifact of the per-task replay: the cloud repaired earlier damage that
+    the per-task grader counts as unexpected changes) or not (a cloud miss)."""
+    repo = Path(repo)
+    rows = [json.loads(x) for x in (repo / POST_RUN_CHECK_LIVE8192_FILE).read_text(encoding="utf-8").splitlines()
+            if x.strip()]
+    start = next(r for r in rows if r["record"] == "run_start")
+    end = [r for r in rows if r["record"] == "run_end"][-1]
+    tasks = [r for r in rows if r["record"] == "prc_live_task"]
+    esc = lambda t: t["decision"] == "escalate"  # noqa: E731
+
+    def ok(t):
+        return bool((t.get("cloud") or {}).get("cloud_end_state_ok")) if esc(t) else t["local_ok"]
+    wrong = [t for t in tasks if not t["local_ok"]]
+    right = [t for t in tasks if t["local_ok"]]
+    n, caught, fe, fin = len(tasks), sum(map(esc, wrong)), sum(map(esc, right)), sum(map(ok, tasks))
+    usd = sum(float((t.get("cloud") or {}).get("usd") or 0.0) for t in tasks)
+    for k, v in (("n", n), ("caught", caught), ("false_esc", fe), ("final_correct", fin)):
+        if end["summary"][k] != v:
+            raise ValueError(f"run_end summary {k} {end['summary'][k]} != recount {v}")
+    t0, t1 = start["ts_utc"], end["ts_utc"]
+    led = [json.loads(x) for x in (repo / "results" / "cloud_ledger.jsonl").read_text(encoding="utf-8").splitlines()
+           if x.strip()]
+    in_job = [r for r in led if t0 <= str(r.get("timestamp", "")) <= t1]
+    local = [json.loads(x) for x in (repo / "results" / "x2_post_run_check_local_v1.jsonl").read_text(
+        encoding="utf-8").splitlines() if x.strip()]
+    lw = {r["turn_idx"]: set(r.get("end_state_diff") or []) for r in local
+          if r.get("record") == "r2a_turn" and r.get("item_kind") == "task" and r.get("end_state_ok") is False}
+    still = []
+    for t in tasks:
+        if ok(t):
+            continue
+        c = t.get("cloud") or {}
+        diff = set(c.get("cloud_end_state_diff") or [])
+        earlier = set().union(*[v for k, v in lw.items() if k < t["turn_idx"]] or [set()])
+        kind = ("kept local, wrong" if not esc(t) else
+                "handoff artifact (every diff record left wrong by an earlier local turn)" if diff and diff <= earlier
+                else "cloud miss")
+        still.append({"turn_idx": t["turn_idx"], "task_id": t["task_id"], "kind": kind, "diff": sorted(diff),
+                      "earlier_turns": sorted(k for k, v in lw.items() if k < t["turn_idx"] and v & diff)})
+    return {"n": n, "wrong": len(wrong), "right": len(right), "caught": caught, "false_esc": fe, "final": fin,
+            "recall": caught / len(wrong), "false_esc_rate": fe / len(right), "accuracy": fin / n,
+            "met": {"recall": caught / len(wrong) >= LIVE8192_TARGETS["recall"],
+                    "false_esc": fe / len(right) <= LIVE8192_TARGETS["false_esc"],
+                    "final_accuracy": fin / n >= LIVE8192_TARGETS["final_accuracy"]},
+            "usd": usd, "n_esc": sum(map(esc, tasks)), "ledger_rows": len(in_job),
+            "ledger_billed": sum(float(r.get("cost_usd") or 0.0) for r in in_job),
+            "ledger_upper": sum(float(r.get("cost_usd_upper_bound") or 0.0) for r in in_job),
+            "budget_exhausted": end["summary"]["budget_exhausted"], "not_run": end["summary"]["not_run"],
+            "stopped": end["stopped"], "still_wrong": still, "window": (t0, t1)}
+
+
 def compute_post_run_check_live(repo):
-    raise RuntimeError("live post-run check job not run; this row stays PENDING until its file has run_end")
+    d = post_run_check_live_result(repo)
+    mm = lambda k: "MET" if d["met"][k] else "MISSED"  # noqa: E731
+    sw = "; ".join(f"turn {s['turn_idx']} {s['task_id']}: {s['kind']}, diff {', '.join(s['diff']) or 'none'}"
+                   + (f" (left wrong by local turns {', '.join(map(str, s['earlier_turns']))})"
+                      if s["earlier_turns"] else "") for s in d["still_wrong"])
+    return {"value": (f"LIVE, evo-x2 num_ctx 8192 local phase + controller cloud phase (claude-sonnet-5-5, rolling cache "
+                      f"breakpoint), B3 v2 qwen3:14b, held-out seed 20260905, {d['n']} task turns: recall "
+                      f"{d['caught']}/{d['wrong']} ({100 * d['recall']:.1f}%, target >= 80%, {mm('recall')}); false "
+                      f"escalations {d['false_esc']}/{d['right']} ({100 * d['false_esc_rate']:.1f}%, target <= 10%, "
+                      f"{mm('false_esc')}); final accuracy {d['final']}/{d['n']} ({100 * d['accuracy']:.1f}%, target "
+                      f">= 97%, {mm('final_accuracy')}); escalated {d['n_esc']}, kept local {d['n'] - d['n_esc']}, "
+                      f"budget exhausted {d['budget_exhausted']}, not run {d['not_run']}, stopped {d['stopped']}; "
+                      f"cloud USD billed {d['usd']:.7f} ({d['usd'] / d['n']:.5f} per task), ledger rows in the job "
+                      f"window {d['ledger_rows']} billed {d['ledger_billed']:.7f} (upper bound "
+                      f"{d['ledger_upper']:.5f}); still wrong after cloud: {sw or 'none'}. Per-task replay grading "
+                      f"(each escalation redone from that task's pre-task local state), as every post-run-check row"),
+            "n": f"{d['n']} task turns, 1 seed"}
 
 
 def compute_post_run_check_l4(repo):
@@ -10625,7 +10699,8 @@ NUMBER_ENTRIES = [
      "script_function": "analysis/post_run_check_tuning.py::live_estimate"},
     {"claim_id": "post-run-check-live-8192", "description": "Live post-run check at evo-x2 num_ctx 8192, seed "
      "20260905 (local phase x2_post_run_check_local_v1 on evo-x2, controller cloud phase scripts/"
-     "post_run_check_cloud.py, job cap USD 2.00); not run, not queued",
+     "post_run_check_cloud.py, job cap USD 2.00): recall, false escalations and final accuracy against the "
+     "registered targets, billed USD vs the ledger, the tasks still wrong after the cloud",
      "compute": compute_post_run_check_live, "data_files": [POST_RUN_CHECK_LIVE8192_FILE], "pending_ok": True,
      "require_run_end": [POST_RUN_CHECK_LIVE8192_FILE], "script_function": "scripts/post_run_check_cloud.py::run"},
     {"claim_id": "per-task-budget-check", "description": "Per-task cloud budget (src/cloud/task_budget.py): forced "

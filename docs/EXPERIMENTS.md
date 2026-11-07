@@ -3008,6 +3008,16 @@ set." Filed and committed before any figure under the new rule is computed.
   per filler. Output bytes unchanged (tests/test_context_filler_trim.py checks them against the old trim); the dry
   run's 30 decisions are identical before and after. No change to the job, its caps, targets or rows.
 
+#### RESULT (2026-11-07): live 8192 cloud phase run by the operator on RitzLaptop
+
+Row post-run-check-live-8192 (results/x2_post_run_check_live_v1.jsonl, 21:54:12Z to 21:56:14Z, Console gate passed):
+recall 9/9 (target >= 80%, MET); false escalations 11/21 (target <= 10%, MISSED; already fixed by the dry run before
+any cloud call); final accuracy 29/30 (96.7%, target >= 97%, MISSED). 20 escalated, none budget-exhausted or unrun.
+Billed USD 0.2612404 = the 41 ledger rows written in the job window. The one task still wrong, turn 24
+cust_upgrade: the cloud made the requested change (CU-359 not in its diff) and also repaired records the local model
+had left wrong at turns 19 (inv_receive) and 23 (led_split); the per-task grader counts those repairs as unexpected
+changes. A handoff artifact of the per-task replay, not a cloud miss; the miss is reported as is, not regraded.
+
 ## PRE-REGISTRATION (2026-11-03): pitch1, standard hybrid vs the post-run-check pipeline on the same 90 jobs
 
 External reviewer request (Zach), operator approved. Replay of recorded runs only: no SSH, no cloud call, no API key,
