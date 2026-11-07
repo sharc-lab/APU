@@ -68,9 +68,20 @@ def test_host_restriction_hard_deny_beats_role_override():
         check_host_allowed(hostname="evo-t2s-remote", role_override="controller")
 
 
-def test_host_restriction_allows_evo_x2_by_default(monkeypatch):
+def test_host_restriction_allows_the_controller_by_default(monkeypatch):
     monkeypatch.delenv("CLOUD_ALLOWED_HOSTS", raising=False)
-    assert check_host_allowed(hostname="EVO-X2") is True
+    monkeypatch.delenv("CLOUD_CLIENT_HOST_ROLE", raising=False)
+    assert check_host_allowed(hostname="RitzLaptop") is True
+
+
+@pytest.mark.parametrize("host", ["EVO-X2", "evo-x2", "evo-x2.tailnet"])
+def test_host_restriction_hard_denies_evo_x2_regardless_of_allowlist_and_role(monkeypatch, host):
+    """Operator 2026-11-07: the key must never be used on evo-x2; no env var or role enables it."""
+    monkeypatch.setenv("CLOUD_ALLOWED_HOSTS", "evo-x2,anything")
+    with pytest.raises(HostRestrictionError, match="hard-denied"):
+        check_host_allowed(hostname=host)
+    with pytest.raises(HostRestrictionError, match="hard-denied"):
+        check_host_allowed(hostname=host, role_override="controller")
 
 
 def test_host_restriction_allows_explicit_controller_role():
@@ -93,7 +104,7 @@ def test_host_restriction_custom_allowlist_via_env(monkeypatch):
     monkeypatch.setenv("CLOUD_ALLOWED_HOSTS", "my-controller-box")
     assert check_host_allowed(hostname="MY-CONTROLLER-BOX") is True
     with pytest.raises(HostRestrictionError):
-        check_host_allowed(hostname="evo-x2")  # default no longer applies once env var set
+        check_host_allowed(hostname="RitzLaptop")  # default no longer applies once env var set
 
 
 # ---------------------------------------------------------------------------

@@ -182,8 +182,10 @@ def _trim_to_tokens(
 ) -> str:
     """Trim raw string to approximately target_tokens using count_fn refinement.
 
-    Logs each iteration. Accepts the closest result if max_iter is exhausted
-    without converging — never hangs.
+    Accepts the closest result if max_iter is exhausted without converging, and
+    stops as soon as a length repeats (with a deterministic count_fn a repeat
+    only replays the same cycle, so the best is already known; 2026-11-07, an
+    operator saw 188/150 tok lines alternating). Prints one summary line.
     """
     target_chars = min(int(target_tokens * _CHARS_PER_TOKEN), len(raw))
     filler = raw[:target_chars].strip()
@@ -191,23 +193,29 @@ def _trim_to_tokens(
         return filler
     best = filler
     best_err = float("inf")
-    for i in range(max_iter):
+    best_tok = None
+    seen: set[int] = set()
+    iters = 0
+    for _ in range(max_iter):
+        if len(filler) in seen:
+            break
+        seen.add(len(filler))
         actual = count_fn(filler)
+        iters += 1
         if actual <= 0:
             break
         err = abs(actual - target_tokens) / max(target_tokens, 1)
-        is_best = err < best_err
-        if is_best:
-            best, best_err = filler, err
-        print(f"  [{label} trim {i+1}/{max_iter}] {actual} tok  err={err:.1%}{' *' if is_best else ''}")
+        if err < best_err:
+            best, best_err, best_tok = filler, err, actual
         if err <= 0.02:
-            return filler
+            break
         new_chars = min(int(len(filler) * target_tokens / actual), len(raw))
         if new_chars == len(filler):
             break
         filler = raw[:new_chars].strip()
-    if best_err > 0.02:
-        print(f"  [{label}] WARNING: did not converge in {max_iter} iters, accepting best (err={best_err:.1%})")
+    ok = best_err <= 0.02
+    print(f"  [{label} trim] {best_tok} tok for target {target_tokens}  err={best_err:.1%}  ({iters} iter"
+          f"{'s' if iters != 1 else ''}){'' if ok else '  WARNING: not within 2%, accepting best'}")
     return best
 
 
@@ -231,6 +239,22 @@ def build_filler(
     """
     if target_tokens <= 0:
         return ""
+    key = (target_tokens, seed, count_fn, variant)
+    try:
+        if key in _FILLER_CACHE:
+            return _FILLER_CACHE[key]
+    except TypeError:          # an unhashable count_fn: build without the cache
+        return _build_filler_uncached(target_tokens, seed, count_fn, variant)
+    _FILLER_CACHE[key] = out = _build_filler_uncached(target_tokens, seed, count_fn, variant)
+    return out
+
+
+# (target_tokens, seed, count_fn, variant) -> filler. The build is deterministic in these, so a session rebuilt for
+# every turn or escalation trims each filler once (2026-11-07).
+_FILLER_CACHE: dict = {}
+
+
+def _build_filler_uncached(target_tokens: int, seed: int, count_fn, variant: str) -> str:
     if variant == "F-NUM":
         return _build_filler_num(target_tokens, seed, count_fn)
     if variant == "F-PROSE":

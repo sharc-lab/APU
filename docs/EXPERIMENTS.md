@@ -2995,6 +2995,19 @@ set." Filed and committed before any figure under the new rule is computed.
 - Rows: post-run-check-l2-recent-example (replay, held-out seed) and post-run-check-live-8192-l2-recent-example (live
   8192 run, real L2, offline recomputation).
 
+#### NOTE (2026-11-07): two aborted live starts, nothing billed; host rule and filler trim fixed
+
+- Attempt 1 (operator, RitzLaptop): stopped by Ctrl+C while the session filler trim printed 188/150 tok lines; no out
+  file and no ledger row. Attempt 2 (19:57:01Z): Console gate passed, turns 1 to 4 accepted locally, then the first
+  escalation (turn 5) was refused by the host check (`HostRestrictionError`, default allow-list evo-x2) before any
+  send. Ledger: no row after 2026-10-23 in either attempt. The partial file is kept at
+  results/aborted/x2_post_run_check_live_v1.attempt2_hostrefused_20261107T1957Z.jsonl and is not a result.
+- Operator decision 2026-11-07: the API key lives on the controller only. src/cloud/client.py now allows the
+  controller (RitzLaptop) by default and hard-denies evo-x2 and evo-t2s with no override.
+- harness/context.py filler trim: stops on a repeated length, builds each filler once per process and prints one line
+  per filler. Output bytes unchanged (tests/test_context_filler_trim.py checks them against the old trim); the dry
+  run's 30 decisions are identical before and after. No change to the job, its caps, targets or rows.
+
 ## PRE-REGISTRATION (2026-11-03): pitch1, standard hybrid vs the post-run-check pipeline on the same 90 jobs
 
 External reviewer request (Zach), operator approved. Replay of recorded runs only: no SSH, no cloud call, no API key,

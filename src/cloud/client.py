@@ -229,8 +229,9 @@ CLIENT_MODES = ("auto", "stub", "real")
 ENV_VAR_ALLOWED_HOSTS = "CLOUD_ALLOWED_HOSTS"
 ENV_VAR_HOST_ROLE = "CLOUD_CLIENT_HOST_ROLE"
 
-_HARD_DENY_SUBSTRINGS = ("t2s",)  # catches evo-t2s, EVO-T2S, t2s-anything -- never overridable
-_DEFAULT_ALLOWED_SUBSTRINGS = ("evo-x2",)
+# Operator 2026-11-07: the API key lives on the controller laptop only and must never be used on the evo machines.
+_HARD_DENY_SUBSTRINGS = ("t2s", "evo-x2")  # evo-t2s and evo-x2, any case -- never overridable
+_DEFAULT_ALLOWED_SUBSTRINGS = ("ritzlaptop",)  # the controller
 
 HARD_SPEND_CAP_USD = 50.00  # 2026-10-07: hard cap, USD total, whenever a real key is set
 DEFAULT_SPEND_CAP_USD = HARD_SPEND_CAP_USD
@@ -337,8 +338,8 @@ def resolve_hostname() -> str:
 def check_host_allowed(hostname: str | None = None, role_override: str | None = None) -> bool:
     """Explicit, fail-loud host check for the REAL-call path.
 
-    Order: hard deny (t2s) -> explicit role override ("controller") ->
-    allow-list (CLOUD_ALLOWED_HOSTS env var, default ("evo-x2",)) -> refuse.
+    Order: hard deny (t2s, evo-x2) -> explicit role override ("controller") ->
+    allow-list (CLOUD_ALLOWED_HOSTS env var, default ("ritzlaptop",), the controller) -> refuse.
 
     Returns True if allowed; raises HostRestrictionError otherwise. Never
     returns False -- a disallowed host is always an exception, never a
@@ -352,7 +353,7 @@ def check_host_allowed(hostname: str | None = None, role_override: str | None = 
             raise HostRestrictionError(
                 f"cloud client hard-denied on host '{resolved_hostname}' "
                 f"(matches permanent deny pattern '{bad}'); this module must "
-                "never make real cloud calls on evo-t2s, no override exists for this check"
+                "never make real cloud calls on evo-t2s or evo-x2, no override exists for this check"
             )
 
     resolved_role = role_override if role_override is not None else os.environ.get(ENV_VAR_HOST_ROLE, "")
