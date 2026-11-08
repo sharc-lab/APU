@@ -5516,6 +5516,81 @@ def post_run_check_live_result(repo) -> dict:
             "stopped": end["stopped"], "still_wrong": still, "window": (t0, t1)}
 
 
+def long_task_failure_class(r: dict) -> str:
+    """Descriptive rule, written 2026-11-07 after reading 2 failed tasks per model (not pre-registered): truncation if
+    the prompt reached the loaded window; else format if any call failed strict validation or named a tool not
+    offered, or the task ended on a plain-text reply within its first 10% of reference steps; else wrong action."""
+    if r["correct"]:
+        return "correct"
+    if r["over_loaded_window"] or (r["max_prompt_eval_count"] or 0) >= r["loaded_context"]:
+        return "truncation"
+    if r["n_strict_invalid_calls"] + r["n_not_offered_calls"] > 0 or (r["n_calls"] - 1) < 0.1 * r["ref_steps"]:
+        return "format"
+    return "wrong action"
+
+
+def compute_long_task_failure_diagnosis(repo):
+    import pandas as pd
+    df = pd.read_parquet(Path(repo) / "results" / "traces" / "agent_step_lengths.parquet")
+    parts, traj = [], {}
+    for m, f in LTS_MODELS.items():
+        g, _end = _lts_rows(repo, f)
+        cls = {}
+        for r in g:
+            k = long_task_failure_class(r)
+            cls[k] = cls.get(k, 0) + 1
+            traj[r["task_id"]] = r["trajectory_id"]
+        parts.append(f"{m}: " + ", ".join(f"{k} {v}/{len(g)}" for k, v in sorted(cls.items())) +
+                     f"; max prompt {max(r['max_prompt_eval_count'] or 0 for r in g):,} tokens (loaded window "
+                     f"{', '.join(sorted({str(r['loaded_context']) for r in g}))})")
+    src = df[df.trajectory_id.isin(set(traj.values()))].groupby("trajectory_id")[["tokens_qwen", "tokens_llama"]].max()
+    nq = sum(int(src.loc[v, "tokens_qwen"] > 40960) for v in traj.values())
+    nl = sum(int(src.loc[v, "tokens_llama"] > 40960) for v in traj.values())
+    return {"value": (f"DESCRIPTIVE, rule set after reading 2 failed tasks per model (numbers_register."
+                      f"long_task_failure_class): source OpenHands traces of the {len(traj)} long tasks: {nq}/{len(traj)} "
+                      f"pass 40,960 tokens at some step in Qwen tokens, {nl}/{len(traj)} in Llama tokens (so all 30 task "
+                      f"runs, 3 seeds each, in Qwen tokens); the synthetic tasks match step counts, not token counts, "
+                      f"and no run reached its window / " + " / ".join(parts) +
+                      " / no failure is truncation, so the 70B big-window rerun (docs/NEXT_AFTER_ZACH.md item 2) is not "
+                      "triggered on this task set"),
+            "n": f"30 tasks x {len(LTS_MODELS)} models"}
+
+
+ZACH_SPLIT96_DIR = r"C:\Users\rithw\zach_runs\evo_runs\split96"   # outside the repo (Zach's data, not committed)
+ZACH_STACKS = ("ollama", "llama-server-vulkan", "llama-server-rocm")
+
+
+def compute_zach_evo_x2_split96(repo):
+    d = Path(ZACH_SPLIT96_DIR)
+    parts = []
+    for s in ZACH_STACKS:
+        rows = [json.loads(x) for x in (d / f"contract1_{s}.jsonl").read_text(encoding="utf-8").splitlines()
+                if x.strip()]
+        cal = next(r for r in rows if r["record"] == "calibration")
+        pr = [r for r in rows if r["record"] == "probe"]
+        by = {}
+        for r in pr:
+            by.setdefault((r["probe"], r["target_tokens"]), []).append(r["class"])
+        cells = "; ".join(f"{p} {t:,}: " + ", ".join(f"{c} {v.count(c)}/{len(v)}" for c in sorted(set(v)))
+                          for (p, t), v in sorted(by.items()))
+        parts.append(f"{s} (wall {cal['wall']:,}, {len(pr)} probes): {cells}")
+    lines = {f.stem: sum(1 for x in f.read_text(encoding="utf-8").splitlines() if x.strip())
+             for f in sorted(d.glob("extx_*.jsonl"))}
+    notes = (d / "notes.txt").read_text(encoding="utf-8")
+    dev = "ErrorDeviceLost" in (d / "llama-server-vulkan.log").read_text(encoding="utf-8", errors="replace")
+    import re
+    tdr = sum(1 for ln in (d / "system_log_vulkan_device_lost.txt").read_text(encoding="utf-8-sig").splitlines()
+              if re.match(r"\s*Id\s*:\s*(4101|141|117)\s*$", ln))
+    return {"value": (f"ZACH'S CONTRACT-1 PROBE (his scoring is authoritative; these are the raw classes his probe "
+                      f"wrote), evo-x2 split 96 GB set via {'Adrenalin VGM' if 'Variable Graphics Memory' in notes else 'BIOS'}"
+                      f", Qwen3-4B Q4_K_M, true defaults, run 2026-11-07: " + " / ".join(parts) +
+                      f" / Vulkan server log ErrorDeviceLost: {'yes' if dev else 'no'}; Windows driver-reset events "
+                      f"(Display 4101, LiveKernelEvent 141/117) in the saved System log: {tdr} / Part 2 llama-bench rows "
+                      + ", ".join(f"{k} {v}" for k, v in lines.items()) +
+                      f" (expected depth 20, cold 16 per build); data outside the repo: {ZACH_SPLIT96_DIR}"),
+            "n": f"{len(ZACH_STACKS)} stacks + 2 builds"}
+
+
 def compute_post_run_check_live(repo):
     d = post_run_check_live_result(repo)
     mm = lambda k: "MET" if d["met"][k] else "MISSED"  # noqa: E731
@@ -11181,6 +11256,22 @@ NUMBER_ENTRIES = [
      "compute": compute_long_task_scale_local, "data_files": [LONGTASK_LOCAL_FILE, *LTS_MODELS.values()],
      "pending_ok": True, "require_run_end": list(LTS_MODELS.values()),
      "script_function": "analysis/numbers_register.py::compute_long_task_scale_local"},
+    {"claim_id": "long-task-failure-diagnosis", "description": "Long-task diagnosis (operator 2026-11-07): how many of "
+     "the 30 long tasks pass 40,960 tokens in their source traces, and the failure cause per model (truncation, wrong "
+     "action, format) of qwen3:32b and llama3.3:70b at num_ctx 40960; descriptive",
+     "compute": compute_long_task_failure_diagnosis, "data_files": [*LTS_MODELS.values(),
+                                                                     "results/traces/agent_step_lengths.parquet"],
+     "pending_ok": True, "require_run_end": list(LTS_MODELS.values()),
+     "script_function": "analysis/numbers_register.py::compute_long_task_failure_diagnosis"},
+    {"claim_id": "zach-evo-x2-split96", "description": "Zach's evo-x2 run sheet, split 96 GB (Adrenalin VGM): "
+     "CONTRACT-1 probe classes per stack and probe size (Part 1) and llama-bench row counts (Part 2); his data, kept "
+     "outside the repo; PENDING on a machine without that folder",
+     "compute": compute_zach_evo_x2_split96, "pending_ok": True,
+     "data_files": [ZACH_SPLIT96_DIR + "\\" + f for f in ("notes.txt", "contract1_ollama.jsonl",
+                                                          "contract1_llama-server-vulkan.jsonl",
+                                                          "contract1_llama-server-rocm.jsonl",
+                                                          "system_log_vulkan_device_lost.txt")],
+     "script_function": "analysis/numbers_register.py::compute_zach_evo_x2_split96"},
     {"claim_id": "spillway-long-task-savings-scale", "description": "long-task-scale-v1: row "
      "spillway-long-task-savings-rolling re-run with each larger model's local outcomes, only for a model with at "
      "least 1/30 correct (pre-registered rule); priced and replayed, not run; PENDING until both files have run_end",
