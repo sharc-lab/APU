@@ -66,6 +66,8 @@ ARMS = {
     # long-task scale (2026-11-03): base server env, num_ctx sent = the window qwen3:14b's ollama_default arm loaded,
     # so a larger model is compared at the same window (llama3.3:70b's own default on evo-x2 would load 131072)
     "ctx_40960": {"arm_id": "longtask_ctx_40960", "env": {}, "num_ctx": KV_Q8_NUM_CTX, "kv": None, "b5_policy": None},
+    # longtask-tokens-v1 (2026-11-09): a window that holds the token-matched set's largest reference prompt (87,319)
+    "ctx_98304": {"arm_id": "longtask_ctx_98304", "env": {}, "num_ctx": 98304, "kv": None, "b5_policy": None},
 }
 ARM_ORDER = ("ollama_default", "kv_q8_0")
 SERVER_LOG = r"C:\apu\ovn\ollama_serve_longtask.log"
@@ -133,8 +135,9 @@ def template_tools_last_user_only(base="http://127.0.0.1:11434", model=MODEL) ->
 
 
 def run_long_task(runtime, model, num_ctx, think, task: L.LongTask, env_before: dict, log, on_call=None,
-                  tool_prompt="ollama") -> dict:
-    """Run one task to its end; returns the scored row (transport fields of each call included)."""
+                  tool_prompt="ollama", pad=None) -> dict:
+    """Run one task to its end; returns the scored row (transport fields of each call included). pad: the token-matched
+    set's longtask_tokens.Padder (adds the activity_log to the k-th tool result), None for the step-matched set."""
     if tool_prompt not in TOOL_PROMPTS:
         raise ValueError(f"tool_prompt {tool_prompt!r} not in {TOOL_PROMPTS}")
     tools = L.tools_payload()
@@ -172,6 +175,8 @@ def run_long_task(runtime, model, num_ctx, think, task: L.LongTask, env_before: 
             results = []
             for c in calls:
                 res = L.execute(live, c)
+                if pad is not None:
+                    res = pad(n_tool, res)
                 results.append(res)
                 n_tool += 1
                 n_err += res.get("status") != "ok"
@@ -195,7 +200,7 @@ def run_long_task(runtime, model, num_ctx, think, task: L.LongTask, env_before: 
         "task_id": task.task_id, "stratum": task.stratum, "target_steps": task.target_steps,
         "trajectory_id": task.trajectory_id, "ref_steps": task.ref_steps, "step_cap": cap,
         "n_items": len(task.items), "n_reference_writes": len(task.reference_writes), "task_label": L.LABEL,
-        "tool_prompt": tool_prompt,
+        "tool_prompt": tool_prompt, "task_set": "tokens" if pad is not None else "steps",
         "n_calls": len(recs), "n_tool_calls": n_tool, "n_tool_errors": n_err, "n_not_offered_calls": n_not_offered,
         "n_strict_invalid_calls": n_strict_invalid, "n_args_coerced": n_coerced, "step_cap_hit": cap_hit,
         "final_text": final_text[:2000], "final_text_tool_calls": final_text_calls,
@@ -446,6 +451,8 @@ def build_arg_parser():
     ap.add_argument("--model", default=MODEL, help="model id, one of x2_r2_agent.MODELS (default qwen3:14b)")
     ap.add_argument("--job-id", default=JOB_ID)
     ap.add_argument("--stop-after-utc", default=STOP_AFTER_UTC)
+    ap.add_argument("--task-set", choices=("steps", "tokens"), default="steps",
+                    help="tokens: tool results padded to the matched trace's token curve (harness/longtask_tokens.py)")
     ap.add_argument("--tool-prompt", choices=TOOL_PROMPTS, default="ollama",
                     help="persistent: tool definitions also in the system prompt, and calls after prose parsed")
     ap.add_argument("--check-plan", action="store_true")
@@ -465,7 +472,11 @@ def main(argv=None, advance=True, deps=None) -> str:
         raise SystemExit(f"unknown model {model!r}: not in x2_r2_agent.MODELS")
     think = ag.MODELS.get(model)
     if args.check_plan:
-        print(json.dumps(check_plan(seeds, arms, model), indent=1, default=str))
+        cp = check_plan(seeds, arms, model)
+        if args.task_set == "tokens":
+            import longtask_tokens as TK
+            cp["tokens_profile"] = [TK.oracle_profile(t, e) for s in seeds for t, e in L.build_tasks(s, task_ids)]
+        print(json.dumps(cp, indent=1, default=str))
         return "check-plan"
     log = deps.get("log", print)
     note, server, fh = "completed", None, None
@@ -504,12 +515,16 @@ def main(argv=None, advance=True, deps=None) -> str:
                                    "the tray app")
         server = deps.get("server") or Server(hc)
         plan = check_plan(seeds, arms, model)
+        TK = None
+        if args.task_set == "tokens":
+            import longtask_tokens as TK
         if not plan["oracle_all_ok"]:
             raise RuntimeError("oracle self-check failed: a reference solution does not pass the grader")
         emit({"record": "run_start", "harness": HARNESS, "job_id": args.job_id, "ts_utc": utc_iso(), "model_id": model,
               "think": think, "seeds": list(seeds), "arms": {a: ARMS[a] for a in arms},
               "arm_order": list(arms), "tasks": [list(t) for t in L.LONG_TASKS if not task_ids or t[0] in task_ids],
-              "task_label": L.LABEL, "offered_tools": list(L.OFFERED_TOOLS), "step_cap_rule":
+              "task_label": TK.LABEL if TK else L.LABEL, "task_set": args.task_set,
+              "offered_tools": list(L.OFFERED_TOOLS), "step_cap_rule":
               f"{L.STEP_CAP_FACTOR} x ref_steps + {L.STEP_CAP_EXTRA}", "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL,
               "keep_alive": ag.KEEP_ALIVE, "stop_after_utc": args.stop_after_utc, "tool_prompt": args.tool_prompt,
               "ollama_bin": __import__("os").environ.get("OLLAMA_BIN"),
@@ -543,7 +558,7 @@ def main(argv=None, advance=True, deps=None) -> str:
                         break
                     try:
                         row = run_long_task(rt, model, cfg["num_ctx"], think, task, env, log,
-                                            tool_prompt=args.tool_prompt)
+                                            tool_prompt=args.tool_prompt, pad=TK.Padder(task, env) if TK else None)
                     except ag.SessionIncomplete as e:   # failed after its one recorded retry; the run stops, no run_end
                         first = getattr(e, "first_attempt", None)
                         emit({"record": "longtask_task_incomplete", "incomplete": True, "harness": HARNESS,

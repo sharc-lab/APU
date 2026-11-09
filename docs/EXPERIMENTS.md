@@ -3382,3 +3382,48 @@ and minutes per task.
 - Held-out seeds differ from job 98's seeds, so the before/after contrast mixes the fix with task instances; no
   `ollama` arm is run on the held-out seeds (no time today).
 - One model, one quantization, synthetic step-matched tasks (not token-matched; see longtask-tokens-v1).
+
+## PRE-REGISTRATION (2026-11-09): longtask-tokens-v1, long tasks matched to the traces in TOKENS, not only steps
+
+**Status: filed before any run of this set.** Operator 2026-11-09: "Build a long-task set that matches the real
+OpenHands traces in token count (over 40K tokens), not just step count. Pre-register it. If there's time before 8 PM,
+run 32B and 70B on it at 96 GB with default and fitting windows. This is the run that tests whether memory, not
+capability, is what breaks long tasks."
+
+### Task set (fixed now; harness/longtask_tokens.py, tests/test_longtask_tokens.py)
+
+- The 10 OpenHands-stratum long tasks (same work orders, tools, grader and step targets as longtask_env), with an
+  `activity_log` field added to every tool result: neutral log lines (no record id, no value a task needs, no
+  instruction), sized so the reference solution's prompt before each call follows the matched trace's per-step Qwen
+  token curve (agent_trace_steps_uncensored.json; step k of the reference matched to trace step round(k (S-1)/(n-1));
+  model tokens = harness estimate x PROJ_CALIB 1.20). A model call past the reference steps gets the last pad.
+- Check before the run (seed 20260907, all 10 tasks): the padded reference ends at 1.002x to 1.003x the trace's
+  largest prompt (42,364 to 87,319 tokens), crosses 40,960 between reference calls 32 and 55, and every reference
+  solution still passes the grader.
+
+### Today's run (EXPLORATORY: 3 tasks, one seed; the confirmatory run is all 10 tasks x 3 seeds, later)
+
+- Seed 20260907 (never run before), tasks lt_openhands_01, 05, 10 (trace peaks 42,237, 51,661, 87,154).
+- evo-x2 at the 96 GB VGM split, Ollama 0.34.4 side-by-side (OLLAMA_BIN), f16 KV (default), local only, USD 0.
+- qwen3:32b, `--tool-prompt ollama` (its template keeps the tools): arm `ollama_default` (num_ctx not sent; expected
+  to load 40,960, which does NOT fit) then `ctx_98304` (fits; above qwen3's trained 40,960, so a fitting window here
+  also runs past the trained length: flagged in every report). Stop-after 2026-11-10T01:45Z.
+- llama3.3:70b, `--tool-prompt persistent` (the fix of longtask-70b-toolfix-v1): arm `ollama_default` (num_ctx not
+  sent; expected to load 131,072, which fits) then `ctx_40960` (does not fit). Stop-after 2026-11-10T03:05Z.
+- Any task still running at 2026-11-10T03:50Z is stopped by hand (the X2 must be idle by 04:00Z) and reported as not
+  completed. Arms or tasks not reached are reported as not run.
+- Memory prediction (f16 KV, from the architectures: layers x KV heads x head dim x 2 x 2 bytes): qwen3:32b 64 x 8 x
+  128 x 4 = 256 KiB per token (98,304 tokens: 24.0 GiB); llama3.3:70b 80 x 8 x 128 x 4 = 320 KiB per token (131,072
+  tokens: 40.0 GiB). Weights about 20 GB and 43 GB. Measured values come from the server logs and the Windows GPU
+  counters; the report compares them.
+
+### What is measured and how it is read (fixed now; no target, exploratory n)
+
+Per model, arm and task: correct or not; failure class (numbers_register.long_task_failure_class, plus truncation when
+the prompt passes the loaded window); loaded window; the call at which the estimated prompt passes it; prompt tokens the
+server counted (prompt_eval_count) against the estimate after that call (a silent cut shows as the count falling below
+the estimate); calls; wall time. Reading: if memory, not capability, breaks long tasks, a task fails at the window that
+does not fit and passes at the one that fits; if it fails at both, capability (or the trained-length limit, for 32B at
+98,304) is the cause. With 3 tasks this is a direction, not an estimate; no percentage is reported.
+
+Row `longtask-tokens-v1` PENDING until both result files have run_end.

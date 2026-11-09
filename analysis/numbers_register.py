@@ -5609,6 +5609,50 @@ def compute_longtask_70b_toolfix(repo):
             "n": f"{f['n']} held-out tasks vs {b['n']}"}
 
 
+LTT_FILES = {"qwen3:32b": "results/x2_longtask_tokens_v1_qwen3_32b.jsonl",
+             "llama3.3:70b": "results/x2_longtask_tokens_v1_llama33_70b.jsonl"}
+
+
+def longtask_tokens_rows(repo) -> list[dict]:
+    """Per (model, arm, task) of longtask-tokens-v1: outcome, class, window, where the prompt passed it, and whether
+    the server's counted prompt fell below the estimate after that (a silent cut)."""
+    out = []
+    for m, f in LTT_FILES.items():
+        rows = _finished_attempt_rows(_read_jsonl(Path(repo) / f))
+        for r in (x for x in rows if x.get("record") == "longtask_task"):
+            loaded = r["loaded_context"] or 0
+            est = [round((p or 0) * 1.20) for p in r["prompt_tokens_est"]]
+            pec = r["prompt_eval_count"]
+            over = next((i for i, p in enumerate(est) if loaded and p > loaded), None)
+            cut = over is not None and any(c is not None and c < 0.9 * e for c, e in zip(pec[over:], est[over:]))
+            cls = long_task_failure_class(r)
+            if not r["correct"] and over is not None and cls != "format":
+                cls = "silent truncation" if cut and r["outcome"] == "wrong_silent" else cls
+            out.append({"model": m, "arm": r["arm"], "task_id": r["task_id"], "seed": r["seed"],
+                        "correct": r["correct"], "outcome": r["outcome"], "class": cls, "loaded": loaded,
+                        "first_call_over_window": over, "server_count_below_estimate_after": cut,
+                        "max_prompt_est": max(est) if est else None,
+                        "max_prompt_eval_count": r["max_prompt_eval_count"], "n_calls": r["n_calls"],
+                        "ref_steps": r["ref_steps"], "minutes": r["task_wall_s"] / 60})
+    return out
+
+
+def compute_longtask_tokens_v1(repo):
+    rows = longtask_tokens_rows(repo)
+    notes = []
+    for m, f in LTT_FILES.items():
+        end = [r for r in _finished_attempt_rows(_read_jsonl(Path(repo) / f)) if r.get("record") == "run_end"][-1]
+        notes.append(f"{m} run_end: {end.get('note')}")
+    cells = "; ".join(f"{r['model']} {r['arm']} {r['task_id']}: {'correct' if r['correct'] else r['class']} "
+                      f"(loaded {r['loaded']:,}, max prompt est {r['max_prompt_est']:,}, server max "
+                      f"{r['max_prompt_eval_count']}, first call over window {r['first_call_over_window']}, "
+                      f"{r['n_calls']} calls / {r['ref_steps']} ref, {r['minutes']:.1f} min)" for r in rows)
+    return {"value": (f"EXPLORATORY (pre-registered 2026-11-09; 3 tasks, seed 20260907; no percentage): token-matched "
+                      f"long tasks, evo-x2 96 GB, Ollama 0.34.4, f16 KV, local only / {cells} / " + " / ".join(notes) +
+                      " / qwen3:32b at 98,304 runs past its trained 40,960 window"),
+            "n": f"{len(rows)} task runs"}
+
+
 ZACH_SPLIT96_DIR = r"C:\Users\rithw\zach_runs\evo_runs\split96"   # outside the repo (Zach's data, not committed)
 ZACH_STACKS = ("ollama", "llama-server-vulkan", "llama-server-rocm")
 
@@ -11321,6 +11365,11 @@ NUMBER_ENTRIES = [
      "vs job 98; target format failures at most 20% of tasks run; PENDING until run_end",
      "compute": compute_longtask_70b_toolfix, "data_files": [LT70_TOOLFIX_FILE, LT70_BASE_FILE], "pending_ok": True,
      "require_run_end": [LT70_TOOLFIX_FILE], "script_function": "analysis/numbers_register.py::compute_longtask_70b_toolfix"},
+    {"claim_id": "longtask-tokens-v1", "description": "longtask-tokens-v1 (pre-registered 2026-11-09, exploratory): "
+     "token-matched long tasks (over 40K tokens), qwen3:32b and llama3.3:70b at a default and a fitting window; "
+     "PENDING until both files have run_end",
+     "compute": compute_longtask_tokens_v1, "data_files": list(LTT_FILES.values()), "pending_ok": True,
+     "require_run_end": list(LTT_FILES.values()), "script_function": "analysis/numbers_register.py::compute_longtask_tokens_v1"},
     {"claim_id": "zach-evo-x2-split96", "description": "Zach's evo-x2 run sheet, split 96 GB (Adrenalin VGM): "
      "CONTRACT-1 probe classes per stack and probe size (Part 1) and llama-bench row counts (Part 2); his data, kept "
      "outside the repo; PENDING on a machine without that folder",
