@@ -373,3 +373,86 @@ def test_main_model_option_and_ctx_40960_arm(tmp_path):
 def test_main_refuses_unknown_model(tmp_path):
     with pytest.raises(SystemExit):
         X.main(["--out", str(tmp_path / "x.jsonl"), "--model", "nope:1b", "--check-plan"], advance=False)
+
+
+# ── tool-prompt fix (2026-11-09) ────────────────────────────────────────────────────────────────────
+
+LLAMA_TMPL_SNIPPET = ("{{- if and $.Tools $last }} Given the following functions ... {{- end }} When you receive a "
+                      "tool call response, use the output to format an answer to the orginal user question.")
+
+
+def test_default_tool_prompt_is_unchanged():
+    task, env = _task()
+    rt = FakeRuntime(oracle_calls(task, env))
+
+    seen = []
+    orig = rt.chat
+    rt.chat = lambda model, messages, *a, **k: (seen.append(messages[0]["content"]), orig(model, messages, *a, **k))[1]
+    row = X.run_long_task(rt, "m", None, False, task, env, lambda *_: None)
+    assert row["correct"] and row["tool_prompt"] == "ollama" and set(seen) == {L.SYSTEM_PROMPT}
+
+
+def test_persistent_puts_every_tool_schema_in_the_system_prompt():
+    s = X.persistent_system_prompt(L.tools_payload())
+    assert s.startswith(L.SYSTEM_PROMPT)
+    for t in L.tools_payload():
+        assert json.dumps(t["function"]["parameters"]["properties"], separators=(", ", ": ")) in s
+
+
+def test_embedded_call_after_prose_is_parsed_only_for_offered_tools():
+    txt = 'The ticket T-695 is closed.\n{"name": "get_record", "parameters": {"record_id": "T-950", "table": "tickets"}}'
+    assert X.embedded_call_objects(txt) == [{"name": "get_record", "parameters": {"record_id": "T-950",
+                                                                                   "table": "tickets"}}]
+    assert X.embedded_call_objects("First, I will check the status of ticket T-135.") == []
+    assert X.embedded_call_objects('{"name": "pay_bill", "parameters": {"amount": 1}}') == []
+    assert X.embedded_call_objects('{"answer": "x"} {"name": "get_record", "arguments": {"a": 1}}')[0]["name"] == \
+        "get_record"
+
+
+class ProseThenCallRT(FakeRuntime):
+    """Each oracle call written as prose followed by a Llama-style {"name", "parameters"} object, as llama3.3:70b did."""
+
+    def chat(self, model, messages, num_ctx, tools, think, extra=None):
+        r = super().chat(model, messages, num_ctx, tools, think, extra)
+        if r.get("tool_calls"):
+            f = r["tool_calls"][0]["function"]
+            r = {**r, "message": "Next, I will do this.\n" + json.dumps({"name": f["name"],
+                                                                        "parameters": f["arguments"]}),
+                 "tool_calls": None}
+        return r
+
+
+def test_prose_then_call_ends_the_task_by_default_and_is_parsed_when_persistent():
+    task, env = _task()
+    calls = oracle_calls(task, env)
+    off = X.run_long_task(ProseThenCallRT(calls), "m", None, False, task, env, lambda *_: None)
+    assert not off["correct"] and off["n_calls"] == 1
+    on = X.run_long_task(ProseThenCallRT(calls), "m", None, False, task, env, lambda *_: None,
+                         tool_prompt="persistent")
+    assert on["correct"] and on["tool_prompt"] == "persistent"
+    assert {c["tool_detection_method"] for c in on["calls"][:-1]} == {"text_embedded"}
+
+
+def test_unknown_tool_prompt_refused():
+    task, env = _task()
+    with pytest.raises(ValueError):
+        X.run_long_task(FakeRuntime([]), "m", None, False, task, env, lambda *_: None, tool_prompt="other")
+
+
+def test_main_records_tool_prompt_and_template_evidence(tmp_path):
+    out = tmp_path / "lt70.jsonl"
+    tids = ["lt_swegym_01"]
+    note = X.main(["--out", str(out), "--seeds", "20260904", "--tasks", ",".join(tids), "--arms", "ctx_40960",
+                   "--model", "llama3.3:70b", "--tool-prompt", "persistent", "--stop-after-utc", FUTURE_STOP],
+                  deps={"hc": FakeHC(), "hostname": "EVO-X2", "server": FakeServer(), "tq": FakeTQ(),
+                        "runtime": OracleRT(20260904, tids), "log": lambda *_: None,
+                        "template_fn": lambda model: {"tools_last_user_only": True, "model": model}})
+    rows = [json.loads(l) for l in out.read_text(encoding="utf-8").splitlines()]
+    assert note == "completed" and rows[0]["tool_prompt"] == "persistent"
+    w = next(r for r in rows if r["record"] == "warmup")
+    assert w["template"] == {"tools_last_user_only": True, "model": "llama3.3:70b"}
+    assert next(r for r in rows if r["record"] == "longtask_task")["tool_prompt"] == "persistent"
+
+
+def test_template_mark_matches_the_llama_template_text():
+    assert X.TOOLS_LAST_USER_ONLY_MARK in LLAMA_TMPL_SNIPPET

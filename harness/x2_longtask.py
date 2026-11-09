@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import statistics
 import sys
@@ -79,10 +80,66 @@ def utc_iso():
 
 # ── one task (runtime-agnostic: Ollama runtime locally, scripts/longtask_cloud.py's cloud runtime) ──────
 
-def run_long_task(runtime, model, num_ctx, think, task: L.LongTask, env_before: dict, log, on_call=None) -> dict:
+# Tool-prompt modes (2026-11-09). "ollama": the request as before; the model's Ollama template decides where the tool
+# definitions appear. "persistent": the same definitions are also written into the system prompt, and a call object
+# written after prose in the reply is parsed. Why: Ollama's llama3.3 template renders the tools only inside the LAST
+# message and only when it is a user message, so in a tool loop the model sees no tool schema from step 2 on, and its
+# system block tells it to "use the output to format an answer" after a tool response; Llama then writes prose, or
+# prose followed by its own {"name": ..., "parameters": ...} call, which Ollama returns as plain content.
+TOOL_PROMPTS = ("ollama", "persistent")
+TOOLS_LAST_USER_ONLY_MARK = "if and $.Tools $last"
+
+
+def persistent_system_prompt(tools: list[dict]) -> str:
+    defs = "\n".join(json.dumps(t["function"], separators=(", ", ": ")) for t in tools)
+    return (L.SYSTEM_PROMPT + "\n\nTools you can call, on every step of the task (call one tool per reply, using exactly "
+            "these argument names; respond with only the JSON call while work remains):\n" + defs +
+            '\nCall format: {"name": tool name, "parameters": {argument name: value}}.')
+
+
+def embedded_call_objects(text: str, offered=L.OFFERED_TOOLS) -> list[dict]:
+    """Call objects ({"name": an offered tool, "parameters"|"arguments": {...}}) anywhere in the reply, in order, after
+    any prose. Only objects naming an offered tool count; any other JSON is ignored."""
+    dec, out, i, s = json.JSONDecoder(), [], 0, text or ""
+    while True:
+        i = s.find("{", i)
+        if i < 0:
+            return out
+        try:
+            o, j = dec.raw_decode(s, i)
+        except ValueError:
+            i += 1
+            continue
+        if isinstance(o, dict) and o.get("name") in offered and isinstance(o.get("parameters", o.get("arguments")), dict):
+            out.append(o)
+            i = j
+        else:
+            i += 1
+
+
+def template_tools_last_user_only(base="http://127.0.0.1:11434", model=MODEL) -> dict:
+    """The running server's chat template for model, and whether it renders tools only on a trailing user message."""
+    import urllib.request
+    try:
+        req = urllib.request.Request(base + "/api/show", data=json.dumps({"model": model}).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            tmpl = json.loads(r.read()).get("template") or ""
+    except Exception as e:  # noqa: BLE001 - evidence only
+        return {"error": repr(e)[:200]}
+    return {"template_sha256": hashlib.sha256(tmpl.encode()).hexdigest(),
+            "tools_last_user_only": TOOLS_LAST_USER_ONLY_MARK in tmpl,
+            "format_answer_line": "use the output to format an answer" in tmpl}
+
+
+def run_long_task(runtime, model, num_ctx, think, task: L.LongTask, env_before: dict, log, on_call=None,
+                  tool_prompt="ollama") -> dict:
     """Run one task to its end; returns the scored row (transport fields of each call included)."""
+    if tool_prompt not in TOOL_PROMPTS:
+        raise ValueError(f"tool_prompt {tool_prompt!r} not in {TOOL_PROMPTS}")
     tools = L.tools_payload()
-    messages = [{"role": "system", "content": L.SYSTEM_PROMPT}, {"role": "user", "content": L.user_message(task)}]
+    system = persistent_system_prompt(tools) if tool_prompt == "persistent" else L.SYSTEM_PROMPT
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": L.user_message(task)}]
     live = copy.deepcopy(env_before)
     recs, n_tool, n_err, n_coerced, n_strict_invalid, n_not_offered, final_text, final_text_calls = \
         [], 0, 0, 0, 0, 0, "", 0
@@ -95,6 +152,10 @@ def run_long_task(runtime, model, num_ctx, think, task: L.LongTask, env_before: 
             on_call(rec)
         if offer:
             raw, method = EV.extract_calls_v2(resp.get("message"), resp.get("tool_calls"))
+            if not raw and tool_prompt == "persistent":
+                emb = embedded_call_objects(resp.get("message") or "")
+                if emb:
+                    raw, method = [ag._as_call(o) for o in emb], "text_embedded"
         else:
             raw, method = [], "none"
             final_text_calls = len(EV.text_call_objects(resp.get("message") or ""))
@@ -134,6 +195,7 @@ def run_long_task(runtime, model, num_ctx, think, task: L.LongTask, env_before: 
         "task_id": task.task_id, "stratum": task.stratum, "target_steps": task.target_steps,
         "trajectory_id": task.trajectory_id, "ref_steps": task.ref_steps, "step_cap": cap,
         "n_items": len(task.items), "n_reference_writes": len(task.reference_writes), "task_label": L.LABEL,
+        "tool_prompt": tool_prompt,
         "n_calls": len(recs), "n_tool_calls": n_tool, "n_tool_errors": n_err, "n_not_offered_calls": n_not_offered,
         "n_strict_invalid_calls": n_strict_invalid, "n_args_coerced": n_coerced, "step_cap_hit": cap_hit,
         "final_text": final_text[:2000], "final_text_tool_calls": final_text_calls,
@@ -384,6 +446,8 @@ def build_arg_parser():
     ap.add_argument("--model", default=MODEL, help="model id, one of x2_r2_agent.MODELS (default qwen3:14b)")
     ap.add_argument("--job-id", default=JOB_ID)
     ap.add_argument("--stop-after-utc", default=STOP_AFTER_UTC)
+    ap.add_argument("--tool-prompt", choices=TOOL_PROMPTS, default="ollama",
+                    help="persistent: tool definitions also in the system prompt, and calls after prose parsed")
     ap.add_argument("--check-plan", action="store_true")
     return ap
 
@@ -447,7 +511,8 @@ def main(argv=None, advance=True, deps=None) -> str:
               "arm_order": list(arms), "tasks": [list(t) for t in L.LONG_TASKS if not task_ids or t[0] in task_ids],
               "task_label": L.LABEL, "offered_tools": list(L.OFFERED_TOOLS), "step_cap_rule":
               f"{L.STEP_CAP_FACTOR} x ref_steps + {L.STEP_CAP_EXTRA}", "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL,
-              "keep_alive": ag.KEEP_ALIVE, "stop_after_utc": args.stop_after_utc,
+              "keep_alive": ag.KEEP_ALIVE, "stop_after_utc": args.stop_after_utc, "tool_prompt": args.tool_prompt,
+              "ollama_bin": __import__("os").environ.get("OLLAMA_BIN"),
               "ref_steps_total_per_seed": plan["ref_steps_total_per_seed"], "interactive_session": interactive,
               **provenance()})
         stopped = False
@@ -465,7 +530,8 @@ def main(argv=None, advance=True, deps=None) -> str:
                 w = warmup(rt, model, cfg["num_ctx"], think)
                 chk = kv_check(server.log_text(), cfg["kv"])
                 emit({"record": "warmup", "excluded_from_stats": True, "seed": s, "arm_id": cfg["arm_id"],
-                      "kv_check": chk, "server_env": cfg["env"], "ts_utc": utc_iso(), **w})
+                      "kv_check": chk, "server_env": cfg["env"], "ts_utc": utc_iso(),
+                      "template": deps.get("template_fn", template_tools_last_user_only)(model=model), **w})
                 if not chk["valid"] or w["outcome"] != "ok":
                     emit({"record": "arm_skipped", "seed": s, "arm_id": cfg["arm_id"], "kv_check": chk,
                           "warmup": w, "ts_utc": utc_iso()})
@@ -476,7 +542,8 @@ def main(argv=None, advance=True, deps=None) -> str:
                         stopped = True
                         break
                     try:
-                        row = run_long_task(rt, model, cfg["num_ctx"], think, task, env, log)
+                        row = run_long_task(rt, model, cfg["num_ctx"], think, task, env, log,
+                                            tool_prompt=args.tool_prompt)
                     except ag.SessionIncomplete as e:   # failed after its one recorded retry; the run stops, no run_end
                         first = getattr(e, "first_attempt", None)
                         emit({"record": "longtask_task_incomplete", "incomplete": True, "harness": HARNESS,

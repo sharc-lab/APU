@@ -5556,6 +5556,59 @@ def compute_long_task_failure_diagnosis(repo):
             "n": f"30 tasks x {len(LTS_MODELS)} models"}
 
 
+LT70_TOOLFIX_FILE = "results/x2_longtask_toolfix_v1_llama33_70b.jsonl"
+LT70_BASE_FILE = "results/x2_longtask_scale_v1_llama33_70b.jsonl"
+
+
+def _lt_stats(rows: list[dict]) -> dict:
+    cls = {}
+    for r in rows:
+        k = long_task_failure_class(r)
+        cls[k] = cls.get(k, 0) + 1
+    tc = sum(r["n_tool_calls"] for r in rows)
+    meth = {}
+    for r in rows:
+        for c in r["calls"]:
+            meth[c.get("tool_detection_method")] = meth.get(c.get("tool_detection_method"), 0) + 1
+    return {"n": len(rows), "correct": sum(1 for r in rows if r["correct"]), "classes": cls,
+            "invalid": sum(r["n_strict_invalid_calls"] for r in rows), "tool_calls": tc,
+            "early_prose": sum(1 for r in rows if not r["correct"] and (r["n_calls"] - 1) < 0.1 * r["ref_steps"]),
+            "methods": meth, "calls_per_task": statistics.fmean(r["n_calls"] for r in rows) if rows else 0.0,
+            "min_per_task": statistics.fmean(r["task_wall_s"] for r in rows) / 60 if rows else 0.0}
+
+
+def compute_longtask_70b_toolfix(repo):
+    """longtask-70b-toolfix-v1 (pre-registered 2026-11-09): held-out seeds 20260904-06 with --tool-prompt persistent
+    against job 98 (seeds 20260901-03, the Ollama template as is)."""
+    import statistics as _st  # noqa: F401
+    rows = _finished_attempt_rows(_read_jsonl(Path(repo) / LT70_TOOLFIX_FILE))
+    end = [r for r in rows if r.get("record") == "run_end"][-1]
+    fix = [r for r in rows if r.get("record") == "longtask_task"]
+    if any(r.get("tool_prompt") != "persistent" for r in fix):
+        raise ValueError("a task row was not run with --tool-prompt persistent")
+    base, _ = _lts_rows(repo, LT70_BASE_FILE)
+    w = next((r for r in rows if r.get("record") == "warmup"), {})
+    f, b = _lt_stats(fix), _lt_stats(base)
+    fmt = f["classes"].get("format", 0)
+    met = f["n"] > 0 and fmt <= 0.20 * f["n"]
+
+    def txt(s):
+        return (f"correct {s['correct']}/{s['n']}; classes " + ", ".join(f"{k} {v}/{s['n']}" for k, v in
+                                                                       sorted(s["classes"].items())) +
+                f"; strictly invalid calls {s['invalid']}/{s['tool_calls']} tool calls; prose endings within 10% of "
+                f"reference steps {s['early_prose']}/{s['n']}; parse methods {s['methods']}; mean "
+                f"{s['calls_per_task']:.1f} calls and {s['min_per_task']:.1f} min per task")
+    return {"value": (f"PRE-REGISTERED 2026-11-09, llama3.3:70b, evo-x2 96 GB split, num_ctx 40960 sent, local only. "
+                      f"AFTER (--tool-prompt persistent, held-out seeds 20260904-06, Ollama "
+                      f"{'side-by-side ' + str(rows[0].get('ollama_bin')) if rows[0].get('ollama_bin') else 'installed'}"
+                      f"; template tools_last_user_only {w.get('template', {}).get('tools_last_user_only')}): "
+                      f"{txt(f)}; target format failures at most 20% of tasks run: {fmt}/{f['n']} "
+                      f"{'MET' if met else 'MISSED'} / BEFORE (job 98, seeds 20260901-03, template as is): {txt(b)} / "
+                      f"run_end note: {end.get('note')}. Different seeds before and after; no 'ollama' arm on the "
+                      f"held-out seeds"),
+            "n": f"{f['n']} held-out tasks vs {b['n']}"}
+
+
 ZACH_SPLIT96_DIR = r"C:\Users\rithw\zach_runs\evo_runs\split96"   # outside the repo (Zach's data, not committed)
 ZACH_STACKS = ("ollama", "llama-server-vulkan", "llama-server-rocm")
 
@@ -11263,6 +11316,11 @@ NUMBER_ENTRIES = [
                                                                      "results/traces/agent_step_lengths.parquet"],
      "pending_ok": True, "require_run_end": list(LTS_MODELS.values()),
      "script_function": "analysis/numbers_register.py::compute_long_task_failure_diagnosis"},
+    {"claim_id": "longtask-70b-toolfix", "description": "longtask-70b-toolfix-v1 (pre-registered 2026-11-09): "
+     "llama3.3:70b on held-out long tasks with the tool definitions kept in view (harness --tool-prompt persistent) "
+     "vs job 98; target format failures at most 20% of tasks run; PENDING until run_end",
+     "compute": compute_longtask_70b_toolfix, "data_files": [LT70_TOOLFIX_FILE, LT70_BASE_FILE], "pending_ok": True,
+     "require_run_end": [LT70_TOOLFIX_FILE], "script_function": "analysis/numbers_register.py::compute_longtask_70b_toolfix"},
     {"claim_id": "zach-evo-x2-split96", "description": "Zach's evo-x2 run sheet, split 96 GB (Adrenalin VGM): "
      "CONTRACT-1 probe classes per stack and probe size (Part 1) and llama-bench row counts (Part 2); his data, kept "
      "outside the repo; PENDING on a machine without that folder",

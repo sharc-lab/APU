@@ -3325,3 +3325,60 @@ model gets right locally. If any, re-run long-task savings."
   but labelled "failed the B3 v2 validation gates"; this job has no validation gate of its own.
 - Synthetic stratum, not OpenHands tasks; 3 seeds; one machine; one quantization per model (the library defaults).
 - A different model family (Llama) differs in more than size from qwen3:14b; qwen3:32b is the same-family size step.
+
+## PRE-REGISTRATION (2026-11-09): longtask-70b-toolfix-v1, llama3.3:70b with the tool prompt kept in view
+
+**Status: filed before the run. Nothing run yet.** Operator 2026-11-09: "All 30 llama3.3:70b failures were format
+problems. Find the exact cause ... Fix it in the harness, not the scoring. Pre-register the rerun ... Use a held-out
+set of tasks you didn't look at when writing the fix ... Run it on the X2 at 96 GB, local only, $0 cloud."
+
+### Diagnosis (done before the fix; seed 20260901 only)
+
+- Cause: Ollama's chat template for llama3.3:70b (template blob in the model's manifest) renders the tool definitions
+  only inside the LAST message and only when it is a user message (`if and $.Tools $last`), and its system block adds
+  "When you receive a tool call response, use the output to format an answer to the orginal user question." In the
+  long-task tool loop every step after the first ends with a tool message, so from step 2 on the model sees no tool
+  schema. Stop tokens (params blob: start_header_id, end_header_id, eot_id) are not the cause.
+- Evidence, seed 20260901, results/x2_longtask_scale_v1_llama33_70b.jsonl: 98 strictly invalid calls, every one an
+  argument name or tool not in the schema (update_record with "updates" 71 and "fields" 11 instead of field/value;
+  send_email with customer_id 9 and recipient 4 instead of to; an invented tool pay_bill 3); 6 of 10 tasks ended at
+  call 2 or 3 on a prose reply (a plan sentence, or prose followed by a {"name": ..., "parameters": ...} call that
+  Ollama returned as content and the harness parser rejects because the reply is not all JSON).
+- What was looked at: all 10 tasks of seed 20260901 (calls, contents, invalid-call reasons). Seeds 20260902 and
+  20260903 were seen only as per-task counts (calls, invalid calls, diff size) on 2026-11-07. Seeds 20260904 to
+  20260906 have never been generated for a model run or read.
+
+### Fix (harness only; the grader and the failure-class rule are unchanged)
+
+harness/x2_longtask.py `--tool-prompt persistent` (default `ollama` keeps every earlier run's request unchanged):
+(1) the same tool definitions the API sends are also written into the system prompt, which the template renders on
+every call, with the call format Llama's template asks for; (2) a reply with no native or whole-reply call is searched
+for call objects naming an offered tool, after any prose (method `text_embedded`). Tools are still sent through the
+API. The template's own lines are not removed (the model and its Ollama template are unchanged).
+
+### Run (fixed now)
+
+- llama3.3:70b (Ollama library default quantization), evo-x2 at the 96 GB VGM split, arm ctx_40960 (num_ctx 40960
+  sent, as job 98), think off, Ollama 0.34.4 side-by-side portable build (OLLAMA_BIN, same version as job 98; the
+  installed 0.40.14 belongs to Zach's runs and is not touched), local only, no cloud call, USD 0.
+- Held-out tasks: lt_openhands_01 to 10 at seeds 20260904, 20260905, 20260906 (30 tasks), run in seed order.
+- Time cap: `--stop-after-utc 2026-11-10T01:15:00+00:00` (no new task starts after it; the X2 must be idle by
+  2026-11-10T04:00Z). Tasks not started are reported as not run; the targets use the tasks that ran (n stated).
+- Output: results/x2_longtask_toolfix_v1_llama33_70b.jsonl. Row `longtask-70b-toolfix` PENDING until run_end.
+
+### Targets (met or missed reported as is)
+
+| metric | target |
+|---|---|
+| format-class failures (numbers_register.long_task_failure_class, unchanged) | at most 20% of tasks run (was 30/30) |
+| correct tasks | reported, no target (was 0/30) |
+
+Also reported: strictly invalid calls / tool calls (job 98, seeds 01 to 03: 208/585, recomputed by the row), tasks
+ending on a prose reply within 10% of reference steps, the share of calls parsed as `text_embedded`, calls
+and minutes per task.
+
+### Known limits
+
+- Held-out seeds differ from job 98's seeds, so the before/after contrast mixes the fix with task instances; no
+  `ollama` arm is run on the held-out seeds (no time today).
+- One model, one quantization, synthetic step-matched tasks (not token-matched; see longtask-tokens-v1).
