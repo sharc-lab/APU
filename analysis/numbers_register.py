@@ -5653,6 +5653,48 @@ def compute_longtask_tokens_v1(repo):
             "n": f"{len(rows)} task runs"}
 
 
+def compute_l1_false_escalation_candidates(repo):
+    """analysis/l1_false_escalation_candidates.py (2026-11-09, offline): the live 8192 false escalations by layer, and
+    each candidate rule on the held-out seed (replay 8192, live 8192 with L2 as recorded and with the latest-example L2):
+    false escalations, caught, caught lost vs the current rule, final accuracy."""
+    import contextlib
+    import importlib.util
+    import io
+    spec = importlib.util.spec_from_file_location("l1fe_nr", Path(repo) / "analysis" / "l1_false_escalation_candidates.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    sides, _d = m.live_tasks()
+    rec = sides["before"]
+    fe = [t for t in rec if t["local_ok"] and m.escalate(t, "C0")]
+    alone = sum(1 for t in fe if t["f"] == {"L1"})
+    with_l2 = sum(1 for t in fe if "L2" in t["f"])
+    rt = m.replay_tasks()
+    with contextlib.redirect_stdout(io.StringIO()):
+        src = m.R.cloud_sources(m.REPO)
+    tr = [v for (t, _s, _k), v in src["redo"].items() if t == "ollama_ctx_8192"]
+    tm = {"usd": statistics.fmean(v["usd"] for v in tr), "upper": statistics.fmean(v["upper"] for v in tr)}
+    held = [t for t in rt if t["tier"] == "ollama_ctx_8192" and t["seed"] == m.HOLDOUT]
+    parts = []
+    for c in ("C0", "C1", "C2", "C4", "C6"):
+        cell = [f"{c} {m.NAMES[c]}:"]
+        s = m.score(held, c)
+        a = m.replay_accuracy(held, s["esc"], src, tm)
+        cell.append(f"replay 8192 held-out false esc {s['false_esc']}/{s['right']}, caught {s['caught']}/{s['wrong']}, "
+                    f"lost {s['lost']}, final {a['correct']:g}/{a['n']}")
+        for side, lab in (("before", "live L2 recorded"), ("after", "live L2 latest")):
+            s = m.score(sides[side], c, ref=rec)
+            a = m.live_accuracy(sides[side], s["esc"])
+            cell.append(f"{lab} false esc {s['false_esc']}/{s['right']}, caught {s['caught']}/{s['wrong']}, lost "
+                        f"{s['lost']}, final {a['correct']}/{a['n']}")
+        parts.append(" ".join(cell[:1]) + " " + "; ".join(cell[1:]))
+    return {"value": (f"OFFLINE, USD 0, candidates fixed on tuning seeds 20260901-04 before held-out figures: live 8192 "
+                      f"(seed 20260905) false escalations {len(fe)}/{sum(t['local_ok'] for t in rec)}, L1 alone on "
+                      f"{alone}/{len(fe)}, L2 also fired on {with_l2}/{len(fe)} / " + " / ".join(parts) +
+                      " / 'lost' = wrong tasks the current rule escalated that the candidate does not; live final "
+                      "accuracy measured from the recorded cloud outcomes"),
+            "n": "30 held-out task turns (replay and live)"}
+
+
 ZACH_SPLIT96_DIR = r"C:\Users\rithw\zach_runs\evo_runs\split96"   # outside the repo (Zach's data, not committed)
 ZACH_STACKS = ("ollama", "llama-server-vulkan", "llama-server-rocm")
 
@@ -11370,6 +11412,13 @@ NUMBER_ENTRIES = [
      "PENDING until both files have run_end",
      "compute": compute_longtask_tokens_v1, "data_files": list(LTT_FILES.values()), "pending_ok": True,
      "require_run_end": list(LTT_FILES.values()), "script_function": "analysis/numbers_register.py::compute_longtask_tokens_v1"},
+    {"claim_id": "l1-false-escalation-candidates", "description": "Post-run check false escalations (operator "
+     "2026-11-09): the live 8192 run's 11/21 by layer, and candidate rule changes with the caught failures each "
+     "loses; offline, USD 0",
+     "compute": compute_l1_false_escalation_candidates, "data_files": ["results/post_run_check_tuned_v1.jsonl",
+                                                                         "results/x2_post_run_check_live_v1.jsonl",
+                                                                         "results/x2_post_run_check_local_v1.jsonl"],
+     "script_function": "analysis/l1_false_escalation_candidates.py"},
     {"claim_id": "zach-evo-x2-split96", "description": "Zach's evo-x2 run sheet, split 96 GB (Adrenalin VGM): "
      "CONTRACT-1 probe classes per stack and probe size (Part 1) and llama-bench row counts (Part 2); his data, kept "
      "outside the repo; PENDING on a machine without that folder",
