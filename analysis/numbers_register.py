@@ -11418,7 +11418,7 @@ NUMBER_ENTRIES = [
      "compute": compute_l1_false_escalation_candidates, "data_files": ["results/post_run_check_tuned_v1.jsonl",
                                                                          "results/x2_post_run_check_live_v1.jsonl",
                                                                          "results/x2_post_run_check_local_v1.jsonl"],
-     "script_function": "analysis/l1_false_escalation_candidates.py"},
+     "script_function": "analysis/l1_false_escalation_candidates.py::score"},
     {"claim_id": "zach-evo-x2-split96", "description": "Zach's evo-x2 run sheet, split 96 GB (Adrenalin VGM): "
      "CONTRACT-1 probe classes per stack and probe size (Part 1) and llama-bench row counts (Part 2); his data, kept "
      "outside the repo; PENDING on a machine without that folder",
