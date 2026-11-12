@@ -5572,6 +5572,8 @@ def _lt_stats(rows: list[dict]) -> dict:
             meth[c.get("tool_detection_method")] = meth.get(c.get("tool_detection_method"), 0) + 1
     return {"n": len(rows), "correct": sum(1 for r in rows if r["correct"]), "classes": cls,
             "invalid": sum(r["n_strict_invalid_calls"] for r in rows), "tool_calls": tc,
+            "coerced": sum(r["n_args_coerced"] for r in rows), "tool_errors": sum(r["n_tool_errors"] for r in rows),
+            "uncoercible_tasks": sum(1 for r in rows if r["n_strict_invalid_calls"] > r["n_args_coerced"]),
             "early_prose": sum(1 for r in rows if not r["correct"] and (r["n_calls"] - 1) < 0.1 * r["ref_steps"]),
             "methods": meth, "calls_per_task": statistics.fmean(r["n_calls"] for r in rows) if rows else 0.0,
             "min_per_task": statistics.fmean(r["task_wall_s"] for r in rows) / 60 if rows else 0.0}
@@ -5595,7 +5597,9 @@ def compute_longtask_70b_toolfix(repo):
     def txt(s):
         return (f"correct {s['correct']}/{s['n']}; classes " + ", ".join(f"{k} {v}/{s['n']}" for k, v in
                                                                        sorted(s["classes"].items())) +
-                f"; strictly invalid calls {s['invalid']}/{s['tool_calls']} tool calls; prose endings within 10% of "
+                f"; strictly invalid calls {s['invalid']}/{s['tool_calls']} tool calls, of which the harness coerced "
+                f"{s['coerced']} (string numbers), tool errors {s['tool_errors']}, tasks with an invalid call it could "
+                f"not coerce {s['uncoercible_tasks']}/{s['n']}; prose endings within 10% of "
                 f"reference steps {s['early_prose']}/{s['n']}; parse methods {s['methods']}; mean "
                 f"{s['calls_per_task']:.1f} calls and {s['min_per_task']:.1f} min per task")
     return {"value": (f"PRE-REGISTERED 2026-11-09, llama3.3:70b, evo-x2 96 GB split, num_ctx 40960 sent, local only. "
@@ -5605,7 +5609,10 @@ def compute_longtask_70b_toolfix(repo):
                       f"{txt(f)}; target format failures at most 20% of tasks run: {fmt}/{f['n']} "
                       f"{'MET' if met else 'MISSED'} / BEFORE (job 98, seeds 20260901-03, template as is): {txt(b)} / "
                       f"run_end note: {end.get('note')}. Different seeds before and after; no 'ollama' arm on the "
-                      f"held-out seeds"),
+                      f"held-out seeds. Read after the data (not pre-registered): the rule counts a task with any "
+                      f"strictly invalid call as format, including numbers sent as strings that the harness coerces "
+                      f"and runs; AFTER, every invalid call was such a coerced number, so the AFTER format count is "
+                      f"that artifact and the remaining failures are wrong actions"),
             "n": f"{f['n']} held-out tasks vs {b['n']}"}
 
 
@@ -5628,8 +5635,23 @@ def longtask_tokens_rows(repo) -> list[dict]:
             cls = long_task_failure_class(r)
             if not r["correct"] and over is not None and cls != "format":
                 cls = "silent truncation" if cut and r["outcome"] == "wrong_silent" else cls
+            # DECIDED AFTER SEEING THE DATA (2026-11-12): the chars/4 estimate under-counts the padded logs, so the
+            # window hit is read from the server's own count: reached 98% of the loaded window and then fell (Ollama
+            # cut the prompt) = silent truncation; format only for an invalid call the harness could not coerce or an
+            # early plain-text stop; else wrong action.
+            hit = next((i for i, c in enumerate(pec) if c and loaded and c >= 0.98 * loaded), None)
+            fell = hit is not None and any(c is not None and c < pec[hit] for c in pec[hit + 1:])
+            if r["correct"]:
+                cs = "correct"
+            elif fell and r["outcome"] == "wrong_silent":
+                cs = "silent truncation"
+            elif r["n_strict_invalid_calls"] > r["n_args_coerced"] or (r["n_calls"] - 1) < 0.1 * r["ref_steps"]:
+                cs = "format"
+            else:
+                cs = "wrong action"
             out.append({"model": m, "arm": r["arm"], "task_id": r["task_id"], "seed": r["seed"],
-                        "correct": r["correct"], "outcome": r["outcome"], "class": cls, "loaded": loaded,
+                        "correct": r["correct"], "outcome": r["outcome"], "class": cls, "class_server": cs,
+                        "server_first_call_98pct": hit, "loaded": loaded,
                         "first_call_over_window": over, "server_count_below_estimate_after": cut,
                         "max_prompt_est": max(est) if est else None,
                         "max_prompt_eval_count": r["max_prompt_eval_count"], "n_calls": r["n_calls"],
@@ -5644,12 +5666,15 @@ def compute_longtask_tokens_v1(repo):
         end = [r for r in _finished_attempt_rows(_read_jsonl(Path(repo) / f)) if r.get("record") == "run_end"][-1]
         notes.append(f"{m} run_end: {end.get('note')}")
     cells = "; ".join(f"{r['model']} {r['arm']} {r['task_id']}: {'correct' if r['correct'] else r['class']} "
+                      f"(pre-registered rule) / {r['class_server']} (server-count rule, set after the data) "
                       f"(loaded {r['loaded']:,}, max prompt est {r['max_prompt_est']:,}, server max "
-                      f"{r['max_prompt_eval_count']}, first call over window {r['first_call_over_window']}, "
+                      f"{r['max_prompt_eval_count']}, first call over window by estimate {r['first_call_over_window']}, by server "
+                      f"count {r['server_first_call_98pct']}, "
                       f"{r['n_calls']} calls / {r['ref_steps']} ref, {r['minutes']:.1f} min)" for r in rows)
     return {"value": (f"EXPLORATORY (pre-registered 2026-11-09; 3 tasks, seed 20260907; no percentage): token-matched "
                       f"long tasks, evo-x2 96 GB, Ollama 0.34.4, f16 KV, local only / {cells} / " + " / ".join(notes) +
-                      " / qwen3:32b at 98,304 runs past its trained 40,960 window"),
+                      " / SURPRISE: qwen3:32b's ctx_98304 arm LOADED 40,960 (Ollama 0.34.4 capped the request at the trained "
+                      "window), so both 32B arms ran the same window and no 32B fitting-window contrast exists"),
             "n": f"{len(rows)} task runs"}
 
 
