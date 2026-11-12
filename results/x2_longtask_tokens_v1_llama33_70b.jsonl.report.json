@@ -1,0 +1,118 @@
+{
+ "summary": {
+  "ollama_default": {
+   "n_tasks": 3,
+   "correct": 0,
+   "accuracy": 0.0,
+   "wilson95": [
+    0.0,
+    0.5614970356393196
+   ],
+   "wrong": 3,
+   "silent_wrong": 3,
+   "surfaced_wrong": 0,
+   "silent_share_of_wrong": 1.0,
+   "silent_share_of_all": 1.0,
+   "step_cap_hits": 0,
+   "http_error_tasks": 0,
+   "thinking_tasks": 0,
+   "minutes_per_task_mean": 21.129344444444644,
+   "minutes_per_task_median": 19.335950000000107,
+   "calls_per_task_mean": 45.0,
+   "max_prompt_tokens_est": 53170,
+   "loaded_context": [
+    131072
+   ],
+   "by_stratum": {
+    "openhands": {
+     "n": 3,
+     "correct": 0,
+     "silent_wrong": 3,
+     "minutes_mean": 21.129344444444644
+    }
+   },
+   "by_seed": {
+    "20260907": {
+     "n": 3,
+     "correct": 0,
+     "silent_wrong": 3,
+     "minutes_mean": 21.129344444444644
+    }
+   }
+  },
+  "ctx_40960": {
+   "n_tasks": 1,
+   "correct": 0,
+   "accuracy": 0.0,
+   "wilson95": [
+    0.0,
+    0.7934506882081973
+   ],
+   "wrong": 1,
+   "silent_wrong": 1,
+   "surfaced_wrong": 0,
+   "silent_share_of_wrong": 1.0,
+   "silent_share_of_all": 1.0,
+   "step_cap_hits": 0,
+   "http_error_tasks": 0,
+   "thinking_tasks": 0,
+   "minutes_per_task_mean": 26.521616666666525,
+   "minutes_per_task_median": 26.521616666666525,
+   "calls_per_task_mean": 32.0,
+   "max_prompt_tokens_est": 31445,
+   "loaded_context": [
+    40960
+   ],
+   "by_stratum": {
+    "openhands": {
+     "n": 1,
+     "correct": 0,
+     "silent_wrong": 1,
+     "minutes_mean": 26.521616666666525
+    }
+   },
+   "by_seed": {
+    "20260907": {
+     "n": 1,
+     "correct": 0,
+     "silent_wrong": 1,
+     "minutes_mean": 26.521616666666525
+    }
+   }
+  }
+ },
+ "per_task_wall": [
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260907,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 1160.1570000000065,
+   "n_calls": 43,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260907,
+   "task_id": "lt_openhands_05",
+   "task_wall_s": 751.2660000000033,
+   "n_calls": 33,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260907,
+   "task_id": "lt_openhands_10",
+   "task_wall_s": 1891.8590000000258,
+   "n_calls": 59,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_40960",
+   "seed": 20260907,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 1591.2969999999914,
+   "n_calls": 32,
+   "correct": false
+  }
+ ]
+}

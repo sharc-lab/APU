@@ -1,0 +1,134 @@
+{
+ "summary": {
+  "ollama_default": {
+   "n_tasks": 3,
+   "correct": 0,
+   "accuracy": 0.0,
+   "wilson95": [
+    0.0,
+    0.5614970356393196
+   ],
+   "wrong": 3,
+   "silent_wrong": 3,
+   "surfaced_wrong": 0,
+   "silent_share_of_wrong": 1.0,
+   "silent_share_of_all": 1.0,
+   "step_cap_hits": 0,
+   "http_error_tasks": 0,
+   "thinking_tasks": 0,
+   "minutes_per_task_mean": 19.692805555555484,
+   "minutes_per_task_median": 11.873966666666577,
+   "calls_per_task_mean": 25.333333333333332,
+   "max_prompt_tokens_est": 28475,
+   "loaded_context": [
+    40960
+   ],
+   "by_stratum": {
+    "openhands": {
+     "n": 3,
+     "correct": 0,
+     "silent_wrong": 3,
+     "minutes_mean": 19.692805555555484
+    }
+   },
+   "by_seed": {
+    "20260907": {
+     "n": 3,
+     "correct": 0,
+     "silent_wrong": 3,
+     "minutes_mean": 19.692805555555484
+    }
+   }
+  },
+  "ctx_98304": {
+   "n_tasks": 3,
+   "correct": 0,
+   "accuracy": 0.0,
+   "wilson95": [
+    0.0,
+    0.5614970356393196
+   ],
+   "wrong": 3,
+   "silent_wrong": 3,
+   "surfaced_wrong": 0,
+   "silent_share_of_wrong": 1.0,
+   "silent_share_of_all": 1.0,
+   "step_cap_hits": 0,
+   "http_error_tasks": 0,
+   "thinking_tasks": 0,
+   "minutes_per_task_mean": 19.70659999999997,
+   "minutes_per_task_median": 11.884883333333224,
+   "calls_per_task_mean": 25.333333333333332,
+   "max_prompt_tokens_est": 28475,
+   "loaded_context": [
+    40960
+   ],
+   "by_stratum": {
+    "openhands": {
+     "n": 3,
+     "correct": 0,
+     "silent_wrong": 3,
+     "minutes_mean": 19.70659999999997
+    }
+   },
+   "by_seed": {
+    "20260907": {
+     "n": 3,
+     "correct": 0,
+     "silent_wrong": 3,
+     "minutes_mean": 19.70659999999997
+    }
+   }
+  }
+ },
+ "per_task_wall": [
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260907,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 624.109999999986,
+   "n_calls": 19,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260907,
+   "task_id": "lt_openhands_05",
+   "task_wall_s": 712.4379999999946,
+   "n_calls": 32,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ollama_default",
+   "seed": 20260907,
+   "task_id": "lt_openhands_10",
+   "task_wall_s": 2208.1570000000065,
+   "n_calls": 25,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_98304",
+   "seed": 20260907,
+   "task_id": "lt_openhands_01",
+   "task_wall_s": 617.1100000000151,
+   "n_calls": 19,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_98304",
+   "seed": 20260907,
+   "task_id": "lt_openhands_05",
+   "task_wall_s": 713.0929999999935,
+   "n_calls": 32,
+   "correct": false
+  },
+  {
+   "arm_id": "longtask_ctx_98304",
+   "seed": 20260907,
+   "task_id": "lt_openhands_10",
+   "task_wall_s": 2216.984999999986,
+   "n_calls": 25,
+   "correct": false
+  }
+ ]
+}
