@@ -5720,12 +5720,113 @@ def compute_l1_false_escalation_candidates(repo):
             "n": "30 held-out task turns (replay and live)"}
 
 
-ZACH_SPLIT96_DIR = r"C:\Users\rithw\zach_runs\evo_runs\split96"   # outside the repo (Zach's data, not committed)
+def compute_token_estimate_audit(repo):
+    """analysis/token_estimate_audit.py (2026-11-12, operator item 1; written by a delegated agent, re-run unchanged):
+    the chars/4-based fit decisions vs the server's prompt_eval_count on the 90-job 8192 set and the long-task files,
+    replayed at USD 0. Lines kept: flip counts, the replay results, and per long-task file the estimate ratio and the
+    per-task flips. No behavior changed."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("token_estimate_audit_nr", Path(repo) / "analysis" / "token_estimate_audit.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    out = []
+    m.b1(out)
+    m.b2(out)
+    keep = ("  chars4 every-call per TASK", "  tokenizer every-call per TASK", "  final call (strict)",
+            "  route at start per TASK", "  projection vs", "  standard hybrid", "  pipeline", "  frontier",
+            "results/", "  server / calibrated estimate, all calls", "  per TASK", "MEASURED", "  whole calls")
+    lines = [x.strip() for x in "\n".join(out).splitlines() if x.startswith(keep) and not x.startswith("    (")]
+    return {"value": ("REPLAY of recorded files, no call, USD 0 (strict reading: a server count Ollama cut is unknown; "
+                      "inferred reading: a cut count means the prompt was over the window) / " + " / ".join(lines)),
+            "n": "90 jobs at 8192 + 6 long-task files"}
+
+
+LTT2_FILE = "results/x2_longtask_tokens_v2_qwen3_30b_a3b_2507.jsonl"
+
+
+def compute_longtask_tokens_v2(repo):
+    """longtask-tokens-v2 (pre-registered 2026-11-12): the reading rule is applied once the run exists; not run."""
+    raise RuntimeError("longtask-tokens-v2 not run; this row stays PENDING until its file has run_end")
+
+
+ZACH_PKG_DIR = "~/zach_runs/data_20261109"   # Zach's data package, outside the repo under the user's home (not committed)
+
+
+def _zach_pkg():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("zach_package_20261109_nr",
+                                                  REPO / "analysis" / "zach_package_20261109.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def _zach_item(key):
+    def compute(repo):
+        m = _zach_pkg()
+        return {"value": m.ITEMS[key](), "n": f"README item {key}"}
+    compute.__name__ = f"compute_zach_item_{key}"
+    return compute
+
+
+def _zach_pending(name):
+    def why(repo):
+        return getattr(_zach_pkg(), name)()
+    return why
+
+
+def compute_zach_pending_placeholder(repo):
+    raise RuntimeError("PENDING row: computed only after Zach scores it")
+
+
+ZACH_PKG_ITEMS = (
+    # (claim_id, README item, label, description, data files relative to ZACH_PKG_DIR)
+    ("zach-t4-8b-20261109", "1", "sealed", "T4-8B task error D vs P (qwen3:8b, evo-t2s), recall row MISS kept; counts "
+     "recomputed from the raw rows", ["1_t4_8b/scores/bridge1_scores.json", "1_t4_8b/scores/cluster_ci.json",
+                                      "1_t4_8b/t2s/window_20261106_195839_cu_t4_8b/ct_t4_8b_20261106_195839.jsonl"]),
+    ("zach-pitch-ll-20261109", "2", "sealed", "PITCH-LL silent-wrong by arm (LiteLLM failover and pre-check, hand "
+     "threshold, Spillway rules, RECONFIGURE); E-VS-D MISS kept; rates recomputed from the raw rows",
+     ["2_pitch_ll/scores/s0j_s0m_scores.json", "2_pitch_ll/rows/pitch_20261107_081906.jsonl",
+      "2_pitch_ll/rows/pitch2_20261107_141829.jsonl"]),
+    ("zach-cl1-20261109", "3", "sealed", "CL1 cloud arm (claude-haiku-5-5) error and spend", ["3_cl1/scores/SCORES.md"]),
+    ("zach-x1-20261109", "4a", "sealed", "X1 allocator slopes and onset brackets (XPS)", ["4_x1/scores/score_s0f.json"]),
+    ("zach-e1-20261109", "4b", "sealed", "E1 largest OK prompt per model", ["4_e1/scores/E1_RESULTS.md"]),
+    ("zach-e2-20261109", "4c", "sealed", "E2 bisection rows", ["4_e2/scores/s2_e2_scores.json"]),
+    ("zach-c256-20261109", "4d", "sealed", "c256 onset with chunked prefill", ["4_c256/scores/s0i_scores.json"]),
+    ("zach-t1-20261109", "4e", "sealed", "T1 64 GB paging control (evo-t2s)", ["4_t1/scores/t2s_weekend_SCORES.md"]),
+    ("zach-w3-50-20261109", "4f", "sealed", "share sweep w3 at 50%", ["4_w3/scores/SCORES_P50.md"]),
+    ("zach-qual1-20261109", "5", "sealed", "RULER and BFCL quality under KV quantization (4-bit KV at the edge, not "
+     "ruled out; BFCL MISS kept)", ["5_qual1/scores/qual1_scores.json", "5_qual1/scores/qual1_bfcl_scores.json"]),
+    ("zach-contract1-20261109", "6", "sealed", "CONTRACT-1 overflow contract per serving stack (LM Studio MISS kept)",
+     ["6_contract1/scores/contract1_a1_20261105/SCORES.md", "6_contract1/scores/contract1_lms_20261109/SCORES.md"]),
+    ("zach-os-reserve-20261109", "7", "exploratory", "OS reserve fit", ["7_os_reserve/fit/os_reserve_fit.json"]),
+)
+
+
+def _zach_entries():
+    out = []
+    for cid, key, label, desc, files in ZACH_PKG_ITEMS:
+        out.append({"claim_id": cid, "description": f"Zach's data package 2026-11-09, README item {key} ({label}), "
+                    f"credit Zach: {desc}", "compute": _zach_item(key), "pending_ok": True,
+                    "data_files": [ZACH_PKG_DIR + "/" + f for f in files],
+                    "script_function": "analysis/zach_package_20261109.py::manifest_check"})
+    for cid, key, desc, why in (
+            ("zach-foundry-local-20261109", "6*", "Foundry Local 0.13 overflow contract", "foundry_pending"),
+            ("zach-w3-74-20261109", "4f", "share sweep w3 at 74%", "w3_74_pending")):
+        out.append({"claim_id": cid, "description": f"Zach's data package 2026-11-09, README item {key} (sealed, not yet "
+                    f"scored), credit Zach: {desc}; PENDING", "compute": compute_zach_pending_placeholder,
+                    "pending_ok": True, "pending_reason": _zach_pending(why),
+                    "data_files": [ZACH_PKG_DIR + "/README.md"],
+                    "script_function": f"analysis/zach_package_20261109.py::{why}"})
+    return out
+
+
+ZACH_SPLIT96_DIR = "~/zach_runs/evo_runs/split96"   # outside the repo under the user's home (Zach's data, not committed)
 ZACH_STACKS = ("ollama", "llama-server-vulkan", "llama-server-rocm")
 
 
 def compute_zach_evo_x2_split96(repo):
-    d = Path(ZACH_SPLIT96_DIR)
+    d = Path(ZACH_SPLIT96_DIR).expanduser()
     parts = []
     for s in ZACH_STACKS:
         rows = [json.loads(x) for x in (d / f"contract1_{s}.jsonl").read_text(encoding="utf-8").splitlines()
@@ -11444,11 +11545,24 @@ NUMBER_ENTRIES = [
                                                                          "results/x2_post_run_check_live_v1.jsonl",
                                                                          "results/x2_post_run_check_local_v1.jsonl"],
      "script_function": "analysis/l1_false_escalation_candidates.py::score"},
+    {"claim_id": "token-estimate-audit", "description": "Token estimates in the product path (operator 2026-11-12): "
+     "chars/4-based fit decisions vs the server's count, on the 90-job 8192 set and the long-task files; replay, USD 0, "
+     "no behavior changed",
+     "compute": compute_token_estimate_audit,
+     "data_files": ["results/x2_evalset_tasks_real_v2.jsonl", "results/x2_longtask_tokens_v1_qwen3_32b.jsonl",
+                    "results/x2_longtask_tokens_v1_llama33_70b.jsonl", "results/x2_longtask_toolfix_v1_llama33_70b.jsonl",
+                    "results/x2_longtask_scale_v1_qwen3_32b.jsonl", "results/x2_longtask_scale_v1_llama33_70b.jsonl"],
+     "script_function": "analysis/token_estimate_audit.py::main"},
+    {"claim_id": "longtask-tokens-v2", "description": "longtask-tokens-v2 (pre-registered 2026-11-12): memory vs "
+     "capability, qwen3:30b-a3b-instruct-2507 (256K native), true default vs fitting window (contingency arm 40,960), "
+     "10 token-matched tasks x 3 fresh seeds, server/tokenizer counts; not run; PENDING until run_end",
+     "compute": compute_longtask_tokens_v2, "data_files": [LTT2_FILE], "pending_ok": True,
+     "require_run_end": [LTT2_FILE], "script_function": "analysis/numbers_register.py::compute_longtask_tokens_v2"},
     {"claim_id": "zach-evo-x2-split96", "description": "Zach's evo-x2 run sheet, split 96 GB (Adrenalin VGM): "
      "CONTRACT-1 probe classes per stack and probe size (Part 1) and llama-bench row counts (Part 2); his data, kept "
      "outside the repo; PENDING on a machine without that folder",
      "compute": compute_zach_evo_x2_split96, "pending_ok": True,
-     "data_files": [ZACH_SPLIT96_DIR + "\\" + f for f in ("notes.txt", "contract1_ollama.jsonl",
+     "data_files": [ZACH_SPLIT96_DIR + "/" + f for f in ("notes.txt", "contract1_ollama.jsonl",
                                                           "contract1_llama-server-vulkan.jsonl",
                                                           "contract1_llama-server-rocm.jsonl",
                                                           "system_log_vulkan_device_lost.txt")],
@@ -11802,6 +11916,7 @@ NUMBER_ENTRIES = [
      "compute": compute_verification_tier_run_v1, "data_files": [VT_RUN_V1_FILE], "pending_ok": True,
      "require_run_end": [VT_RUN_V1_FILE], "script_function": "scripts/verification_tier_cloud.py::score"},
 ]
+NUMBER_ENTRIES += _zach_entries()
 
 
 def _pending(entry, repo=None) -> list[str]:
@@ -11809,7 +11924,7 @@ def _pending(entry, repo=None) -> list[str]:
     if not entry.get("pending_ok"):
         return []
     repo = repo or REPO
-    missing = [f for f in entry["data_files"] if not (repo / f).exists()]
+    missing = [f for f in entry["data_files"] if not (repo / Path(f).expanduser()).exists()]
     for f in entry.get("require_run_end", ()):   # a partial file (no run_end record yet) stays PENDING
         if (repo / f).exists() and not _has_run_end(repo / f):
             missing.append(f + " (partial: no run_end)")

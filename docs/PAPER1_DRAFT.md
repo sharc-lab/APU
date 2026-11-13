@@ -438,9 +438,10 @@ one valid model, qwen3:14b (Section 4.8).
 traces (10 to SWE-Gym step quantiles and 10 to OpenHands traces on nebius-rebench; the tasks are ours, not from those
 suites), qwen3:14b on the AMD APU, three seeds each, completed 5/60 tasks (8.3%, Wilson 95% 3.6% to 18.1%) at the
 Ollama default (loaded window 40960) and 4/60 (6.7%, 2.6% to 15.9%) with a q8_0 KV cache; every wrong task was
-silent <!-- long-task-local-accuracy -->. The estimated median final prompts were well inside the
-loaded window, so these failures are not window overflow;
-they measure local accuracy on long tasks on this device <!-- long-task-local-accuracy -->.
+silent <!-- long-task-local-accuracy -->. On long-horizon tasks, qwen3:14b and qwen3:32b solved none of 30, and
+llama3.3:70b 3 of 30 after a pre-registered tool-template fix <!-- long-task-scale-local --> <!-- longtask-70b-toolfix -->;
+at a window that held the whole prompt, llama3.3:70b still failed 3 of 3 token-matched tasks on wrong actions, so on
+these tasks capability, not memory, fails first <!-- longtask-tokens-v1 -->.
 
 **Table R2-gated and figure spec.**
 

@@ -23,7 +23,9 @@ stayed within 2% of baseline, and the one failure in 317 requests was a GPU devi
 collaborator's comparison against a LiteLLM-based fallback stack, wrong turns were 80% versus 15%. We then evaluate a
 post-run check that detects silent failures and escalates only those tasks to a cloud model: on 90 jobs at an 8192
 window it reaches 88/90 correct against 84/90 for a standard prompt-length hybrid, and a live run caught 9 of 9
-failures (29/30 correct). On long-horizon tasks, no local model up to 70B solved any of 30.
+failures (29/30 correct). On long-horizon tasks, qwen3:14b and qwen3:32b solved none of 30, and llama3.3:70b 3 of
+30 after a pre-registered tool-template fix; at a window that held the whole prompt, llama3.3:70b still failed 3 of 3
+token-matched tasks on wrong actions, so on these tasks capability, not memory, fails first.
 
 ## Suggested topics
 
@@ -44,10 +46,11 @@ Match these to the submission site's own topic list before registering.
 | 4096 on one machine, 131072 on another | T2S-vs-X2-default-ctx |
 | decode within 2% under memory pressure (0.984x to 1.000x, 7 runs per arm) | K2-x2-decode-by-arm |
 | one failure in 317 requests, Vulkan device lost | K2-x2-clean-failures |
-| LiteLLM comparison, 80% vs 15% wrong turns | **UNREGISTERED**: Zach's result; no run IDs yet. Remove or replace with a register row before final submission |
+| LiteLLM comparison, 80% vs 15% wrong turns | zach-pitch-ll-20261109 (Zach's PITCH-LL, sealed S0j/S0m: arm A LiteLLM failover 193/240 silent-wrong vs arm E 37/240; recomputed from his raw rows 2026-11-12) |
 | 88/90 vs 84/90 at 8192, 90 jobs | pitch1-standard-hybrid-8192 (replay of recorded runs) |
 | live run 9/9 caught, 29/30 correct | post-run-check-live-8192 (29/30 not regraded; turn 24 is a handoff artifact) |
-| no local model up to 70B solved any of 30 long tasks | long-task-scale-local |
+| qwen3:14b and qwen3:32b 0/30; llama3.3:70b 3/30 after the tool-template fix | long-task-scale-local, longtask-70b-toolfix |
+| llama3.3:70b failed 3/3 token-matched tasks at a window holding the whole prompt | longtask-tokens-v1 (exploratory, 3 tasks) |
 
 Notes: the memory-pressure numbers come from the AMD APU (evo-x2 K2 run). The Intel mini PC memory-pressure findings in
 docs/FINDINGS.md (flat TTFT, loud device-lost failure) are not register rows and are not used here. Under the

@@ -3427,3 +3427,74 @@ does not fit and passes at the one that fits; if it fails at both, capability (o
 98,304) is the cause. With 3 tasks this is a direction, not an estimate; no percentage is reported.
 
 Row `longtask-tokens-v1` PENDING until both result files have run_end.
+
+## PRE-REGISTRATION (2026-11-12): longtask-tokens-v2, memory vs capability on a 256K-native model
+
+**Status: filed before any run, model not pulled.** Operator 2026-11-12: "Pre-register longtask-tokens-v2, the real
+memory-vs-capability test. Primary model: qwen3:30b-a3b-instruct-2507 (256K native) ... Arms: true default and a
+fitting window, same quant, KV and backend. Tasks: all 10 token-matched tasks on fresh held-out seeds. Count tokens from
+the server or tokenizer, not chars/4. Positive control: the loaded window from the server log. Reading rule, fixed
+before the run: fails only at the default window means memory; fails at both means capability ... Don't run until I
+say." Why v2: in longtask-tokens-v1 the 32B fitting arm was not a test (Ollama 0.34.4 loaded 40,960 for a 98,304
+request) and the padding was sized with the chars/4 estimate, which under-counted Qwen tokens (server 40,920 vs
+estimate 34,170) [REG longtask-tokens-v1].
+
+### Model, runtime, machine (fixed now)
+
+- qwen3:30b-a3b-instruct-2507-q4_K_M from the Ollama library: model blob sha256:78b329e716e7..., 18,556,685,856 bytes
+  (18.56 GB with template, license and params; registry manifest read 2026-11-12). Not on the X2: its
+  `qwen3-30b-a3b-2507:latest` is a template-less GGUF import (digest 6c997b8af17d...) and `qwen3:30b-a3b` is the
+  original model. Pull only after the operator's OK.
+- Same quantization, f16 KV, flash_attn auto, n_batch 512, n_ubatch 512 in every arm (server defaults; checked in each
+  server log); Ollama 0.34.4 side-by-side via OLLAMA_BIN, ROCm, as longtask-tokens-v1; evo-x2 at the 96 GB split;
+  `--tool-prompt ollama` (its template keeps the tools; a persistent arm would be a separate amendment); local only,
+  USD 0.
+- KV prediction (architecture: 48 layers x 4 KV heads x 128 x 2 x 2 bytes): 96 KiB per token; 262,144 tokens = 24.0
+  GiB; 131,072 = 12.0 GiB. Checked against the server log's KV buffer line.
+
+### Tasks (fixed now)
+
+- All 10 OpenHands-stratum token-matched tasks (harness/longtask_tokens.py), fresh held-out seeds 20260911, 20260912,
+  20260913 (never generated for a run), 30 tasks per arm.
+- Token counts from the model's own tokenizer, not chars/4: before the run, the activity_log padding is re-sized with
+  the Qwen3 tokenizer of this model (tokenizer.json at a pinned Hugging Face revision of
+  Qwen/Qwen3-30B-A3B-Instruct-2507, recorded in run_start), so the reference prompt follows the trace's token curve
+  in this model's tokens. Harness change required and not yet written; it will be filed as a dated note here, with
+  tests, before any run. Each call's server prompt_eval_count is recorded and is the count used in every analysis.
+
+### Arms (fixed now)
+
+- A, true default: num_ctx not sent; the loaded window read from the server log (`n_ctx`) and `ollama ps`.
+- B, fitting: num_ctx 131,072, which holds the largest padded reference prompt (87,154-token trace peak) with margin
+  and is inside the model's native 262,144.
+- Positive control and contingency, fixed now: if arm A's loaded window is at least the largest server-counted prompt
+  of the reference solutions (it may load 262,144 on this machine: qwen3-4b-2507 loaded 262,144 by default on evo-x2
+  [REG T2S-vs-X2-default-ctx]), arm A cannot fail for memory, the default-vs-fitting reading is reported as NOT
+  INFORMATIVE, and arm C (num_ctx 40,960, the window at which qwen3:32b silently truncated in v1) is run and used in
+  place of arm A in the reading rule. If arm A loads less than the largest prompt, arm C is not run.
+- Order: A (or C) then B, per seed, tasks 01 to 10.
+
+### Reading rule (fixed now, per task, then counted)
+
+- Fails only at the non-fitting arm (A, or C under the contingency) and passes at B: memory.
+- Fails at both: capability.
+- Fails only at B: reported as "other" (not expected).
+- Passes at both: no failure.
+- A failure at the non-fitting arm also needs window evidence to count as memory: the server's prompt count reached at
+  least 98% of the loaded window and then fell (Ollama cut the prompt), as in longtask-tokens-v1.
+- Reported as counts out of the tasks run in both arms (n stated), per seed and pooled; no target. Correct, failure
+  class, calls, wall time and memory per task as in docs/reports/2026-11-09.md.
+
+### Schedule and cost (estimate; not a measurement)
+
+- Basis: llama3.3:70b in longtask-tokens-v1, per call median 19.38 s with median TTFT 12.92 s and about 28 output
+  tokens per call at 4.4 tok/s [REG longtask-tokens-v1]. Decode on evo-x2: qwen3-30b-a3b-2507 85.84 tok/s vs
+  llama3.3:70b 6.42 tok/s [REG decode-rate-per-machine], 13.4x. Prefill for this model is not registered: ASSUMED 4x
+  to 8x faster than 70B (3.3B active parameters vs 70B dense).
+- Per call: 12.92 / (4 to 8) + 28 / 85.84 = 1.9 to 3.6 s. Calls: about 640 reference steps per seed x 3 seeds x 2
+  arms = about 3,840. Total about 2.0 to 3.9 h, plus 6 server starts and warmups: estimate 2.5 to 4.5 X2 hours (a
+  third arm under the contingency adds about half).
+- Fits around the BIOS splits only while the X2 is at 96 GB (now, before the 16 GB split) or after the 64 GB restore
+  (then the split is reported as a deviation). Not run until the operator says.
+
+Row `longtask-tokens-v2` PENDING until the result file has run_end.
