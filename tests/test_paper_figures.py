@@ -10,7 +10,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 FIG_DIR = REPO / "analysis" / "figures"
-SCRIPTS = ["fig_fh1", "fig_f1", "fig_f2", "fig_f5", "fig_f6", "fig_f7"]
+SCRIPTS = ["fig_wrong_by_tier", "fig_fh1", "fig_f1", "fig_f2", "fig_f5", "fig_f6", "fig_f7"]
 
 
 def _load(name):

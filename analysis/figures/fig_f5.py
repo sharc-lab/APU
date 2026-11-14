@@ -64,7 +64,7 @@ def draw(out_dir=None):
     style()
     tok = np.sort(step_lengths())
     intel, amd, nv = defaults()
-    fig, ax = plt.subplots(figsize=(COL_IN, 3.15))
+    fig, ax = plt.subplots(figsize=(COL_IN, 2.75))
     y = np.arange(1, len(tok) + 1) / len(tok)
     ax.step(tok, y, where="post", color="#333333", lw=1.1)
     ax.set_xscale("log", base=2)
@@ -87,17 +87,20 @@ def draw(out_dir=None):
         ax.axvline(w, color=col, lw=1.1, ls=ls, zorder=1)
         ax.plot([w], [frac], "o", ms=3.6, color=col, zorder=3)
         ax.text(w * 1.07, 0.98, f"{w}", rotation=90, ha="left", va="top", color="#333333")
-        who = "; ".join(f"{p}, " + ", ".join(m for q, m in items if q == p) for p in plats)
-        txt = NL.join(textwrap.wrap(f"{w}: {who}; {(1 - frac) * 100:.1f}% of steps longer", 48))
+        def who(p):
+            ms = [m for q, m in items if q == p]
+            return p if len(ms) > 1 else f"{p}, {ms[0]}"
+        txt = f"{w}: " + ", ".join(who(p) for p in plats) + f"; {(1 - frac) * 100:.1f}% longer"
         h.append(Line2D([], [], color=col, lw=1.1, ls=ls, marker="o", ms=3.6, label=txt))
     ticks = [2 ** k for k in range(10, 20, 2)]
     ax.set_xticks(ticks)
     ax.set_xticklabels([str(t) for t in ticks])
     ax.minorticks_off()
     ax.set_xlabel("agent step length (tokens, log scale)")
-    ax.set_ylabel("CDF of steps" + NL + f"(n = {len(tok)})")
+    ax.set_ylabel("fraction of steps")
+    ax.set_title(f"public agent traces, n = {len(tok)} steps", loc="left")
     fig.legend(handles=h, loc="outside lower center", ncol=1, frameon=False, handlelength=1.2, labelspacing=0.25,
-               handletextpad=0.4, title="default window: platform, models")
+               handletextpad=0.4, title="default window: platform (model if one); steps longer")
     return save(fig, NAME, out_dir)
 
 

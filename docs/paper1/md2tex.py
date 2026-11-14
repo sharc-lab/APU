@@ -89,9 +89,8 @@ def inline(t, comments):
     # section refs
     t = re.sub(r'Sections? 4\.\d[a-z]?(?:(?:,| and| to) 4\.\d[a-z]?)*', lambda m: hold(secref(m)), t)
     t = re.sub(r'Table R2-gated', lambda m: hold(r'Table~\ref{tab:r2gated}'), t)
-    t = re.sub(r'Table 2\b', lambda m: hold(r'Table~\ref{tab:defaults}'), t)
-    t = re.sub(r'Table 1\b', lambda m: hold(r'Table~\ref{tab:platforms}'), t)
-    t = re.sub(r'Figure (FH1|F\d)', lambda m: hold(r'Fig.~\ref{fig:%s}' % m.group(1)), t)
+    t = re.sub(r'Table (\d)\b', lambda m: hold(r'Table~\ref{tab:%s}' % TABLABEL[m.group(1)]), t)
+    t = re.sub(r'Figure (FW|FH1|F\d)', lambda m: hold(r'Fig.~\ref{fig:%s}' % m.group(1)), t)
     t = esc(t)
     t = re.sub(r'"([^"]*)"', lambda m: '``' + m.group(1) + "''", t)
     t = re.sub(r'\*\*(.+?)\*\*', r'\\textbf{\1}', t)
@@ -120,6 +119,10 @@ for m in re.finditer(r'^#{3,4} (4\.\d[a-z]?) [^\n]*\n(.*?)(?=^#{3,4} 4\.|\Z)', b
     prose = re.split(r'\n\*\*(?:Figure specs?|Table 1 and figure spec|Table R2-gated and figure spec)\.\*\*', txt)[0]
     wc[sid] = (words(prose), words(txt) - words(prose))
 
+# Markdown "Table N: caption" blocks after a table, and "Table N" references: N -> LaTeX label tab:<name>.
+TABLABEL = {'1': 'platforms', '2': 'defaults', '3': 'memory', '4': 'contract', '5': 'kv', '6': 'window', '7': 'fixes'}
+# Figure id -> PDF basename in docs/paper1/figures (default fig_<id lowercased>).
+FIGFILE = {'FW': 'fig_wrong_by_tier'}
 FIGSIZE = {'FH1': ('figure*', r'0.95\textwidth', '4.2cm'), 'F1': ('figure', r'0.95\columnwidth', '3.6cm')}
 def figure(fid, spec_md):
     comments = []
@@ -128,7 +131,7 @@ def figure(fid, spec_md):
     out = ['%% reg: %s' % c for c in comments]
     # Drawn figures: analysis/figures/fig_<id>.py writes docs/paper1/figures/fig_<id>.pdf from verified register
     # rows; a figure whose PDF is not there yet keeps the placeholder box.
-    pdf = 'figures/fig_%s.pdf' % fid.lower()
+    pdf = 'figures/%s.pdf' % FIGFILE.get(fid, 'fig_' + fid.lower())
     if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(out_tex)), pdf)):
         body = r'\includegraphics[width=%s]{%s}' % (w, pdf)
     else:
@@ -138,8 +141,8 @@ def figure(fid, spec_md):
     return '\n'.join(out)
 
 TABLE1 = r"""\begin{table}[t]
-\caption{Platforms. Configuration record, not a measured result; driver, runtime and OS versions are filled from the
-platform configuration record before submission.}
+\caption{Platforms and versions. Configuration record, not a measured result. Where a version changed during the
+study, the range covers the runs reported; a dash marks a version not recorded.}
 \label{tab:platforms}
 \centering\footnotesize
 \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.34\columnwidth}>{\raggedright\arraybackslash}p{0.32\columnwidth}>{\raggedright\arraybackslash}p{0.26\columnwidth}@{}}
@@ -158,6 +161,31 @@ Intel Core Ultra X7 358H (Panther Lake), Arc B390 iGPU & unified; one shared Vul
 Intel laptop, Arc iGPU & unified; configurable iGPU share & iGPU via OpenVINO \\
 \bottomrule
 \end{tabular}
+
+\vspace{4pt}
+% Versions, each copied from a recorded file (no register row; configuration record):
+% AMD driver 32.0.31007.1017: docs/HARDWARE.md (2026-09-28) and docs/X2_CHANGELOG.md (unchanged 2026-09-29);
+%   32.0.31041.1004: the 96 GB run notes (split96 notes.txt) (start of the 96 GB run, 2026-11-07).
+% AMD OS build 26100: docs/HARDWARE.md (2026-09-28); 26200: split96 notes.txt (2026-11-07).
+% AMD Ollama 0.34.4: docs/X2_CHANGELOG.md (winget install v0.34.4); 0.40.14: split96 notes.txt.
+% AMD llama.cpp b10970 (Vulkan): docs/HARDWARE.md; b11559 (Vulkan, ROCm): split96 notes.txt.
+% NVIDIA driver 610.88, Ollama 0.34.4, llama.cpp b10970 CUDA 12.4: run_start "versions" of
+%   the NVIDIA mechanism run (results file named in register row blade-mechanism-4096); OS 10.0.26200: the 2026-09-25 spill-sweep manifest of that machine.
+% Intel mini PC driver 32.0.101.8509 and OS build 26200.9711: results/t2s_window_20261015_preflight.json;
+%   Ollama 0.34.4: docs/T2S_CHANGELOG.md (2026-10-15); 0.40.14: register row pkg1109-t4-8b;
+%   llama.cpp b10970 (Vulkan): docs/T2S_OVERNIGHT_REPORT.md; OpenVINO version not recorded.
+% Intel laptop: OpenVINO GenAI 2026.2.1 (summary.json files of the item 4 windows, data package of 2026-11-09);
+%   llama-server b11559: 6_contract1/scores/contract1_a1_20261105/SCORES.md; driver, OS and Ollama version not recorded.
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.16\columnwidth}>{\raggedright\arraybackslash}p{0.22\columnwidth}>{\raggedright\arraybackslash}p{0.15\columnwidth}>{\raggedright\arraybackslash}p{0.31\columnwidth}@{}}
+\toprule
+Platform & GPU driver & Windows build & Runtimes \\
+\midrule
+AMD APU & 32.0.31007.1017 to 32.0.31041.1004 & 26100 to 26200 & Ollama 0.34.4, 0.40.14; llama.cpp b10970, b11559 \\
+NVIDIA laptop & 610.88 & 26200 & Ollama 0.34.4; llama.cpp b10970 (CUDA 12.4) \\
+Intel mini PC & 32.0.101.8509 & 26200.9711 & Ollama 0.34.4, 0.40.14; llama.cpp b10970; OpenVINO -- \\
+Intel laptop & -- & -- & OpenVINO GenAI 2026.2.1; llama-server b11559; Ollama -- \\
+\bottomrule
+\end{tabular}
 \end{table}"""
 
 def md_table(rows, caption, label, comments_extra=()):
@@ -174,7 +202,8 @@ def md_table(rows, caption, label, comments_extra=()):
     if wide:
         spec = '@{}l' + 'l' * (n - 1) + '@{}'
     else:
-        spec = r'@{}>{\raggedright\arraybackslash}p{0.3\columnwidth}>{\raggedright\arraybackslash}p{0.3\columnwidth}>{\raggedright\arraybackslash}p{0.3\columnwidth}@{}'
+        fr = {2: (0.33, 0.6), 3: (0.3, 0.3, 0.3)}[n]
+        spec = '@{}' + ''.join(r'>{\raggedright\arraybackslash}p{%s\columnwidth}' % f for f in fr) + '@{}'
     out += [r'\begin{%s}[t]' % env, r'\caption{%s}' % caption, r'\label{%s}' % label,
             r'\centering\footnotesize', r'\begin{tabular}{%s}' % spec, r'\toprule',
             ' & '.join(hdr) + r' \\', r'\midrule']
@@ -208,7 +237,7 @@ while i < len(blocks):
     if b.startswith('- **'):
         # spec bullets
         for item in re.split(r'\n(?=- \*\*)', b):
-            m = re.match(r'- \*\*(FH1|F\d|Table 1)(?: \(headline\))?\.\*\*\s*(.*)', item, re.S)
+            m = re.match(r'- \*\*(FW|FH1|F\d|Table 1)(?: \(headline\))?\.\*\*\s*(.*)', item, re.S)
             fid, spec = m.group(1), m.group(2)
             if fid == 'Table 1':
                 tex.append(TABLE1)
@@ -236,8 +265,11 @@ while i < len(blocks):
             capb = blocks[i].strip()
             i += 1
             cm = []
-            cap = inline(' '.join(re.sub(r'^Table 2:\s*', '', capb).split()), cm)
-            tex.append(md_table(rows, cap[0].upper() + cap[1:], 'tab:defaults', cm))
+            tm = re.match(r'^Table (\d):\s*', capb)
+            if not tm:
+                raise SystemExit('md2tex: a table must be followed by its "Table N: caption" block: %r' % capb[:60])
+            cap = inline(' '.join(capb[tm.end():].split()), cm)
+            tex.append(md_table(rows, cap[0].upper() + cap[1:], 'tab:' + TABLABEL[tm.group(1)], cm))
         continue
     if re.match(r'^\d+\. ', b):
         items = re.split(r'\n(?=\d+\. )', b)
