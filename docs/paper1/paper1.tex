@@ -82,7 +82,7 @@ We make four contributions.
 
 \section{Background and Related Work}\label{sec:4.2}
 
-% Every citation below is a placeholder to verify; see "References (to verify)" at the end of this file.
+% Citations below were checked against their sources on 2026-11-13 (bib: docs/paper1/references.bib). A citation still marked "to verify" has an open question listed under References.
 
 \textbf{Context windows in local runtimes.} llama.cpp allocates a KV cache for a fixed number of tokens, n\_ctx, when a model loads. When a sequence would grow past it, the server can perform a \emph{context shift}: it keeps the first n\_keep tokens, discards a block of the tokens after them and continues. Ollama serves models through a bundled llama.cpp server and adds two layers. Its chat endpoint drops whole messages from the front of an over-length conversation while keeping the system message% reg: R2-mechanism-verdict
 , and it starts the server with context shift enabled and a keep of 4 tokens, so an over-length prompt succeeds after keeping num\_ctx/2 + 2 tokens% reg: ollama-overflow-keeps-half
@@ -149,7 +149,7 @@ Intel Core Ultra X7 358H (Panther Lake), Arc B390 iGPU & unified; one shared Vul
 
 \begin{figure}[t]
 \centering
-\fbox{\parbox[c][3.6cm][c]{0.95\columnwidth}{\centering\small Figure F1 placeholder (not drawn yet)}}
+\includegraphics[width=0.95\columnwidth]{figures/fig_f1.pdf}
 \caption{Platform and memory-architecture diagram: the three platforms, where KV cache, weights and host-visible buffers live, and which runtime backend is used (drawing only).}
 \label{fig:F1}
 \end{figure}
@@ -189,7 +189,7 @@ For qwen3-32b no unclamped spill point was measured, so the row has no spill cos
 
 \begin{figure*}[t]
 \centering
-\fbox{\parbox[c][4.2cm][c]{0.95\textwidth}{\centering\small Figure FH1 placeholder (not drawn yet)}}
+\includegraphics[width=0.95\textwidth]{figures/fig_fh1.pdf}
 \caption{Three panels, shared x axis = requested or served window as a fraction of the platform's boundary (AMD: the 65536 MiB dedicated block, stated in the caption; Intel: the shared-heap limit; NVIDIA: VRAM), y axis = cost of crossing it (decode and TTFT ratio; for Intel, start or refuse). Clamped points are drawn but marked; each point is labelled with its launch and its overflow path. Measurement note for the caption: each AMD point is one call per fresh server start without a warm-up call (5 or 3 calls per point), which departs from this paper's 1 warm-up + N convention. If space is short, FH1 replaces F2.}
 \label{fig:FH1}
 \end{figure*}
@@ -197,7 +197,7 @@ For qwen3-32b no unclamped spill point was measured, so the row has no spill cos
 % reg: A-24-flip-point-per-model | A-24-flip-point-prediction
 \begin{figure}[t]
 \centering
-\fbox{\parbox[c][3.6cm][c]{0.95\columnwidth}{\centering\small Figure F2 placeholder (not drawn yet)}}
+\includegraphics[width=0.95\columnwidth]{figures/fig_f2.pdf}
 \caption{Intel flip point: measured (last start, first refusal] per model against accountings A (file size), B (device only) and C (shared heap), all five models.}
 \label{fig:F2}
 \end{figure}
@@ -260,7 +260,7 @@ NVIDIA laptop (discrete GPU) & not measured / 4096 / 4096  & HTTP 200, evaluated
 % reg: T2S-vs-X2-default-ctx | blade-k1-layer-split | trace-fraction-exceeds-4096
 \begin{figure}[t]
 \centering
-\fbox{\parbox[c][3.6cm][c]{0.95\columnwidth}{\centering\small Figure F5 placeholder (not drawn yet)}}
+\includegraphics[width=0.95\columnwidth]{figures/fig_f5.pdf}
 \caption{Default window per platform and model over the CDF of agent step lengths in public traces.}
 \label{fig:F5}
 \end{figure}
@@ -338,7 +338,8 @@ at 32768, the pre-registered alternative ``resists rule loss''% reg: H-scale-ver
 . B3 task accuracy has one valid model, qwen3:14b (Section~\ref{sec:4.8}).
 
 \textbf{Long tasks, inside the window.} On 20 synthetic long-horizon tasks whose trace lengths are matched to public agent traces (10 to SWE-Gym step quantiles and 10 to OpenHands traces on nebius-rebench; the tasks are ours, not from those suites), qwen3:14b on the AMD APU, three seeds each, completed 5/60 tasks (8.3\%, Wilson 95\% 3.6\% to 18.1\%) at the Ollama default (loaded window 40960) and 4/60 (6.7\%, 2.6\% to 15.9\%) with a q8\_0 KV cache; every wrong task was silent% reg: long-task-local-accuracy
-. The estimated median final prompts were well inside the loaded window, so these failures are not window overflow; they measure local accuracy on long tasks on this device% reg: long-task-local-accuracy
+. On long-horizon tasks, qwen3:14b and qwen3:32b solved none of 30, and llama3.3:70b 3 of 30 after a pre-registered tool-template fix% reg: long-task-scale-local | longtask-70b-toolfix
+; at a window that held the whole prompt, llama3.3:70b still failed 3 of 3 token-matched tasks on wrong actions, so on these tasks capability, not memory, fails first% reg: longtask-tokens-v1
 .
 
 % reg: R2-v1b-gated-per-model | R2-real-v1b-survival
@@ -365,7 +366,7 @@ Ollama default & 3 / 0 / 3; intact 4/4/4/2/2/2/1/1 & 0 / 0 / 0; intact 5/5/5/5/5
 % reg: R2-v1b-excess-over-default
 \begin{figure}[t]
 \centering
-\fbox{\parbox[c][3.6cm][c]{0.95\columnwidth}{\centering\small Figure F6 placeholder (not drawn yet)}}
+\includegraphics[width=0.95\columnwidth]{figures/fig_f6.pdf}
 \caption{Per-tier session survival curve (intact sessions against turn), with the after-window excess per tier and its 95\% CI as a second panel.}
 \label{fig:F6}
 \end{figure}
@@ -415,7 +416,7 @@ misses, at seed 20260903, turn 5% reg: x2-r2-llama-val-32k-vulkan
 % reg: R2-mechanism-lowlevel | blade-mechanism-4096
 \begin{figure}[t]
 \centering
-\fbox{\parbox[c][3.6cm][c]{0.95\columnwidth}{\centering\small Figure F7 placeholder (not drawn yet)}}
+\includegraphics[width=0.95\columnwidth]{figures/fig_f7.pdf}
 \caption{Per-turn event raster per tier (message drops, context shifts, token cut), one row per tier, with the NVIDIA 4096 session as an extra row next to the AMD 4096 row.}
 \label{fig:F7}
 \end{figure}

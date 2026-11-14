@@ -1,6 +1,6 @@
 """Convert docs/PAPER1_DRAFT.md (paper only) to docs/paper1/paper1.tex (IEEEtran conference).
 Also prints words per section (HTML comments removed)."""
-import re, sys, json
+import re, sys, json, os
 
 src, out_tex = sys.argv[1], sys.argv[2]
 md = open(src, encoding='utf-8').read()
@@ -65,21 +65,25 @@ def inline(t, comments):
     t = re.sub(r'\s*<!--((?:(?!-->).)*)-->(?=[.,;:)])', lambda m: (com(m)), t)
     t = re.sub(r'\s*<!--((?:(?!-->).)*)-->\s*', lambda m: ((' ' + com(m)) if comments is None else ' '), t)
     t = re.sub(r' +([.,;:)])', r'\1', t) if comments is not None else t
-    # citations
+    # citations: [Author Year, Name] once verified, [Author Year, Name; to verify] while not
     def cite(m):
         name = m.group(1).strip()
         if name not in CITE:
+            if not m.group(2):
+                return m.group(0)
             raise SystemExit('md2tex: citation %r has no key in CITE; add it and its references.bib entry' % name)
         return hold(r'~\cite{%s}' % CITE[name])
-    t = re.sub(r'\s*\[[A-Z][^\]]*? \d{4}, ([^\];]+); to verify\]', cite, t)
+    t = re.sub(r'\s*\[[A-Z][^\]]*? \d{4}, ([^\];]+)(; to verify)?\]', cite, t)
     def cite_noyear(m):
         name = m.group(1).strip()
         if name in UNVERIFIED:
             return hold(r'~[\textbf{source not verified}]')
         if name not in CITE_NOYEAR:
+            if not m.group(2):
+                return m.group(0)
             raise SystemExit('md2tex: citation %r has no key in CITE_NOYEAR; add it and its references.bib entry' % name)
         return hold(r'~\cite{%s}' % CITE_NOYEAR[name])
-    t = re.sub(r'\s*\[([^\]\d][^\];,]*?); to verify\]', cite_noyear, t)
+    t = re.sub(r'\s*\[([^\]\d][^\];,]*?)(; to verify)?\](?!\()', cite_noyear, t)
     # code spans
     t = re.sub(r'`([^`]+)`', lambda m: hold(r'\texttt{%s}' % esc(m.group(1))), t)
     # section refs
@@ -105,7 +109,7 @@ abstract_md = abs_m.group(1)
 
 # body: from '### 4.1' to '## References'
 start = md.index('### 4.1 ')
-end = md.index('## References (to verify)')
+end = md.index('\n## References') + 1
 body = md[start:end]
 
 # words per section
@@ -122,8 +126,14 @@ def figure(fid, spec_md):
     cap = inline(' '.join(spec_md.split()), comments)
     env, w, h = FIGSIZE.get(fid, ('figure', r'0.95\columnwidth', '3.6cm'))
     out = ['%% reg: %s' % c for c in comments]
-    out += [r'\begin{%s}[t]' % env, r'\centering',
-            r'\fbox{\parbox[c][%s][c]{%s}{\centering\small Figure %s placeholder (not drawn yet)}}' % (h, w, fid),
+    # Drawn figures: analysis/figures/fig_<id>.py writes docs/paper1/figures/fig_<id>.pdf from verified register
+    # rows; a figure whose PDF is not there yet keeps the placeholder box.
+    pdf = 'figures/fig_%s.pdf' % fid.lower()
+    if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(out_tex)), pdf)):
+        body = r'\includegraphics[width=%s]{%s}' % (w, pdf)
+    else:
+        body = r'\fbox{\parbox[c][%s][c]{%s}{\centering\small Figure %s placeholder (not drawn yet)}}' % (h, w, fid)
+    out += [r'\begin{%s}[t]' % env, r'\centering', body,
             r'\caption{%s}' % cap, r'\label{fig:%s}' % fid, r'\end{%s}' % env]
     return '\n'.join(out)
 

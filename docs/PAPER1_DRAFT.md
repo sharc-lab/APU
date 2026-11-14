@@ -106,7 +106,7 @@ We make four contributions.
 
 ### 4.2 Background and related work
 
-<!-- Every citation below is a placeholder to verify; see "References (to verify)" at the end of this file. -->
+<!-- Citations below were checked against their sources on 2026-11-13 (bib: docs/paper1/references.bib). A citation still marked "to verify" has an open question listed under References. -->
 
 **Context windows in local runtimes.** llama.cpp allocates a KV cache for a fixed number of tokens, n_ctx, when a
 model loads. When a sequence would grow past it, the server can perform a *context shift*: it keeps the first n_keep
@@ -118,41 +118,36 @@ and a keep of 4 tokens, so an over-length prompt succeeds after keeping num_ctx/
 and cut paths. If the client sends no `num_ctx`, Ollama chooses the window from the detected device (Section 4.5).
 None of these steps is reported to the client.
 
-**Long-context behaviour.** Lost in the Middle [Liu et al. 2024, Lost in the Middle; to verify] finds the middle of a
-long input used worse than its ends; RULER [Hsieh et al. 2024, RULER; to verify] and LongBench [Bai et al.
+**Long-context behaviour.** Lost in the Middle [Liu et al. 2024, Lost in the Middle] finds the middle of a
+long input used worse than its ends; RULER [Hsieh et al. 2024, RULER] and LongBench [Bai et al.
 2024, LongBench; to verify] find effective context shorter than the advertised window; and multi-turn [Laban et al.
-2025, LLMs Get Lost in Multi-Turn Conversation; to verify] and rule-following benchmarks [Zhou et al. 2023, IFEval; to
-verify] [Mu et al. 2023, Can LLMs Follow Simple Rules?; to verify] measure how well a model uses or obeys its input.
+2025, LLMs Get Lost in Multi-Turn Conversation] and rule-following benchmarks [Zhou et al. 2023, IFEval] [Mu et al. 2023, Can LLMs Follow Simple Rules?] measure how well a model uses or obeys its input.
 All assume the model receives the whole input; we study what the runtime removes before that.
 
-**KV-cache management.** StreamingLLM [Xiao et al. 2024, StreamingLLM; to verify] keeps initial attention-sink tokens
-plus a recent window, much as a context shift keeps n_keep tokens; H2O [Zhang et al. 2023, H2O; to verify] and SnapKV
-[Li et al. 2024, SnapKV; to verify] evict by attention; KIVI [Liu et al. 2024, KIVI; to verify] and KVQuant [Hooper et
-al. 2024, KVQuant; to verify] quantize the cache; LLMLingua [Jiang et al. 2023, LLMLingua; to verify] compresses the
+**KV-cache management.** StreamingLLM [Xiao et al. 2024, StreamingLLM] keeps initial attention-sink tokens
+plus a recent window, much as a context shift keeps n_keep tokens; H2O [Zhang et al. 2023, H2O] and SnapKV
+[Li et al. 2024, SnapKV] evict by attention; KIVI [Liu et al. 2024, KIVI] and KVQuant [Hooper et
+al. 2024, KVQuant] quantize the cache; LLMLingua [Jiang et al. 2023, LLMLingua] compresses the
 prompt. These are designed policies evaluated at fixed memory; we measure what shipped runtimes discard by default,
 and treat the runtime's built-in KV quantization as one context policy among several (Section 4.7).
 
-**Agents, routing and verification.** AgentBench [Liu et al. 2024, AgentBench; to verify], tau-bench [Yao et al. 2024,
-tau-bench; to verify], function-calling evaluations [Patil et al. 2024, Gorilla; to verify] and SWE-bench [Jimenez et
-al. 2024, SWE-bench; to verify] score task success, usually with hosted models and large windows; we vary the window
-under a fixed model, runtime and seed. Routers [Ong et al. 2025, RouteLLM; to verify] [Ding et al. 2024, Hybrid LLM; to
-verify] pick a small or a large model from a learned estimate of difficulty, cascades [Chen et al. 2023, FrugalGPT; to
-verify] escalate when a scorer distrusts the cheap answer, and self-verification [Weng et al. 2023, Self-Verification;
-to verify] and sampling-consistency checks [Manakul et al. 2023, SelfCheckGPT; to verify] let a model test its own
+**Agents, routing and verification.** AgentBench [Liu et al. 2024, AgentBench], tau-bench [Yao et al. 2024,
+tau-bench], function-calling evaluations [Patil et al. 2024, Gorilla] and SWE-bench [Jimenez et
+al. 2024, SWE-bench] score task success, usually with hosted models and large windows; we vary the window
+under a fixed model, runtime and seed. Routers [Ong et al. 2025, RouteLLM] [Ding et al. 2024, Hybrid LLM] pick a small or a large model from a learned estimate of difficulty, cascades [Chen et al. 2023, FrugalGPT] escalate when a scorer distrusts the cheap answer, and self-verification [Weng et al. 2023, Self-Verification] and sampling-consistency checks [Manakul et al. 2023, SelfCheckGPT] let a model test its own
 answer. All need a signal that correlates with a wrong answer. The runtime's own over-window signal, which we
 characterize and do not contribute, is blind to wrong answers produced inside the window (Section 4.7p).
 
-**Edge-cloud delegation and model fit.** EdgeWise [Shi et al. 2026, EdgeWise; to verify] learns which steps of a long
-agent task to delegate to a cloud model; EC2-Bench [Huang et al. 2026, EC2-Bench; to verify] benchmarks edge-cloud
-collaboration strategies; Minions [Narayan et al. 2025, Minions; to verify] has a cloud model decompose tasks for an
-on-device model; Arch-Router [Tran et al. 2025, Arch-Router; to verify] routes by user-defined preferences; and llmfit
-[llmfit; to verify] estimates which models fit a machine's memory. An open runtime issue [Ollama issue #14259; to
-verify] reports that chat-history truncation is silent. None of these measures how the window a runtime loads changes
+**Edge-cloud delegation and model fit.** EdgeWise [Shi et al. 2026, EdgeWise] learns which steps of a long
+agent task to delegate to a cloud model; EC2-Bench [Huang et al. 2026, EC2-Bench] benchmarks edge-cloud
+collaboration strategies; Minions [Narayan et al. 2025, Minions] has a cloud model decompose tasks for an
+on-device model; Arch-Router [Tran et al. 2025, Arch-Router] routes by user-defined preferences; and llmfit
+[llmfit] estimates which models fit a machine's memory. An open runtime issue [Ollama issue #14259] reports that chat-history truncation is silent. None of these measures how the window a runtime loads changes
 an agent's correctness.
 
-**Inference on edge hardware.** PagedAttention [Kwon et al. 2023, vLLM; to verify] manages KV memory on servers; MELT
-[Laskaridis et al. 2024, MELTing Point; to verify], PowerInfer [Song et al. 2024, PowerInfer; to verify] and LLM in a
-flash [Alizadeh et al. 2024, LLM in a Flash; to verify] characterize or accelerate inference on phones, consumer GPUs
+**Inference on edge hardware.** PagedAttention [Kwon et al. 2023, vLLM] manages KV memory on servers; MELT
+[Laskaridis et al. 2024, MELTing Point], PowerInfer [Song et al. 2024, PowerInfer] and LLM in a
+flash [Alizadeh et al. 2024, LLM in a Flash] characterize or accelerate inference on phones, consumer GPUs
 and flash-backed devices for throughput, memory and energy. We add behavioural correctness under each runtime's memory
 and context policy.
 
@@ -666,7 +661,7 @@ tokens <!-- t2s-r2-real-cpu -->. That is the window at which, on the AMD APU, qw
 state against 11.3% (17/150) at its default, all silently on Ollama 0.34.4 <!-- x2-evalset-tasks-real-v2-wrong-rate -->.
 
 For practitioners, five lessons follow. Set the window explicitly for each device and verify the loaded value
-<!-- window-override-methods -->. Surface the runtime's own cut-off log lines [Ollama issue #14259; to verify], but do
+<!-- window-override-methods -->. Surface the runtime's own cut-off log lines [Ollama issue #14259], but do
 not treat them as a correctness check. Try a quantized KV cache before a smaller window: on the AMD APU it cut session
 time by 85% (37.1 of 43.7 min) and 65% (139.4 of 214.8 min, 3 sessions per setting) with no measured loss of rules or recall <!-- cost-cut-config-time --> <!-- b5-kv-recall-f16-rerun -->.
 Treat trimming as a change to the prompt, since dropping old turns also drops the examples the model imitates
@@ -683,39 +678,40 @@ and a plain redo could not undo executed actions; on simulated tools, cascaded r
 reference calls, so a live rollback remains future work. More models, seeds and runtime versions would turn the
 model-dependence of rule loss from an observation into a predictable property.
 
-## References (to verify)
+## References
 
-Placeholders cited in Sections 4.2 and later. Every entry is to verify (authors, year, venue, title) against the
-published paper before it enters `docs/references.bib`; no result of these papers is quoted in the draft.
+Cited in Sections 4.2 and later. Each entry was checked on 2026-11-13 against the source named in its
+`docs/paper1/references.bib` entry (title, authors, venue, year, DOI or URL, and the sentence that cites it); no
+result of these papers is quoted in the draft. An entry marked "To verify" has an open question stated with it.
 
-- [Liu et al. 2024, Lost in the Middle] N. F. Liu et al., "Lost in the Middle: How Language Models Use Long Contexts", TACL 2024 (arXiv:2307.03172). To verify.
-- [Hsieh et al. 2024, RULER] C.-P. Hsieh et al., "RULER: What's the Real Context Size of Your Long-Context Language Models?", COLM 2024. To verify.
-- [Bai et al. 2024, LongBench] Y. Bai et al., "LongBench: A Bilingual, Multitask Benchmark for Long Context Understanding", ACL 2024. To verify.
-- [Laban et al. 2025, LLMs Get Lost in Multi-Turn Conversation] P. Laban et al., arXiv 2025. To verify.
-- [Zhou et al. 2023, IFEval] J. Zhou et al., "Instruction-Following Evaluation for Large Language Models", arXiv 2023. To verify.
-- [Mu et al. 2023, Can LLMs Follow Simple Rules?] N. Mu et al., arXiv 2023 (RuLES). To verify.
-- [Xiao et al. 2024, StreamingLLM] G. Xiao et al., "Efficient Streaming Language Models with Attention Sinks", ICLR 2024. To verify (flagged "not independently verified" in `docs/PRIOR_ART.md`).
-- [Zhang et al. 2023, H2O] Z. Zhang et al., "H2O: Heavy-Hitter Oracle for Efficient Generative Inference of Large Language Models", NeurIPS 2023. To verify.
-- [Li et al. 2024, SnapKV] Y. Li et al., "SnapKV: LLM Knows What You Are Looking for Before Generation", NeurIPS 2024. To verify.
-- [Liu et al. 2024, KIVI] Z. Liu et al., "KIVI: A Tuning-Free Asymmetric 2bit Quantization for KV Cache", ICML 2024. To verify.
-- [Hooper et al. 2024, KVQuant] C. Hooper et al., "KVQuant: Towards 10 Million Context Length LLM Inference with KV Cache Quantization", NeurIPS 2024. To verify.
-- [Jiang et al. 2023, LLMLingua] H. Jiang et al., "LLMLingua: Compressing Prompts for Accelerated Inference of Large Language Models", EMNLP 2023. To verify.
-- [Liu et al. 2024, AgentBench] X. Liu et al., "AgentBench: Evaluating LLMs as Agents", ICLR 2024. To verify.
-- [Yao et al. 2024, tau-bench] S. Yao et al., "tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains", arXiv 2024. To verify.
-- [Patil et al. 2024, Gorilla] S. G. Patil et al., "Gorilla: Large Language Model Connected with Massive APIs", NeurIPS 2024 (arXiv 2023); the Berkeley Function Calling Leaderboard may be the better citation. To verify.
-- [Jimenez et al. 2024, SWE-bench] C. E. Jimenez et al., "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?", ICLR 2024. To verify.
-- [Ong et al. 2025, RouteLLM] I. Ong et al., "RouteLLM: Learning to Route LLMs with Preference Data", ICLR 2025 (`routellm` in `docs/references.bib`). To verify.
-- [Ding et al. 2024, Hybrid LLM] D. Ding et al., "Hybrid LLM: Cost-Efficient and Quality-Aware Query Routing", ICLR 2024. To verify (added 2026-10-22).
-- [Chen et al. 2023, FrugalGPT] L. Chen, M. Zaharia, J. Zou, "FrugalGPT: How to Use Large Language Models While Reducing Cost and Improving Performance", arXiv 2023 (TMLR 2024?). To verify (added 2026-10-22).
-- [Weng et al. 2023, Self-Verification] Y. Weng et al., "Large Language Models are Better Reasoners with Self-Verification", Findings of EMNLP 2023. To verify (added 2026-10-22).
-- [Manakul et al. 2023, SelfCheckGPT] P. Manakul, A. Liusie, M. J. F. Gales, "SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models", EMNLP 2023. To verify (added 2026-10-22).
-- [Shi et al. 2026, EdgeWise] Z. Shi et al., "EdgeWise: Bringing Long-Horizon Agents to the Edge via Selective Cloud Delegation", arXiv:2610.17560, 2026. To verify (added 2026-10-23; arXiv page checked 2026-10-23).
-- [Huang et al. 2026, EC2-Bench] P. Huang et al., "Empowering Edge Agents: A Systematic Analysis of Edge-Cloud Collaboration in LLM Agent Execution", arXiv:2610.17816, 2026. To verify (added 2026-10-23; arXiv page checked 2026-10-23).
-- [Narayan et al. 2025, Minions] A. Narayan et al., "Minions: Cost-efficient Collaboration Between On-device and Cloud Language Models", arXiv:2502.15964, 2025. To verify (added 2026-10-23; arXiv page checked 2026-10-23).
-- [Tran et al. 2025, Arch-Router] C. Tran et al., "Arch-Router: Aligning LLM Routing with Human Preferences", arXiv:2506.16655, 2025. To verify (added 2026-10-23; arXiv page checked 2026-10-23).
-- [llmfit] llmfit, open-source model-fit tool (GitHub repository README checked 2026-10-23). To verify (added 2026-10-23).
-- [Ollama issue #14259] "Chat history and embedding truncation happens silently with no user-visible indication", Ollama issue tracker, opened 2026-02-14. To verify (added 2026-10-23; issue page checked 2026-10-23).
-- [Kwon et al. 2023, vLLM] W. Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention", SOSP 2023. To verify.
-- [Laskaridis et al. 2024, MELTing Point] S. Laskaridis et al., "MELTing Point: Mobile Evaluation of Language Transformers", MobiCom 2024. To verify.
-- [Song et al. 2024, PowerInfer] Y. Song et al., "PowerInfer: Fast Large Language Model Serving with a Consumer-grade GPU", SOSP 2024. To verify.
-- [Alizadeh et al. 2024, LLM in a Flash] K. Alizadeh et al., "LLM in a Flash: Efficient Large Language Model Inference with Limited Memory", ACL 2024. To verify.
+- [Liu et al. 2024, Lost in the Middle] N. F. Liu et al., "Lost in the Middle: How Language Models Use Long Contexts", TACL 12:157-173, 2024, doi:10.1162/tacl_a_00638 (arXiv:2307.03172). Verified 2026-11-13.
+- [Hsieh et al. 2024, RULER] C.-P. Hsieh et al., "RULER: What's the Real Context Size of Your Long-Context Language Models?", COLM 2024 (arXiv:2404.06654). Verified 2026-11-13.
+- [Bai et al. 2024, LongBench] Y. Bai et al., "LongBench: A Bilingual, Multitask Benchmark for Long Context Understanding", ACL 2024, pp. 3119-3137, doi:10.18653/v1/2024.acl-long.172. Bibliographic data verified 2026-11-13. To verify: the abstract does not state that effective context is shorter than the advertised window (it reports that models struggle on longer contexts); operator to confirm the sentence that cites it.
+- [Laban et al. 2025, LLMs Get Lost in Multi-Turn Conversation] P. Laban, H. Hayashi, Y. Zhou, J. Neville, "LLMs Get Lost In Multi-Turn Conversation", ICLR 2026 (arXiv:2505.06120). Verified 2026-11-13.
+- [Zhou et al. 2023, IFEval] J. Zhou et al., "Instruction-Following Evaluation for Large Language Models", arXiv:2311.07911, 2023. Verified 2026-11-13.
+- [Mu et al. 2023, Can LLMs Follow Simple Rules?] N. Mu et al., "Can LLMs Follow Simple Rules?", arXiv:2311.04235, 2023 (RuLES). Verified 2026-11-13.
+- [Xiao et al. 2024, StreamingLLM] G. Xiao, Y. Tian, B. Chen, S. Han, M. Lewis, "Efficient Streaming Language Models with Attention Sinks", ICLR 2024 (arXiv:2309.17453). Verified 2026-11-13.
+- [Zhang et al. 2023, H2O] Z. Zhang et al., "H2O: Heavy-Hitter Oracle for Efficient Generative Inference of Large Language Models", NeurIPS 2023, doi:10.52202/075280-1506. Verified 2026-11-13.
+- [Li et al. 2024, SnapKV] Y. Li et al., "SnapKV: LLM Knows What You are Looking for Before Generation", NeurIPS 2024, doi:10.52202/079017-0722. Verified 2026-11-13.
+- [Liu et al. 2024, KIVI] Z. Liu et al., "KIVI: A Tuning-Free Asymmetric 2bit Quantization for KV Cache", ICML 2024, PMLR 235:32332-32344. Verified 2026-11-13.
+- [Hooper et al. 2024, KVQuant] C. Hooper et al., "KVQuant: Towards 10 Million Context Length LLM Inference with KV Cache Quantization", NeurIPS 2024, doi:10.52202/079017-0040. Verified 2026-11-13.
+- [Jiang et al. 2023, LLMLingua] H. Jiang et al., "LLMLingua: Compressing Prompts for Accelerated Inference of Large Language Models", EMNLP 2023, doi:10.18653/v1/2023.emnlp-main.825. Verified 2026-11-13.
+- [Liu et al. 2024, AgentBench] X. Liu et al., "AgentBench: Evaluating LLMs as Agents", ICLR 2024 (arXiv:2308.03688). Verified 2026-11-13.
+- [Yao et al. 2024, tau-bench] S. Yao, N. Shinn, P. Razavi, K. Narasimhan, "tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains", ICLR 2025 (arXiv:2406.12045, 2024). Verified 2026-11-13; published venue is ICLR 2025.
+- [Patil et al. 2024, Gorilla] S. G. Patil, T. Zhang, X. Wang, J. E. Gonzalez, "Gorilla: Large Language Model Connected with Massive APIs", NeurIPS 2024, doi:10.52202/079017-4020 (arXiv 2023). Verified 2026-11-13; the Berkeley Function Calling Leaderboard may still be the better citation for "function-calling evaluations" (operator choice).
+- [Jimenez et al. 2024, SWE-bench] C. E. Jimenez et al., "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?", ICLR 2024 (arXiv:2310.06770). Verified 2026-11-13.
+- [Ong et al. 2025, RouteLLM] I. Ong et al., "RouteLLM: Learning to Route LLMs from Preference Data", ICLR 2025 (arXiv:2406.18665 titles it "with Preference Data"; `routellm` in `docs/paper1/references.bib` now points to the paper, not the repository). Verified 2026-11-13.
+- [Ding et al. 2024, Hybrid LLM] D. Ding et al., "Hybrid LLM: Cost-Efficient and Quality-Aware Query Routing", ICLR 2024 (arXiv:2404.14618). Verified 2026-11-13.
+- [Chen et al. 2023, FrugalGPT] L. Chen, M. Zaharia, J. Zou, "FrugalGPT: How to Use Large Language Models While Reducing Cost and Improving Performance", TMLR 2024 (arXiv:2305.05176, 2023). Verified 2026-11-13.
+- [Weng et al. 2023, Self-Verification] Y. Weng et al., "Large Language Models are Better Reasoners with Self-Verification", Findings of EMNLP 2023, doi:10.18653/v1/2023.findings-emnlp.167. Verified 2026-11-13.
+- [Manakul et al. 2023, SelfCheckGPT] P. Manakul, A. Liusie, M. J. F. Gales, "SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models", EMNLP 2023, doi:10.18653/v1/2023.emnlp-main.557. Verified 2026-11-13.
+- [Shi et al. 2026, EdgeWise] Z. Shi et al., "EdgeWise: Bringing Long-Horizon Agents to the Edge via Selective Cloud Delegation", arXiv:2610.17560, 2026 (v1 2026-10-13). Verified 2026-11-13.
+- [Huang et al. 2026, EC2-Bench] P. Huang et al., "Empowering Edge Agents: A Systematic Analysis of Edge-Cloud Collaboration in LLM Agent Execution", arXiv:2610.17816, 2026 (v1 2026-10-13). Verified 2026-11-13.
+- [Narayan et al. 2025, Minions] A. Narayan et al., "Minions: Cost-efficient Collaboration Between On-device and Cloud Language Models", ICML 2025 (arXiv:2502.15964). Verified 2026-11-13.
+- [Tran et al. 2025, Arch-Router] C. Tran, S. Paracha, A. Hafeez, S. Chen, "Arch-Router: Aligning LLM Routing with Human Preferences", arXiv:2506.16655, 2025. Verified 2026-11-13.
+- [llmfit] A. Jones and contributors, llmfit, GitHub repository https://github.com/AlexsJones/llmfit (created 2026-02-15; v1.1.20, 2026-11-03). Verified 2026-11-13.
+- [Ollama issue #14259] "Chat history and embedding truncation happens silently with no user-visible indication", ollama/ollama issue #14259, opened 2026-02-14, open as of 2026-11-13 (label "documentation"; warning PRs #14262 and #17145 open, not merged). Verified 2026-11-13.
+- [Kwon et al. 2023, vLLM] W. Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention", SOSP 2023, pp. 611-626, doi:10.1145/3600006.3613165. Verified 2026-11-13.
+- [Laskaridis et al. 2024, MELTing Point] S. Laskaridis, K. Katevas, L. Minto, H. Haddadi, "MELTing Point: Mobile Evaluation of Language Transformers", MobiCom 2024, pp. 890-907, doi:10.1145/3636534.3690668. Verified 2026-11-13.
+- [Song et al. 2024, PowerInfer] Y. Song, Z. Mi, H. Xie, H. Chen, "PowerInfer: Fast Large Language Model Serving with a Consumer-grade GPU", SOSP 2024, pp. 590-606, doi:10.1145/3694715.3695964. Verified 2026-11-13.
+- [Alizadeh et al. 2024, LLM in a Flash] K. Alizadeh et al., "LLM in a Flash: Efficient Large Language Model Inference with Limited Memory", ACL 2024, pp. 12562-12584, doi:10.18653/v1/2024.acl-long.678 (bib key `edge_llm_serving`, whose author field was wrong and is fixed). Verified 2026-11-13.

@@ -1,10 +1,12 @@
-@misc{routellm,
-  title        = {RouteLLM},
-  author       = {{LMSYS Org}},
-  year         = {2024},
-  howpublished = {GitHub repository},
-  url          = {https://github.com/lm-sys/RouteLLM},
-  note         = {Accessed 2026-07-23; representative query-level LLM routing implementation}
+% Verified 2026-11-13: the draft cites the ICLR 2025 paper, so this key now points to the paper (was the GitHub
+% repository). The ICLR proceedings title reads "from Preference Data"; arXiv 2406.18665 reads "with Preference Data".
+@inproceedings{routellm,
+  title     = {{RouteLLM}: Learning to Route {LLMs} from Preference Data},
+  author    = {Ong, Isaac and Almahairi, Amjad and Wu, Vincent and Chiang, Wei-Lin and Wu, Tianhao and Gonzalez, Joseph E. and Kadous, M. Waleed and Stoica, Ion},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2025},
+  url       = {https://proceedings.iclr.cc/paper_files/paper/2025/hash/5503a7c69d48a2f86fc00b3dc09de686-Abstract-Conference.html},
+  note      = {arXiv:2406.18665}
 }
 
 @misc{martian,
@@ -33,14 +35,15 @@
   note         = {Representative cloud-edge routing/offload survey backdrop}
 }
 
-@misc{edge_llm_serving,
-  title        = {LLM in a Flash: Efficient Large Language Model Inference with Limited Memory},
-  author       = {Saxena, Apoorv and others},
-  year         = {2023},
-  eprint       = {2312.11514},
-  archivePrefix= {arXiv},
-  primaryClass = {cs.LG},
-  note         = {Representative edge/resource-constrained LLM serving perspective}
+% Verified 2026-11-13 against ACL Anthology 2024.acl-long.678 (author field previously read "Saxena, Apoorv").
+@inproceedings{edge_llm_serving,
+  title     = {{LLM} in a Flash: Efficient Large Language Model Inference with Limited Memory},
+  author    = {Alizadeh, Keivan and Mirzadeh, Seyed Iman and Belenko, Dmitry and Khatamifard, S. and Cho, Minsik and Del Mundo, Carlo C. and Rastegari, Mohammad and Farajtabar, Mehrdad},
+  booktitle = {Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
+  pages     = {12562--12584},
+  year      = {2024},
+  doi       = {10.18653/v1/2024.acl-long.678},
+  url       = {https://aclanthology.org/2024.acl-long.678/}
 }
 
 @misc{taxbreak2026,
@@ -91,246 +94,360 @@
 }
 
 % ---------------------------------------------------------------------------
-% Entries below come from the "References (to verify)" list of docs/PAPER1_DRAFT.md.
-% They are not in docs/references.bib. Each is a minimal misc entry; authors, year, venue
-% and title are TO VERIFY against the published paper before submission.
-% Reused from docs/references.bib instead of a new entry: routellm (RouteLLM; the
-% existing entry is the GitHub repository, the draft cites the ICLR 2025 paper) and
-% edge_llm_serving (LLM in a Flash; the existing entry's author field reads
-% "Saxena, Apoorv and others", the draft list says Alizadeh et al.). Both TO VERIFY.
+% Entries cited in Section 4.2 of docs/PAPER1_DRAFT.md. All verified 2026-11-13 against the source page named in
+% each entry's comment (arXiv abstract page, ACL Anthology, NeurIPS/ICLR/PMLR proceedings, Crossref DOI record,
+% GitHub). Venue is the archival version where one exists; the arXiv id is kept in note.
 % ---------------------------------------------------------------------------
 
-@misc{liu2024lost,
-  author = {Liu, N. F. and others},
-  title  = {Lost in the Middle: How Language Models Use Long Contexts},
-  howpublished = {TACL (arXiv:2307.03172)},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: ACL Anthology 2024.tacl-1.9; arXiv 2307.03172.
+@article{liu2024lost,
+  author  = {Liu, Nelson F. and Lin, Kevin and Hewitt, John and Paranjape, Ashwin and Bevilacqua, Michele and Petroni, Fabio and Liang, Percy},
+  title   = {Lost in the Middle: How Language Models Use Long Contexts},
+  journal = {Transactions of the Association for Computational Linguistics},
+  volume  = {12},
+  pages   = {157--173},
+  year    = {2024},
+  doi     = {10.1162/tacl_a_00638}
 }
 
-@misc{hsieh2024ruler,
-  author = {Hsieh, C.-P. and others},
-  title  = {{RULER}: What's the Real Context Size of Your Long-Context Language Models?},
-  howpublished = {COLM},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: arXiv 2404.06654 (comment: COLM 2024).
+@inproceedings{hsieh2024ruler,
+  author    = {Hsieh, Cheng-Ping and Sun, Simeng and Kriman, Samuel and Acharya, Shantanu and Rekesh, Dima and Jia, Fei and Zhang, Yang and Ginsburg, Boris},
+  title     = {{RULER}: What's the Real Context Size of Your Long-Context Language Models?},
+  booktitle = {Conference on Language Modeling (COLM)},
+  year      = {2024},
+  note      = {arXiv:2404.06654}
 }
 
-@misc{bai2024longbench,
-  author = {Bai, Y. and others},
-  title  = {{LongBench}: A Bilingual, Multitask Benchmark for Long Context Understanding},
-  howpublished = {ACL},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: ACL Anthology 2024.acl-long.172.
+@inproceedings{bai2024longbench,
+  author    = {Bai, Yushi and Lv, Xin and Zhang, Jiajie and Lyu, Hongchang and Tang, Jiankai and Huang, Zhidian and Du, Zhengxiao and Liu, Xiao and Zeng, Aohan and Hou, Lei and Dong, Yuxiao and Tang, Jie and Li, Juanzi},
+  title     = {{LongBench}: A Bilingual, Multitask Benchmark for Long Context Understanding},
+  booktitle = {Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
+  pages     = {3119--3137},
+  year      = {2024},
+  doi       = {10.18653/v1/2024.acl-long.172}
 }
 
-@misc{laban2025lost,
-  author = {Laban, P. and others},
-  title  = {{LLMs} Get Lost in Multi-Turn Conversation},
-  howpublished = {arXiv},
-  year   = {2025},
-  note   = {{TO VERIFY}}
+% Source: arXiv 2505.06120; ICLR 2026 poster page iclr.cc/virtual/2026/poster/10009146.
+@inproceedings{laban2025lost,
+  author    = {Laban, Philippe and Hayashi, Hiroaki and Zhou, Yingbo and Neville, Jennifer},
+  title     = {{LLMs} Get Lost In Multi-Turn Conversation},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2026},
+  note      = {arXiv:2505.06120}
 }
 
+% Source: arXiv 2311.07911 (no venue listed).
 @misc{zhou2023ifeval,
-  author = {Zhou, J. and others},
-  title  = {Instruction-Following Evaluation for Large Language Models},
-  howpublished = {arXiv},
-  year   = {2023},
-  note   = {{TO VERIFY}}
+  author        = {Zhou, Jeffrey and Lu, Tianjian and Mishra, Swaroop and Brahma, Siddhartha and Basu, Sujoy and Luan, Yi and Zhou, Denny and Hou, Le},
+  title         = {Instruction-Following Evaluation for Large Language Models},
+  year          = {2023},
+  eprint        = {2311.07911},
+  archivePrefix = {arXiv},
+  howpublished  = {arXiv:2311.07911}
 }
 
+% Source: arXiv 2311.04235 (no venue listed).
 @misc{mu2023rules,
-  author = {Mu, N. and others},
-  title  = {Can {LLMs} Follow Simple Rules?},
-  howpublished = {arXiv (RuLES)},
-  year   = {2023},
-  note   = {{TO VERIFY}}
+  author        = {Mu, Norman and Chen, Sarah and Wang, Zifan and Chen, Sizhe and Karamardian, David and Aljeraisy, Lulwa and Alomair, Basel and Hendrycks, Dan and Wagner, David},
+  title         = {Can {LLMs} Follow Simple Rules?},
+  year          = {2023},
+  eprint        = {2311.04235},
+  archivePrefix = {arXiv},
+  howpublished  = {arXiv:2311.04235}
 }
 
-@misc{xiao2024streamingllm,
-  author = {Xiao, G. and others},
-  title  = {Efficient Streaming Language Models with Attention Sinks},
-  howpublished = {ICLR},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: arXiv 2309.17453 (comment: ICLR 2024).
+@inproceedings{xiao2024streamingllm,
+  author    = {Xiao, Guangxuan and Tian, Yuandong and Chen, Beidi and Han, Song and Lewis, Mike},
+  title     = {Efficient Streaming Language Models with Attention Sinks},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2024},
+  note      = {arXiv:2309.17453}
 }
 
-@misc{zhang2023h2o,
-  author = {Zhang, Z. and others},
-  title  = {{H2O}: Heavy-Hitter Oracle for Efficient Generative Inference of Large Language Models},
-  howpublished = {NeurIPS},
-  year   = {2023},
-  note   = {{TO VERIFY}}
+% Source: NeurIPS 2023 proceedings; Crossref DOI 10.52202/075280-1506.
+@inproceedings{zhang2023h2o,
+  author    = {Zhang, Zhenyu and Sheng, Ying and Zhou, Tianyi and Chen, Tianlong and Zheng, Lianmin and Cai, Ruisi and Song, Zhao and Tian, Yuandong and R{\'e}, Christopher and Barrett, Clark and Wang, Zhangyang and Chen, Beidi},
+  title     = {{H\textsubscript{2}O}: Heavy-Hitter Oracle for Efficient Generative Inference of Large Language Models},
+  booktitle = {Advances in Neural Information Processing Systems 36 (NeurIPS)},
+  pages     = {34661--34710},
+  year      = {2023},
+  doi       = {10.52202/075280-1506}
 }
 
-@misc{li2024snapkv,
-  author = {Li, Y. and others},
-  title  = {{SnapKV}: {LLM} Knows What You Are Looking for Before Generation},
-  howpublished = {NeurIPS},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: NeurIPS 2024 proceedings; Crossref DOI 10.52202/079017-0722.
+@inproceedings{li2024snapkv,
+  author    = {Li, Yuhong and Huang, Yingbing and Yang, Bowen and Venkitesh, Bharat and Locatelli, Acyr and Ye, Hanchen and Cai, Tianle and Lewis, Patrick and Chen, Deming},
+  title     = {{SnapKV}: {LLM} Knows What You are Looking for Before Generation},
+  booktitle = {Advances in Neural Information Processing Systems 37 (NeurIPS)},
+  pages     = {22947--22970},
+  year      = {2024},
+  doi       = {10.52202/079017-0722}
 }
 
-@misc{liu2024kivi,
-  author = {Liu, Z. and others},
-  title  = {{KIVI}: A Tuning-Free Asymmetric 2bit Quantization for {KV} Cache},
-  howpublished = {ICML},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: PMLR v235 (liu24bz); arXiv 2402.02750.
+@inproceedings{liu2024kivi,
+  author    = {Liu, Zirui and Yuan, Jiayi and Jin, Hongye and Zhong, Shaochen and Xu, Zhaozhuo and Braverman, Vladimir and Chen, Beidi and Hu, Xia},
+  title     = {{KIVI}: A Tuning-Free Asymmetric 2bit Quantization for {KV} Cache},
+  booktitle = {Proceedings of the 41st International Conference on Machine Learning (ICML)},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {235},
+  pages     = {32332--32344},
+  year      = {2024},
+  url       = {https://proceedings.mlr.press/v235/liu24bz.html}
 }
 
-@misc{hooper2024kvquant,
-  author = {Hooper, C. and others},
-  title  = {{KVQuant}: Towards 10 Million Context Length {LLM} Inference with {KV} Cache Quantization},
-  howpublished = {NeurIPS},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: NeurIPS 2024 proceedings; Crossref DOI 10.52202/079017-0040.
+@inproceedings{hooper2024kvquant,
+  author    = {Hooper, Coleman and Kim, Sehoon and Mohammadzadeh, Hiva and Mahoney, Michael W. and Shao, Yakun Sophia and Keutzer, Kurt and Gholami, Amir},
+  title     = {{KVQuant}: Towards 10 Million Context Length {LLM} Inference with {KV} Cache Quantization},
+  booktitle = {Advances in Neural Information Processing Systems 37 (NeurIPS)},
+  pages     = {1270--1303},
+  year      = {2024},
+  doi       = {10.52202/079017-0040}
 }
 
-@misc{jiang2023llmlingua,
-  author = {Jiang, H. and others},
-  title  = {{LLMLingua}: Compressing Prompts for Accelerated Inference of Large Language Models},
-  howpublished = {EMNLP},
-  year   = {2023},
-  note   = {{TO VERIFY}}
+% Source: ACL Anthology 2023.emnlp-main.825.
+@inproceedings{jiang2023llmlingua,
+  author    = {Jiang, Huiqiang and Wu, Qianhui and Lin, Chin-Yew and Yang, Yuqing and Qiu, Lili},
+  title     = {{LLMLingua}: Compressing Prompts for Accelerated Inference of Large Language Models},
+  booktitle = {Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  pages     = {13358--13376},
+  year      = {2023},
+  doi       = {10.18653/v1/2023.emnlp-main.825}
 }
 
-@misc{liu2024agentbench,
-  author = {Liu, X. and others},
-  title  = {{AgentBench}: Evaluating {LLMs} as Agents},
-  howpublished = {ICLR},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: arXiv 2308.03688 (comment: Published in ICLR 2024).
+@inproceedings{liu2024agentbench,
+  author    = {Liu, Xiao and Yu, Hao and Zhang, Hanchen and Xu, Yifan and Lei, Xuanyu and Lai, Hanyu and Gu, Yu and Ding, Hangliang and Men, Kaiwen and Yang, Kejuan and Zhang, Shudan and Deng, Xiang and Zeng, Aohan and Du, Zhengxiao and Zhang, Chenhui and Shen, Sheng and Zhang, Tianjun and Su, Yu and Sun, Huan and Huang, Minlie and Dong, Yuxiao and Tang, Jie},
+  title     = {{AgentBench}: Evaluating {LLMs} as Agents},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2024},
+  note      = {arXiv:2308.03688}
 }
 
-@misc{yao2024taubench,
-  author = {Yao, S. and others},
-  title  = {tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains},
-  howpublished = {arXiv},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: arXiv 2406.12045; ICLR 2025 proceedings (was listed as arXiv 2024).
+@inproceedings{yao2024taubench,
+  author    = {Yao, Shunyu and Shinn, Noah and Razavi, Pedram and Narasimhan, Karthik},
+  title     = {{$\tau$}-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2025},
+  note      = {arXiv:2406.12045}
 }
 
-@misc{patil2024gorilla,
-  author = {Patil, S. G. and others},
-  title  = {Gorilla: Large Language Model Connected with Massive {APIs}},
-  howpublished = {NeurIPS},
-  year   = {2024},
-  note   = {{TO VERIFY}; the Berkeley Function Calling Leaderboard may be the better citation}
+% Source: NeurIPS 2024 proceedings; Crossref DOI 10.52202/079017-4020; arXiv 2305.15334.
+% The Berkeley Function Calling Leaderboard may still be the better citation for "function-calling evaluations".
+@inproceedings{patil2024gorilla,
+  author    = {Patil, Shishir G. and Zhang, Tianjun and Wang, Xin and Gonzalez, Joseph E.},
+  title     = {Gorilla: Large Language Model Connected with Massive {APIs}},
+  booktitle = {Advances in Neural Information Processing Systems 37 (NeurIPS)},
+  pages     = {126544--126565},
+  year      = {2024},
+  doi       = {10.52202/079017-4020}
 }
 
-@misc{jimenez2024swebench,
-  author = {Jimenez, C. E. and others},
-  title  = {{SWE-bench}: Can Language Models Resolve Real-World {GitHub} Issues?},
-  howpublished = {ICLR},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: arXiv 2310.06770 (comment: ICLR 2024).
+@inproceedings{jimenez2024swebench,
+  author    = {Jimenez, Carlos E. and Yang, John and Wettig, Alexander and Yao, Shunyu and Pei, Kexin and Press, Ofir and Narasimhan, Karthik},
+  title     = {{SWE-bench}: Can Language Models Resolve Real-World {GitHub} Issues?},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2024},
+  note      = {arXiv:2310.06770}
 }
 
-@misc{ding2024hybrid,
-  author = {Ding, D. and others},
-  title  = {Hybrid {LLM}: Cost-Efficient and Quality-Aware Query Routing},
-  howpublished = {ICLR},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: arXiv 2404.14618 (comment: Accepted to ICLR 2024).
+@inproceedings{ding2024hybrid,
+  author    = {Ding, Dujian and Mallick, Ankur and Wang, Chi and Sim, Robert and Mukherjee, Subhabrata and R{\"u}hle, Victor and Lakshmanan, Laks V. S. and Awadallah, Ahmed Hassan},
+  title     = {Hybrid {LLM}: Cost-Efficient and Quality-Aware Query Routing},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2024},
+  note      = {arXiv:2404.14618}
 }
 
-@misc{chen2023frugalgpt,
-  author = {Chen, L. and Zaharia, M. and Zou, J.},
-  title  = {{FrugalGPT}: How to Use Large Language Models While Reducing Cost and Improving Performance},
-  howpublished = {arXiv},
-  year   = {2023},
-  note   = {{TO VERIFY} (TMLR 2024?)}
+% Source: arXiv 2305.05176; TMLR 12/2024 (OpenReview cSimKw5p6R, per the TMLR PDF).
+@article{chen2023frugalgpt,
+  author  = {Chen, Lingjiao and Zaharia, Matei and Zou, James},
+  title   = {{FrugalGPT}: How to Use Large Language Models While Reducing Cost and Improving Performance},
+  journal = {Transactions on Machine Learning Research},
+  year    = {2024},
+  url     = {https://openreview.net/forum?id=cSimKw5p6R},
+  note    = {arXiv:2305.05176}
 }
 
-@misc{weng2023selfverification,
-  author = {Weng, Y. and others},
-  title  = {Large Language Models are Better Reasoners with Self-Verification},
-  howpublished = {Findings of EMNLP},
-  year   = {2023},
-  note   = {{TO VERIFY}}
+% Source: ACL Anthology 2023.findings-emnlp.167.
+@inproceedings{weng2023selfverification,
+  author    = {Weng, Yixuan and Zhu, Minjun and Xia, Fei and Li, Bin and He, Shizhu and Liu, Shengping and Sun, Bin and Liu, Kang and Zhao, Jun},
+  title     = {Large Language Models are Better Reasoners with Self-Verification},
+  booktitle = {Findings of the Association for Computational Linguistics: EMNLP 2023},
+  pages     = {2550--2575},
+  year      = {2023},
+  doi       = {10.18653/v1/2023.findings-emnlp.167}
 }
 
-@misc{manakul2023selfcheckgpt,
-  author = {Manakul, P. and Liusie, A. and Gales, M. J. F.},
-  title  = {{SelfCheckGPT}: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models},
-  howpublished = {EMNLP},
-  year   = {2023},
-  note   = {{TO VERIFY}}
+% Source: ACL Anthology 2023.emnlp-main.557.
+@inproceedings{manakul2023selfcheckgpt,
+  author    = {Manakul, Potsawee and Liusie, Adian and Gales, Mark},
+  title     = {{SelfCheckGPT}: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models},
+  booktitle = {Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  pages     = {9004--9017},
+  year      = {2023},
+  doi       = {10.18653/v1/2023.emnlp-main.557}
 }
 
-@misc{kwon2023vllm,
-  author = {Kwon, W. and others},
-  title  = {Efficient Memory Management for Large Language Model Serving with {PagedAttention}},
-  howpublished = {SOSP},
-  year   = {2023},
-  note   = {{TO VERIFY}}
+% Source: arXiv 2309.06180; Crossref DOI 10.1145/3600006.3613165.
+@inproceedings{kwon2023vllm,
+  author    = {Kwon, Woosuk and Li, Zhuohan and Zhuang, Siyuan and Sheng, Ying and Zheng, Lianmin and Yu, Cody Hao and Gonzalez, Joseph E. and Zhang, Hao and Stoica, Ion},
+  title     = {Efficient Memory Management for Large Language Model Serving with {PagedAttention}},
+  booktitle = {Proceedings of the 29th Symposium on Operating Systems Principles (SOSP)},
+  pages     = {611--626},
+  year      = {2023},
+  doi       = {10.1145/3600006.3613165}
 }
 
-@misc{laskaridis2024melt,
-  author = {Laskaridis, S. and others},
-  title  = {{MELTing} Point: Mobile Evaluation of Language Transformers},
-  howpublished = {MobiCom},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: arXiv 2403.12844; Crossref DOI 10.1145/3636534.3690668.
+@inproceedings{laskaridis2024melt,
+  author    = {Laskaridis, Stefanos and Katevas, Kleomenis and Minto, Lorenzo and Haddadi, Hamed},
+  title     = {{MELTing} Point: Mobile Evaluation of Language Transformers},
+  booktitle = {Proceedings of the 30th Annual International Conference on Mobile Computing and Networking (MobiCom)},
+  pages     = {890--907},
+  year      = {2024},
+  doi       = {10.1145/3636534.3690668}
 }
 
-@misc{song2024powerinfer,
-  author = {Song, Y. and others},
-  title  = {{PowerInfer}: Fast Large Language Model Serving with a Consumer-grade {GPU}},
-  howpublished = {SOSP},
-  year   = {2024},
-  note   = {{TO VERIFY}}
+% Source: arXiv 2312.12456; Crossref DOI 10.1145/3694715.3695964.
+@inproceedings{song2024powerinfer,
+  author    = {Song, Yixin and Mi, Zeyu and Xie, Haotong and Chen, Haibo},
+  title     = {{PowerInfer}: Fast Large Language Model Serving with a Consumer-grade {GPU}},
+  booktitle = {Proceedings of the ACM SIGOPS 30th Symposium on Operating Systems Principles (SOSP)},
+  pages     = {590--606},
+  year      = {2024},
+  doi       = {10.1145/3694715.3695964}
 }
 
-% Added 2026-10-29 from docs/RELATED_WORK.md and docs/PRIOR_ART.md. The arXiv, GitHub and issue pages were checked
-% on 2026-10-23 (PRIOR_ART.md); not re-checked on 2026-10-29 (offline task). ContextPaw is not cited: web searches on
-% 2026-10-23 and 2026-10-31 found no source, and it was removed from the draft (operator decision 2026-10-31).
+% Source: arXiv 2610.17560 (v1 2026-10-13, v2 2026-10-15; no venue listed). Re-checked 2026-11-13.
 @misc{shi2026edgewise,
-  author = {Shi, Z. and Jiang, J. and Hachiuma, R. and others},
-  title  = {{EdgeWise}: Bringing Long-Horizon Agents to the Edge via Selective Cloud Delegation},
-  howpublished = {arXiv:2610.17560},
-  year   = {2026},
-  note   = {Source page checked 2026-10-23; {TO VERIFY} venue}
+  author        = {Shi, Zeru and Jiang, Jindong and Hachiuma, Ryo and Fu, Yonggan and Lee, Byung-Kwan and Belcak, Peter and Muralidharan, Saurav and Agarwal, Ayush and Tang, Ruixiang and Dantrey, Ambrish and Molchanov, Pavlo and Patney, Anjul and Radhakrishnan, Subhashree},
+  title         = {{EdgeWise}: Bringing Long-Horizon Agents to the Edge via Selective Cloud Delegation},
+  year          = {2026},
+  eprint        = {2610.17560},
+  archivePrefix = {arXiv},
+  howpublished  = {arXiv:2610.17560}
 }
 
+% Source: arXiv 2610.17816 (v1 2026-10-13; no venue listed). Re-checked 2026-11-13.
 @misc{huang2026ec2bench,
-  author = {Huang, P. and Liu, Z. and Ren, S. and Yu, S. and Yao, S. and Yan, Y. and Xiao, C. and Sun, M.},
-  title  = {Empowering Edge Agents: A Systematic Analysis of Edge-Cloud Collaboration in {LLM} Agent Execution},
-  howpublished = {arXiv:2610.17816},
-  year   = {2026},
-  note   = {Source page checked 2026-10-23; {TO VERIFY} venue}
+  author        = {Huang, Pengcheng and Liu, Zhenghao and Ren, Shixin and Yu, Shi and Yao, Sijia and Yan, Yukun and Xiao, Chaojun and Sun, Maosong},
+  title         = {Empowering Edge Agents: A Systematic Analysis of Edge-Cloud Collaboration in {LLM} Agent Execution},
+  year          = {2026},
+  eprint        = {2610.17816},
+  archivePrefix = {arXiv},
+  howpublished  = {arXiv:2610.17816}
 }
 
-@misc{narayan2025minions,
-  author = {Narayan, A. and Biderman, D. and Eyuboglu, S. and May, A. and Linderman, S. and Zou, J. and R{\'e}, C.},
-  title  = {Minions: Cost-efficient Collaboration Between On-device and Cloud Language Models},
-  howpublished = {arXiv:2502.15964},
-  year   = {2025},
-  note   = {Source page checked 2026-10-23; {TO VERIFY} venue}
+% Source: arXiv 2502.15964; ICML 2025 (PMLR 267, pp. 45682-45719, per mlanthology; the ICML version is titled
+% "Cost-Efficient Collaboration Between On-Device and Cloud Language Models"; PMLR page itself not opened).
+@inproceedings{narayan2025minions,
+  author    = {Narayan, Avanika and Biderman, Dan and Eyuboglu, Sabri and May, Avner and Linderman, Scott and Zou, James and R{\'e}, Christopher},
+  title     = {Minions: Cost-efficient Collaboration Between On-device and Cloud Language Models},
+  booktitle = {Proceedings of the 42nd International Conference on Machine Learning (ICML)},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {267},
+  pages     = {45682--45719},
+  year      = {2025},
+  note      = {arXiv:2502.15964}
 }
 
+% Source: arXiv 2506.16655 (v1 2025-06-19; no venue listed).
 @misc{tran2025archrouter,
-  author = {Tran, C. and Paracha, S. and Hafeez, A. and Chen, S.},
-  title  = {{Arch-Router}: Aligning {LLM} Routing with Human Preferences},
-  howpublished = {arXiv:2506.16655},
-  year   = {2025},
-  note   = {Source page checked 2026-10-23; {TO VERIFY} venue}
+  author        = {Tran, Co and Paracha, Salman and Hafeez, Adil and Chen, Shuguang},
+  title         = {{Arch-Router}: Aligning {LLM} Routing with Human Preferences},
+  year          = {2025},
+  eprint        = {2506.16655},
+  archivePrefix = {arXiv},
+  howpublished  = {arXiv:2506.16655}
 }
 
+% Source: GitHub API, repository created 2026-02-15, MIT license, latest release v1.1.20 (2026-11-03).
 @misc{llmfit,
-  author = {{llmfit authors}},
-  title  = {llmfit},
+  author       = {Jones, Alex and {llmfit contributors}},
+  title        = {llmfit: find what runs on your hardware},
   howpublished = {GitHub repository, \url{https://github.com/AlexsJones/llmfit}},
-  year   = {2026},
-  note   = {README checked 2026-10-23; release date not recorded; {TO VERIFY} year}
+  year         = {2026},
+  note         = {Accessed 2026-11-13; version v1.1.20}
 }
 
+% Source: GitHub issue page and API, opened 2026-02-14 by akuligowski9, open as of 2026-11-13, label "documentation";
+% linked open PRs #14262 and #17145 (warnings on truncation), neither merged.
 @misc{ollama14259,
-  author = {{Ollama issue tracker}},
-  title  = {Chat history and embedding truncation happens silently with no user-visible indication},
+  author       = {{akuligowski9}},
+  title        = {Chat history and embedding truncation happens silently with no user-visible indication},
   howpublished = {ollama/ollama issue \#14259, \url{https://github.com/ollama/ollama/issues/14259}},
-  year   = {2026},
-  note   = {Opened 2026-02-14; page checked 2026-10-23}
+  year         = {2026},
+  note         = {Opened 2026-02-14; open as of 2026-11-13}
+}
+
+% ---------------------------------------------------------------------------
+% Prior work found in the 2026-11-13 novelty search. Not yet cited in the draft; added so the operator can cite them.
+% Each was opened on 2026-11-13 (GitHub API or the page itself).
+% ---------------------------------------------------------------------------
+
+% Blog post and repository (github.com/Linutesto/contextpaw, created 2026-07-11): Ollama returns success after
+% evaluating 16,387 of a 160,689-token prompt; llama-server returns exceed_context_size_error.
+@misc{desbiens2026contextpaw,
+  author       = {Desbiens, Yan},
+  title        = {Your {LLM} server lies to you when the context window overflows},
+  howpublished = {Blog post, \url{https://yandesbiens.com/blog/contextpaw-silent-truncation/}; code at \url{https://github.com/Linutesto/contextpaw}},
+  year         = {2026},
+  note         = {Published 2026-07-11; accessed 2026-11-13}
+}
+
+@misc{ollama3839,
+  author       = {{guoxf}},
+  title        = {Feature Request: Detect Truncation Due to Exceeding Context Size},
+  howpublished = {ollama/ollama issue \#3839, \url{https://github.com/ollama/ollama/issues/3839}},
+  year         = {2024},
+  note         = {Opened 2024-04-23; open as of 2026-11-13}
+}
+
+% Ollama documentation of the VRAM-tiered default window (below 24 GiB: 4k; 24-48 GiB: 32k; 48 GiB and above: 256k).
+@misc{ollama_ctxdocs,
+  author       = {{Ollama}},
+  title        = {Context length},
+  howpublished = {Ollama documentation, \url{https://docs.ollama.com/context-length}},
+  year         = {2026},
+  note         = {Accessed 2026-11-13}
+}
+
+@misc{ollama14116,
+  author       = {{rick-github}},
+  title        = {Tiered context length can exhaust {VRAM}},
+  howpublished = {ollama/ollama issue \#14116, \url{https://github.com/ollama/ollama/issues/14116}},
+  year         = {2026},
+  note         = {Opened 2026-02-06, closed 2026-09-04; on the tiered default added in Ollama 0.15.5}
+}
+
+@misc{ollama13677,
+  author       = {{arktisk-varg}},
+  title        = {{AMD} {GPU} incorrect {VRAM}-detection},
+  howpublished = {ollama/ollama issue \#13677, \url{https://github.com/ollama/ollama/issues/13677}},
+  year         = {2026},
+  note         = {Opened 2026-01-11; open as of 2026-11-13; Radeon 780M with a 16 GB BIOS carve-out detected as about 8 GB under Vulkan}
+}
+
+@misc{lemonade3502,
+  author       = {{lemonade-sdk contributors}},
+  title        = {fix(server): size streaming models against {APU} {GTT} pool, not {VRAM} carve-out},
+  howpublished = {lemonade-sdk/lemonade pull request \#3502, \url{https://github.com/lemonade-sdk/lemonade/pull/3502}},
+  year         = {2026},
+  note         = {Opened 2026-09-03, merged 2026-09-16; Strix Halo (gfx1151) carve-out vs GTT pool}
+}
+
+@misc{llmfit1238,
+  author       = {{luojiyin1987}},
+  title        = {fix: show {Vulkan} memory heaps in doctor report},
+  howpublished = {AlexsJones/llmfit pull request \#1238, \url{https://github.com/AlexsJones/llmfit/pull/1238}},
+  year         = {2026},
+  note         = {Opened 2026-11-07, merged 2026-11-09; states that a Vulkan heap budget is a driver guideline, not a guaranteed model capacity (from llmfit issue \#1232, Radeon 780M on Windows)}
 }
