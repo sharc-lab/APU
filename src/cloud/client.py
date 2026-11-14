@@ -200,7 +200,9 @@ a stub run for a real one. `print_stub_banner_if_needed()` below does this.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import os
 import socket
 import threading
@@ -381,6 +383,81 @@ def _approx_token_count(messages: list[dict[str, Any]]) -> int:
     """
     text = " ".join(str(m.get("content", "")) for m in messages)
     return max(1, len(text.split()))
+
+
+# Reservation from Anthropic count_tokens (operator decision 2026-11-13): count_tokens is not billed and counts the
+# request on Anthropic's tokenizer, but its docs call the count an estimate, so the reservation keeps a margin.
+COUNT_TOKENS_MARGIN = 1.05
+COUNT_TOKENS_PAD = 16
+
+
+def _text_blocks(content: Any) -> list[dict[str, Any]]:
+    if content is None or content == "":
+        return []
+    if isinstance(content, str):
+        return [{"type": "text", "text": content}]
+    if isinstance(content, list):
+        return [b for b in content if isinstance(b, dict) and not (b.get("type") == "text" and not b.get("text"))]
+    return [{"type": "text", "text": str(content)}]
+
+
+def anthropic_count_request(messages: list[dict[str, Any]], kwargs: dict[str, Any] | None = None) -> dict[str, Any]:
+    """The OpenAI-style request this client sends, as Anthropic messages.count_tokens parameters (system, messages,
+    tools, tool_choice, thinking). System messages become `system`; assistant tool_calls become tool_use blocks; tool
+    messages become tool_result blocks in a user turn; consecutive same-role turns are merged."""
+    kwargs = kwargs or {}
+    system, out = [], []
+
+    def push(role, blocks):
+        if not blocks:
+            return
+        if out and out[-1]["role"] == role:
+            out[-1]["content"].extend(blocks)
+        else:
+            out.append({"role": role, "content": list(blocks)})
+
+    for m in messages:
+        role = m.get("role")
+        if role == "system":
+            system.extend(_text_blocks(m.get("content")))
+        elif role == "assistant":
+            blocks = _text_blocks(m.get("content"))
+            for tc in m.get("tool_calls") or []:
+                f = tc.get("function", {})
+                args = f.get("arguments")
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args) if args.strip() else {}
+                    except ValueError:
+                        args = {"_raw": args}
+                blocks.append({"type": "tool_use", "id": tc.get("id") or f"call_{len(blocks)}",
+                               "name": f.get("name"), "input": args or {}})
+            push("assistant", blocks)
+        elif role == "tool":
+            c = m.get("content")
+            push("user", [{"type": "tool_result", "tool_use_id": m.get("tool_call_id") or "",
+                           "content": c if isinstance(c, (str, list)) else json.dumps(c)}])
+        else:
+            push("user", _text_blocks(m.get("content")))
+    req: dict[str, Any] = {"messages": out}
+    if system:
+        req["system"] = system
+    if kwargs.get("system"):
+        req["system"] = kwargs["system"]
+    tools = kwargs.get("tools")
+    if tools:
+        req["tools"] = [{"name": (t.get("function") or t).get("name"),
+                         "description": (t.get("function") or t).get("description", ""),
+                         "input_schema": (t.get("function") or t).get("parameters")
+                         or (t.get("function") or t).get("input_schema") or {"type": "object"}} for t in tools]
+    tc = kwargs.get("tool_choice")
+    if tc in ("none", "auto", "any"):
+        req["tool_choice"] = {"type": tc}
+    elif isinstance(tc, dict):
+        req["tool_choice"] = tc
+    if isinstance(kwargs.get("thinking"), dict):
+        req["thinking"] = kwargs["thinking"]
+    return req
 
 
 # Conservative input-token upper bound for the spend reservation (operator decision 2026-11-13: the hard cap is the
@@ -710,10 +787,17 @@ class CloudClient:
         mode: str = "auto",
         completion_fn: Callable[..., Any] | None = None,
         clock: Callable[[], datetime] | None = None,
+        count_tokens_fn: Callable[..., int] | None = None,
     ) -> None:
         if mode not in CLIENT_MODES:
             raise ValueError(f"mode must be one of {CLIENT_MODES}, got {mode!r}")
         self.mode = mode
+        # Reservation token count (operator decision 2026-11-13): Anthropic count_tokens for each call, the byte
+        # upper bound if counting fails. count_tokens_fn(model_id=, request=) -> int replaces the SDK (tests); with
+        # neither (a stub, or a fake completion_fn and no count fn) the byte bound is used.
+        self._count_tokens_fn = count_tokens_fn
+        self._count_cache: dict[str, int] = {}
+        self.last_reservation: dict[str, Any] = {}
         self.spend_cap_usd = float(spend_cap_usd)
         self.ledger_path = Path(ledger_path)
         self._hostname = hostname
@@ -974,12 +1058,55 @@ class CloudClient:
         sdk = anthropic.Anthropic(api_key=self.api_key)
         return int(sdk.messages.count_tokens(model=model_id, messages=messages).input_tokens)
 
-    @staticmethod
-    def _reservation(model_id: str, messages: list[dict[str, Any]], expected_output_tokens: int,
+    def _counter(self, model_id: str) -> Callable[..., int] | None:
+        """The count_tokens function for this client and model, or None (byte bound). Only an Anthropic model on a
+        real-mode client, and the SDK only when calls go through the real SDK (never with a fake completion_fn)."""
+        if self is None or getattr(self, "stub_mode", True):
+            return None
+        if MODEL_PRICING.get(model_id, {}).get("provider") != "anthropic":
+            return None
+        if self._count_tokens_fn is not None:
+            return self._count_tokens_fn
+        if self._completion_fn is not None:
+            return None
+        key = self.api_key
+
+        def sdk_count(*, model_id: str, request: dict[str, Any]) -> int:
+            import anthropic  # deferred: only the real count path needs the SDK
+            return int(anthropic.Anthropic(api_key=key).messages.count_tokens(model=model_id, **request).input_tokens)
+        return sdk_count
+
+    def reservation_tokens(self, model_id: str, messages: list[dict[str, Any]],
+                           kwargs: dict[str, Any]) -> tuple[int, str]:
+        """(input tokens to reserve, source). count_tokens x COUNT_TOKENS_MARGIN + COUNT_TOKENS_PAD when it answers
+        (count_tokens is documented as an estimate, so a margin is kept); the byte upper bound when counting is not
+        available or fails. Counts are cached per request, so the per-task check and prepare() count once."""
+        fn = CloudClient._counter(self, model_id) if self is not None else None
+        if fn is not None:
+            req = anthropic_count_request(messages, kwargs)
+            k = hashlib.sha256(json.dumps([model_id, req], sort_keys=True, default=str).encode()).hexdigest()
+            try:
+                if k not in self._count_cache:
+                    if len(self._count_cache) > 512:
+                        self._count_cache.clear()
+                    self._count_cache[k] = int(fn(model_id=model_id, request=req))
+                n = self._count_cache[k]
+                tok = int(math.ceil(n * COUNT_TOKENS_MARGIN)) + COUNT_TOKENS_PAD
+                self.last_reservation = {"source": "count_tokens", "counted": n, "reserved_tokens": tok}
+                return tok, "count_tokens"
+            except Exception as e:  # noqa: BLE001  (any failure falls back to the conservative bound)
+                if self is not None:
+                    self.last_reservation = {"source": "byte_bound", "count_error": f"{type(e).__name__}"}
+        tok = upper_bound_input_tokens(messages, kwargs)
+        if self is not None:
+            self.last_reservation = {**self.last_reservation, "source": "byte_bound", "reserved_tokens": tok}
+        return tok, "byte_bound"
+
+    def _reservation(self, model_id: str, messages: list[dict[str, Any]], expected_output_tokens: int,
                      kwargs: dict[str, Any]) -> tuple[int, float]:
-        """(input token upper bound, upper-bound reservation USD) of one call: the figure prepare() reserves against
-        the cap. Needs a priced model id. Tokens: upper_bound_input_tokens (never fewer than billed)."""
-        input_tokens = upper_bound_input_tokens(messages, kwargs)
+        """(input tokens reserved, reservation USD) of one call: the figure prepare() reserves against the cap. Needs
+        a priced model id. Called with self=None (no client) it uses the byte upper bound."""
+        input_tokens = CloudClient.reservation_tokens(self, model_id, messages, kwargs)[0]
         return input_tokens, reservation_cost_usd(
             model_id, input_tokens, expected_output_tokens,
             request_cache_ttl(messages, kwargs) if _uses_cache_control(messages, kwargs) else None)
@@ -992,7 +1119,7 @@ class CloudClient:
             expected_output_tokens = int(kwargs.get("max_tokens") or kwargs.get("max_completion_tokens") or 256)
         if model_id not in MODEL_PRICING:
             raise UnknownModelError(f"no pricing entry for model '{model_id}'")
-        return CloudClient._reservation(model_id, messages, expected_output_tokens, kwargs)[1]
+        return CloudClient._reservation(self, model_id, messages, expected_output_tokens, kwargs)[1]
 
     def prepare(
         self,

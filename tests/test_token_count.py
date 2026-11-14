@@ -146,6 +146,6 @@ def test_upper_bound_counts_tools_framing_and_media_but_not_schema_types():
 
 def test_reservation_uses_the_upper_bound():
     msgs = [{"role": "user", "content": "{\"a\":1,\"b\":[1,2,3]}" * 500}]          # one whitespace-free "word"
-    tok, _usd = cc.CloudClient._reservation("claude-sonnet-5-5", msgs, 256, {})
+    tok, _usd = cc.CloudClient._reservation(None, "claude-sonnet-5-5", msgs, 256, {})
     assert tok == cc.upper_bound_input_tokens(msgs)
     assert tok > len(msgs[0]["content"])

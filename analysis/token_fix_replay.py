@@ -25,6 +25,7 @@ import argparse
 import copy
 import hashlib
 import json
+import math
 import statistics
 import sys
 from pathlib import Path
@@ -126,10 +127,18 @@ def r2(out: list[str]) -> list[dict]:
         # old / new: task_budget's current rule (a settled call counts at max(billed, upper, reservation)).
         # new_settle_upper: the new pre-call bound, but a settled call counts at its post-call upper bound (every
         # billed input token at the uncached rate, from the call's own usage), not at the pre-call reservation.
-        for name, first, settle_resv in (("old", old1, True), ("new", new1, True), ("new_settle_upper", new1, False)):
+        # count_tokens_settle_upper: the design adopted 2026-11-13 (reserve with Anthropic count_tokens x
+        # COUNT_TOKENS_MARGIN + COUNT_TOKENS_PAD, settle at the post-call upper bound). count_tokens is not called in
+        # this $0 replay: each call's billed input tokens stand in for its count (the same request on the same
+        # tokenizer; count_tokens is documented as an estimate, which the margin covers). Exact for every call.
+        for name, first, settle_resv in (("old", old1, True), ("new", new1, True), ("new_settle_upper", new1, False),
+                                         ("count_tokens_settle_upper", None, False)):
             counted, sent, stop = 0.0, 0, None
             for k, c in enumerate(calls):
-                tok = first if k == 0 else round(first * c["input_tokens"] / in1)
+                if first is None:
+                    tok = math.ceil(c["input_tokens"] * cc.COUNT_TOKENS_MARGIN) + cc.COUNT_TOKENS_PAD
+                else:
+                    tok = first if k == 0 else round(first * c["input_tokens"] / in1)
                 resv = cc.reservation_cost_usd(model, tok, MAX_TOKENS, ttl)
                 if counted + resv > TASK_CAP_USD + 1e-12:
                     stop = k
@@ -160,10 +169,13 @@ def r2(out: list[str]) -> list[dict]:
                    % (*_q(o), sum(v < 1 for v in o), len(o)))
         out.append("  call 1 (exact rebuild): new / billed min %.3f median %.3f max %.3f, under on %d of %d"
                    % (*_q(n), sum(v < 1 for v in n), len(n)))
-        for name in ("old", "new", "new_settle_upper"):
+        for name in ("old", "new", "new_settle_upper", "count_tokens_settle_upper"):
             ex = [x for x in res if x["sim"][name]["refused_at_call"] is not None]
+            basis = ("every call's billed input tokens stand in for count_tokens, exact; max counted per task USD "
+                     f"{max(x['sim'][name]['counted_usd'] for x in res):.4f}" if name.startswith("count_tokens")
+                     else "calls after call 1 ESTIMATED")
             out.append(f"  per-task cap replay, {name} reservation: {len(ex)} of {len(res)} tasks would stop at the "
-                       f"cap before their recorded last call (calls after call 1 ESTIMATED)")
+                       f"cap before their recorded last call ({basis})")
     return res
 
 

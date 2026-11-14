@@ -18,9 +18,11 @@ from src.cloud import task_budget as TB  # noqa: E402
 
 MODEL = "claude-sonnet-5-5"
 RESULT = REPO / "results" / "per_task_budget_check_v1.jsonl"   # word-count reservation (before 2026-11-13), pinned
-# The forced-retry test regenerates v2: the same loop under the byte upper-bound reservation
-# (src/cloud/client.upper_bound_input_tokens, operator decision 2026-11-13).
-RESULT_V2 = REPO / "results" / "per_task_budget_check_v2.jsonl"
+# v2 (committed 2026-11-13, kept as the record): the same loop under the byte upper-bound reservation with a settled
+# call counted at its reservation. The forced-retry test regenerates v3: operator decision 2026-11-13, a settled call
+# counts at its after-the-fact upper bound, the next call's reservation must still fit (this client has a fake
+# completion_fn and no count_tokens_fn, so the reservation is the byte bound).
+RESULT_V3 = REPO / "results" / "per_task_budget_check_v3.jsonl"
 MESSAGES = [{"role": "user", "content": "word " * 2000}]
 
 
@@ -50,7 +52,9 @@ def test_forced_retry_loop_stops_at_cap(tmp_path):
     inner = _client(tmp_path, fake)
     kw = {"max_tokens": 1024}
     reservation = inner.projected_cost_usd(model_id=MODEL, messages=MESSAGES, **kw)
-    cap = round(3.5 * reservation, 6)          # room for 3 calls at the reservation, not a 4th
+    per_call_upper = cc.estimate_cost_usd(MODEL, 2600, 200)   # the fake's usage, every input token uncached
+    # room for 3 settled calls (counted at their upper bound) plus the 3rd call's reservation, not a 4th
+    cap = round(reservation + 2.5 * per_call_upper, 6)
     lane = TB.BudgetedClient(inner, cap)
     lane.start_task("seed:task")
     calls, outcome, refusal = [], None, None
@@ -91,9 +95,58 @@ def test_forced_retry_loop_stops_at_cap(tmp_path):
              "task1_counted_within_cap": refusal["task_spent_usd"] <= cap + 1e-12,
              "billed_within_cap": sum(c["billed_usd"] for c in calls) <= cap,
              "retry_after_refusal_sent": False, "outcome_recorded": True, "next_task_fresh_budget": True}]
-    out = tmp_path / RESULT_V2.name            # never the committed file
+    out = tmp_path / RESULT_V3.name            # never the committed file
     out.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8", newline="\n")
-    assert out.read_bytes() == RESULT_V2.read_bytes().replace(b"\r\n", b"\n"), "result differs from the committed file"
+    assert out.read_bytes() == RESULT_V3.read_bytes().replace(b"\r\n", b"\n"), "result differs from the committed file"
+
+
+def test_reservation_uses_count_tokens_cached_and_falls_back_to_the_bound(tmp_path):
+    counted = []
+
+    def count(*, model_id, request):
+        counted.append(request)
+        return 2600
+
+    inner = cc.CloudClient(mode="real", api_key="test-not-a-key", role_override="controller",
+                           completion_fn=lambda **k: _resp(), count_tokens_fn=count,
+                           ledger_path=tmp_path / "ledger.jsonl")
+    tok, src = inner.reservation_tokens(MODEL, MESSAGES, {"max_tokens": 1024})
+    assert src == "count_tokens" and tok == int(__import__("math").ceil(2600 * cc.COUNT_TOKENS_MARGIN)) + \
+        cc.COUNT_TOKENS_PAD
+    lane = TB.BudgetedClient(inner, 1.0)
+    lane.start_task("t")
+    lane.call(model_id=MODEL, messages=MESSAGES, max_tokens=1024)
+    assert len(counted) == 1                                   # per-task check and prepare() share one count
+    assert lane.task_spent_usd == pytest.approx(cc.estimate_cost_usd(MODEL, 2600, 200))   # settled at upper bound
+
+    def broken(*, model_id, request):
+        raise RuntimeError("count_tokens unavailable")
+    inner2 = cc.CloudClient(mode="real", api_key="test-not-a-key", role_override="controller",
+                            completion_fn=lambda **k: _resp(), count_tokens_fn=broken,
+                            ledger_path=tmp_path / "ledger2.jsonl")
+    tok2, src2 = inner2.reservation_tokens(MODEL, MESSAGES, {})
+    assert src2 == "byte_bound" and tok2 == cc.upper_bound_input_tokens(MESSAGES, {})
+    # a fake completion_fn without a count fn never reaches the network: byte bound
+    inner3 = _client(tmp_path, lambda **k: _resp())
+    assert inner3.reservation_tokens(MODEL, MESSAGES, {})[1] == "byte_bound"
+
+
+def test_anthropic_count_request_conversion():
+    msgs = [{"role": "system", "content": "rules"}, {"role": "user", "content": "do it"},
+            {"role": "assistant", "content": "", "tool_calls": [{"id": "c1", "type": "function", "function": {
+                "name": "log_event", "arguments": "{\"event\": \"x\"}"}}]},
+            {"role": "tool", "tool_call_id": "c1", "content": "{\"ok\": true}"},
+            {"role": "user", "content": "thanks"}]
+    tools = [{"type": "function", "function": {"name": "log_event", "description": "log",
+                                               "parameters": {"type": "object", "properties": {}}}}]
+    req = cc.anthropic_count_request(msgs, {"tools": tools, "tool_choice": "none"})
+    assert req["system"] == [{"type": "text", "text": "rules"}]
+    assert [m["role"] for m in req["messages"]] == ["user", "assistant", "user"]
+    assert req["messages"][1]["content"] == [{"type": "tool_use", "id": "c1", "name": "log_event",
+                                              "input": {"event": "x"}}]
+    assert req["messages"][2]["content"][0]["type"] == "tool_result"
+    assert req["messages"][2]["content"][1] == {"type": "text", "text": "thanks"}
+    assert req["tools"][0]["input_schema"]["type"] == "object" and req["tool_choice"] == {"type": "none"}
 
 
 PINNED_SHA256 = "3d9c8495d27527480b86c6c0dc8707901d58daa3b86a451fed1436add3f159c6"   # committed content, LF ends
@@ -153,9 +206,13 @@ def test_cloud_redo_live_turn_tool_loop_hits_cap(tmp_path):
 
     inner = _client(tmp_path, fake)
     model = CR.escalation_model(CR.load_price_table())
-    # cap 0.40: above the first call's upper-bound reservation (byte bound, 2026-11-13), so the cap stops the loop
-    # mid-task after some billed calls, not before the first call and not at the tool-round limit
-    cap = 0.40
+    # cap: the first call's reservation plus 1.5 settled calls (each counted at its after-the-fact upper bound,
+    # 2026-11-13), so the cap stops the loop mid-task after billed calls, not before the first call and not at the
+    # tool-round limit
+    import x2_r2_evalset as EV
+    kw1 = {"tools": EV.tools_payload(es.design), "max_tokens": 2048, "custom_llm_provider": "anthropic"}
+    r1 = inner.projected_cost_usd(model_id=model, messages=CR.with_cache_control(built["messages"]), **kw1)
+    cap = r1 + 1.5 * cc.estimate_cost_usd(model, 9000, 20)
     lane = TB.BudgetedClient(inner, cap)
     lane.start_task("k")
     rates = CR.model_rates(CR.load_price_table(), model)

@@ -3710,3 +3710,40 @@ Written before any v2 run, as the 2026-11-12 pre-registration required. Nothing 
   settled call at its post-call upper bound instead leaves 2 of 20 (calls after call 1 ESTIMATED). Operator decision
   pending; task_budget.py is unchanged. results/per_task_budget_check_v1.jsonl (word count) stays pinned; v2 is the
   same forced-retry test under the bound.
+
+## AMENDMENT (2026-11-13, before any run): bfcl-mt-longctx-v1 re-scoped; X2 arm is qwen3:8b only, secondary
+
+Operator, 2026-11-13: "don't copy Zach's files. I'm asking him for his driver and whether he can run the Intel arm at
+the true default 4,096. Re-scope the X2 arm to qwen3:8b only, as secondary, and give me hours."
+
+- **Primary arm (requested from Zach, not ours to run):** the Intel machine at its true default of 4,096 tokens, with
+  his BFCL driver. Its design and scoring are his; when his rows arrive they are registered from his files.
+- **X2 arm, secondary:** qwen3:8b only. qwen3:14b is dropped. Everything else in the pre-registration above is
+  unchanged: the 200 long-context entries, Ollama and llama-server, D/F/C arms with the contingency, token counting,
+  scoring, the reading rule, hypotheses H1 to H4 (per qwen3:8b only), the stop rules. 4 cells (2 runtimes x 2 arms).
+- **No files of Zach's are copied or adapted.** Our driver is written from the pinned bfcl_eval package; his setup is
+  cited where it matches.
+- **Stop rule note:** the 96 GB Vulkan ErrorDeviceLost cited above coincided with a silent AMD driver install on the
+  X2 (2026-11-07 22:44:46Z to 22:46:36Z; split96 notes.txt DRIVER RECORD). The rule stays (a device loss stops the
+  cell); the cited event is not evidence of runtime behavior until the 96 GB Vulkan rerun.
+- **Hours (estimate, same basis as above):** qwen3:8b per cell 0.95 h (prefix cache) to 1.77 h (no cache); 4 cells
+  3.8 to 7.1 h; x 1.067 on the llama-server half [REG xruntime-llamacpp-hours]: 3.9 to 7.3 h; plus 4 server starts and
+  the smoke gates (under 0.25 h). **Estimate 4 to 7.5 X2 hours.** Cross-check from Zach's per-turn time scaled by
+  decode rate: 4 x 0.66 h = 2.6 h. Worst case (twice the calls, 200 output tokens, no cache): the qwen3:8b share of
+  the 68 h worst case above, by its no-cache per-cell time (1.77 / (1.77 + 3.12) = 36%), about 25 h, not expected.
+- Not run until the BIOS splits are done, the X2 is restored, and the operator says.
+
+## NOTE (2026-11-13): spend cap, operator decision (b) + (a)
+
+- Each cloud call is reserved with Anthropic count_tokens (not billed) x 1.05 + 16 tokens (count_tokens is documented
+  as an estimate), falling back to the byte upper bound when counting fails or is unavailable
+  (src/cloud/client.CloudClient.reservation_tokens; the count is cached per request so the per-task check and prepare()
+  count once). A settled call counts against the per-task cap at its after-the-fact upper bound (every billed input
+  token at the uncached rate), never at the pre-call reservation (src/cloud/task_budget.py). The per-task cap stays
+  USD 0.25; the job cap and Console gate are unchanged.
+- Replay of the live 8192 run (row `token-reservation-replay`, USD 0, no API call: each call's billed input tokens
+  stand in for its count_tokens result): 0 of 20 escalated tasks stop at the cap; all 41 recorded calls are sent;
+  the largest counted task spend is USD 0.1563. For comparison, the byte bound with the old counting rule: 16 of 20;
+  the byte bound settled at the upper bound: 2 of 20 (calls after the first ESTIMATED).
+- results/per_task_budget_check_v3.jsonl is the forced-retry test under the new rule (3 calls sent, the 4th refused
+  before sending, counted USD 0.0216 within the cap); v1 and v2 stay as records of the earlier rules.

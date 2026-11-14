@@ -11,8 +11,11 @@ demo/live/cloud_lane.py):
   task is marked exhausted, a `task_budget_exhausted` record is appended to the ledger beside the client's own rows,
   and TaskBudgetExhausted is raised. Every later prepare() for that task raises again without another ledger record,
   so a retry loop stops at the first refused call.
-- A settled call counts at max(billed, upper bound, reservation): the counted spend is never below what the call can
-  have cost, so the billed total of a task can never pass its cap.
+- A settled call counts at max(billed, after-the-fact upper bound) (operator decision 2026-11-13; before it the
+  pre-call reservation also counted when larger). The upper bound is every billed input token at the uncached rate,
+  from the call's own usage, so the counted spend is never below what the call cost, and the pre-call check (counted +
+  the next call's reservation <= cap) keeps the billed total of a task within its cap. The reservation is Anthropic
+  count_tokens x 1.05 + 16, or the byte upper bound when counting fails (src/cloud/client.reservation_tokens).
 - A send that fails (the client releases its reservation and writes no ledger row) counts 0, as in the client.
 
 It composes with the existing limits and loosens neither: the wrapped client's own spend cap (the USD 2 per-job cap
@@ -94,9 +97,16 @@ class BudgetedClient:
                 "task_calls": self.task_calls, "task_budget_exhausted": self.exhausted}
 
     def _count(self, res: Any, reserved: float) -> None:
+        """A settled call counts at its after-the-fact upper bound (every billed input token at the uncached rate,
+        from the call's own usage), never below its billed cost (operator decision 2026-11-13; before it the
+        pre-call reservation was counted too when larger). The cap still holds: before each call, counted spend
+        plus that call's reservation must fit. A stub call (billed 0, no usage) still counts at its reservation."""
         billed = float(getattr(res, "cost_usd", 0.0) or 0.0)
         upper = getattr(res, "cost_usd_upper_bound", None)
-        self.task_spent_usd += max(billed, float(upper or 0.0), float(reserved))
+        if getattr(res, "stub", False):
+            self.task_spent_usd += max(billed, float(upper or 0.0), float(reserved))
+        else:
+            self.task_spent_usd += max(billed, float(upper or 0.0))
         self.task_calls += 1
 
     def _refuse(self, model_id: str, projected: float) -> None:
@@ -128,8 +138,15 @@ class BudgetedClient:
     def prepare(self, *, model_id: str, messages: list[dict], expected_output_tokens: int | None = None, **kwargs):
         if self.task_key is None:
             raise RuntimeError("BudgetedClient.prepare() before start_task()")
-        projected = self.projected_cost_usd(model_id=model_id, messages=messages,
-                                            expected_output_tokens=expected_output_tokens, **kwargs)
+        # the wrapped client's own projection when it has one (it can count_tokens and caches the count, so prepare()
+        # reserves the same figure); the static byte-bound projection otherwise
+        inner_proj = getattr(type(self.inner), "projected_cost_usd", None)
+        if inner_proj is not None and hasattr(self.inner, "reservation_tokens"):
+            projected = self.inner.projected_cost_usd(model_id=model_id, messages=messages,
+                                                      expected_output_tokens=expected_output_tokens, **kwargs)
+        else:
+            projected = self.projected_cost_usd(model_id=model_id, messages=messages,
+                                                expected_output_tokens=expected_output_tokens, **kwargs)
         if self.exhausted or self.task_spent_usd + projected > self.cap_usd + 1e-12:
             self._refuse(model_id, projected)
         p = self.inner.prepare(model_id=model_id, messages=messages, expected_output_tokens=expected_output_tokens,
