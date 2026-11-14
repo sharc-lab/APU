@@ -16,10 +16,10 @@ CITE = {
  'SelfCheckGPT': 'manakul2023selfcheckgpt', 'vLLM': 'kwon2023vllm', 'MELTing Point': 'laskaridis2024melt',
  'PowerInfer': 'song2024powerinfer', 'LLM in a Flash': 'edge_llm_serving',
  'EdgeWise': 'shi2026edgewise', 'EC2-Bench': 'huang2026ec2bench', 'Minions': 'narayan2025minions',
- 'Arch-Router': 'tran2025archrouter',
+ 'Arch-Router': 'tran2025archrouter', 'ContextPaw': 'desbiens2026contextpaw',
 }
 # Citations written without an author-year in the draft: [name; to verify].
-CITE_NOYEAR = {'llmfit': 'llmfit', 'Ollama issue #14259': 'ollama14259'}
+CITE_NOYEAR = {'llmfit': 'llmfit', 'Ollama issue #14259': 'ollama14259', 'Ollama issue #3839': 'ollama3839'}
 # Named in the draft but with no verified source, so no bib entry: printed as a visible marker, never \cite.
 UNVERIFIED: set = set()
 SECNAMES = {'4.1': 'Introduction', '4.2': 'Background and Related Work', '4.3': 'Platforms, Harness and Methodology',
@@ -155,6 +155,7 @@ NVIDIA RTX 4070 Laptop GPU & 8188 MiB discrete VRAM % reg: blade-k1-layer-split
 Intel Core Ultra X7 358H (Panther Lake), Arc B390 iGPU & unified; one shared Vulkan heap % reg: A-24-effective-heap-limit
 & CPU as shipped; iGPU when enabled % reg: x2-device-detect-mechanism
 \\
+Intel laptop, Arc iGPU & unified; configurable iGPU share & iGPU via OpenVINO \\
 \bottomrule
 \end{tabular}
 \end{table}"""

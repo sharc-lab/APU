@@ -5671,8 +5671,9 @@ def compute_longtask_tokens_v1(repo):
                       f"{r['max_prompt_eval_count']}, first call over window by estimate {r['first_call_over_window']}, by server "
                       f"count {r['server_first_call_98pct']}, "
                       f"{r['n_calls']} calls / {r['ref_steps']} ref, {r['minutes']:.1f} min)" for r in rows)
-    return {"value": (f"EXPLORATORY (pre-registered 2026-11-09; 3 tasks, seed 20260907; no percentage): token-matched "
-                      f"long tasks, evo-x2 96 GB, Ollama 0.34.4, f16 KV, local only / {cells} / " + " / ".join(notes) +
+    return {"value": (f"EXPLORATORY (pre-registered 2026-11-09; 3 tasks, seed 20260907; no percentage): long tasks "
+                      f"padded to trace token targets by a chars/4 estimate (about 1.6x the traces in Qwen3 tokens, so "
+                      f"not token-matched: row longtask-tokens-v1-sizing), evo-x2 96 GB, Ollama 0.34.4, f16 KV, local only / {cells} / " + " / ".join(notes) +
                       " / SURPRISE: qwen3:32b's ctx_98304 arm LOADED 40,960 (Ollama 0.34.4 capped the request at the trained "
                       "window), so both 32B arms ran the same window and no 32B fitting-window contrast exists"),
             "n": f"{len(rows)} task runs"}
@@ -5761,7 +5762,7 @@ def compute_token_reservation_replay(repo):
 
 
 def compute_longtask_tokens_v1_sizing(repo):
-    """analysis/longtask_v2_sizing_check.py (2026-11-13): the token-matched long tasks' padded reference prompts counted
+    """analysis/longtask_v2_sizing_check.py (2026-11-13): the long tasks' padded reference prompts counted
     with the Qwen3 tokenizer as the chat template frames them. v1 pads (chars/4 x PROJ_CALIB, as run in
     longtask-tokens-v1) against the v2 pads (tokenizer-sized), each vs the matched trace's final step."""
     rows = [json.loads(x) for x in (Path(repo) / LT_SIZING_FILE).read_text(encoding="utf-8").splitlines() if x.strip()]
@@ -5833,25 +5834,25 @@ def compute_zach_pending_placeholder(repo):
 
 ZACH_PKG_ITEMS = (
     # (claim_id, README item, label, description, data files relative to ZACH_PKG_DIR)
-    ("zach-t4-8b-20261109", "1", "sealed", "T4-8B task error D vs P (qwen3:8b, evo-t2s), recall row MISS kept; counts "
+    ("pkg1109-t4-8b", "1", "sealed", "T4-8B task error D vs P (qwen3:8b, evo-t2s), recall row MISS kept; counts "
      "recomputed from the raw rows", ["1_t4_8b/scores/bridge1_scores.json", "1_t4_8b/scores/cluster_ci.json",
                                       "1_t4_8b/t2s/window_20261106_195839_cu_t4_8b/ct_t4_8b_20261106_195839.jsonl"]),
-    ("zach-pitch-ll-20261109", "2", "sealed", "PITCH-LL silent-wrong by arm (LiteLLM failover and pre-check, hand "
+    ("pkg1109-pitch-ll", "2", "sealed", "PITCH-LL silent-wrong by arm (LiteLLM failover and pre-check, hand "
      "threshold, Spillway rules, RECONFIGURE); E-VS-D MISS kept; rates recomputed from the raw rows",
      ["2_pitch_ll/scores/s0j_s0m_scores.json", "2_pitch_ll/rows/pitch_20261107_081906.jsonl",
       "2_pitch_ll/rows/pitch2_20261107_141829.jsonl"]),
-    ("zach-cl1-20261109", "3", "sealed", "CL1 cloud arm (claude-haiku-5-5) error and spend", ["3_cl1/scores/SCORES.md"]),
-    ("zach-x1-20261109", "4a", "sealed", "X1 allocator slopes and onset brackets (XPS)", ["4_x1/scores/score_s0f.json"]),
-    ("zach-e1-20261109", "4b", "sealed", "E1 largest OK prompt per model", ["4_e1/scores/E1_RESULTS.md"]),
-    ("zach-e2-20261109", "4c", "sealed", "E2 bisection rows", ["4_e2/scores/s2_e2_scores.json"]),
-    ("zach-c256-20261109", "4d", "sealed", "c256 onset with chunked prefill", ["4_c256/scores/s0i_scores.json"]),
-    ("zach-t1-20261109", "4e", "sealed", "T1 64 GB paging control (evo-t2s)", ["4_t1/scores/t2s_weekend_SCORES.md"]),
-    ("zach-w3-50-20261109", "4f", "sealed", "share sweep w3 at 50%", ["4_w3/scores/SCORES_P50.md"]),
-    ("zach-qual1-20261109", "5", "sealed", "RULER and BFCL quality under KV quantization (4-bit KV at the edge, not "
-     "ruled out; BFCL MISS kept)", ["5_qual1/scores/qual1_scores.json", "5_qual1/scores/qual1_bfcl_scores.json"]),
-    ("zach-contract1-20261109", "6", "sealed", "CONTRACT-1 overflow contract per serving stack (LM Studio MISS kept)",
+    ("pkg1109-cl1", "3", "sealed", "CL1 cloud arm (claude-haiku-5-5) error and spend", ["3_cl1/scores/SCORES.md"]),
+    ("pkg1109-x1", "4a", "sealed", "X1 allocator slopes and onset brackets (XPS)", ["4_x1/scores/score_s0f.json"]),
+    ("pkg1109-e1", "4b", "sealed", "E1 largest OK prompt per model", ["4_e1/scores/E1_RESULTS.md"]),
+    ("pkg1109-e2", "4c", "sealed", "E2 bisection rows", ["4_e2/scores/s2_e2_scores.json"]),
+    ("pkg1109-c256", "4d", "sealed", "c256 onset with chunked prefill", ["4_c256/scores/s0i_scores.json"]),
+    ("pkg1109-t1", "4e", "sealed", "T1 64 GB paging control (evo-t2s)", ["4_t1/scores/t2s_weekend_SCORES.md"]),
+    ("pkg1109-w3-50", "4f", "sealed", "share sweep w3 at 50%", ["4_w3/scores/SCORES_P50.md"]),
+    ("pkg1109-qual1", "5", "sealed", "RULER and BFCL quality under KV quantization (RULER: 4-bit KV non-inferior to "
+     "the reference, sealed rule HIT; BFCL MISS kept)", ["5_qual1/scores/qual1_scores.json", "5_qual1/scores/qual1_bfcl_scores.json"]),
+    ("pkg1109-contract1", "6", "sealed", "CONTRACT-1 overflow contract per serving stack (LM Studio MISS kept)",
      ["6_contract1/scores/contract1_a1_20261105/SCORES.md", "6_contract1/scores/contract1_lms_20261109/SCORES.md"]),
-    ("zach-os-reserve-20261109", "7", "exploratory", "OS reserve fit", ["7_os_reserve/fit/os_reserve_fit.json"]),
+    ("pkg1109-os-reserve", "7", "exploratory", "OS reserve fit", ["7_os_reserve/fit/os_reserve_fit.json"]),
 )
 
 
@@ -5863,8 +5864,8 @@ def _zach_entries():
                     "data_files": [ZACH_PKG_DIR + "/" + f for f in files],
                     "script_function": "analysis/zach_package_20261109.py::manifest_check"})
     for cid, key, desc, why in (
-            ("zach-foundry-local-20261109", "6*", "Foundry Local 0.13 overflow contract", "foundry_pending"),
-            ("zach-w3-74-20261109", "4f", "share sweep w3 at 74%", "w3_74_pending")):
+            ("pkg1109-foundry-local", "6*", "Foundry Local 0.13 overflow contract", "foundry_pending"),
+            ("pkg1109-w3-74", "4f", "share sweep w3 at 74%", "w3_74_pending")):
         out.append({"claim_id": cid, "description": f"Zach's data package 2026-11-09, README item {key} (sealed, not yet "
                     f"scored), credit Zach: {desc}; PENDING", "compute": compute_zach_pending_placeholder,
                     "pending_ok": True, "pending_reason": _zach_pending(why),
@@ -5894,11 +5895,18 @@ def compute_zach_evo_x2_split96(repo):
     lines = {f.stem: sum(1 for x in f.read_text(encoding="utf-8").splitlines() if x.strip())
              for f in sorted(d.glob("extx_*.jsonl"))}
     notes = (d / "notes.txt").read_text(encoding="utf-8")
-    dev = "ErrorDeviceLost" in (d / "llama-server-vulkan.log").read_text(encoding="utf-8", errors="replace")
     import re
+    drv = next((ln for ln in notes.splitlines() if "DRIVER RECORD" in ln), None)
+    m = re.search(r"(AMD's own installer.*?\(operator decision [^)]*\))", drv or "")
+    if not m:
+        raise RuntimeError("notes.txt has no DRIVER RECORD line naming the installer window")
+    confound = m.group(1)
+    dev = "ErrorDeviceLost" in (d / "llama-server-vulkan.log").read_text(encoding="utf-8", errors="replace")
     tdr = sum(1 for ln in (d / "system_log_vulkan_device_lost.txt").read_text(encoding="utf-8-sig").splitlines()
               if re.match(r"\s*Id\s*:\s*(4101|141|117)\s*$", ln))
-    return {"value": (f"ZACH'S CONTRACT-1 PROBE (his scoring is authoritative; these are the raw classes his probe "
+    return {"value": (f"VULKAN CELLS CONFOUNDED BY A GPU DRIVER INSTALL, NOT RUNTIME BEHAVIOUR (notes.txt DRIVER "
+                      f"RECORD): {confound} / "
+                      f"ZACH'S CONTRACT-1 PROBE (his scoring is authoritative; these are the raw classes his probe "
                       f"wrote), evo-x2 split 96 GB set via {'Adrenalin VGM' if 'Variable Graphics Memory' in notes else 'BIOS'}"
                       f", Qwen3-4B Q4_K_M, true defaults, run 2026-11-07: " + " / ".join(parts) +
                       f" / Vulkan server log ErrorDeviceLost: {'yes' if dev else 'no'}; Windows driver-reset events "
@@ -11586,7 +11594,9 @@ NUMBER_ENTRIES = [
      "compute": compute_longtask_70b_toolfix, "data_files": [LT70_TOOLFIX_FILE, LT70_BASE_FILE], "pending_ok": True,
      "require_run_end": [LT70_TOOLFIX_FILE], "script_function": "analysis/numbers_register.py::compute_longtask_70b_toolfix"},
     {"claim_id": "longtask-tokens-v1", "description": "longtask-tokens-v1 (pre-registered 2026-11-09, exploratory): "
-     "token-matched long tasks (over 40K tokens), qwen3:32b and llama3.3:70b at a default and a fitting window; "
+     "long tasks padded to trace token targets by a chars/4 estimate (over 40K tokens; in Qwen3 tokens the reference "
+     "prompts were 1.58x to 1.62x the traces, so not token-matched: row longtask-tokens-v1-sizing), qwen3:32b and "
+     "llama3.3:70b at a default and a fitting window; "
      "PENDING until both files have run_end",
      "compute": compute_longtask_tokens_v1, "data_files": list(LTT_FILES.values()), "pending_ok": True,
      "require_run_end": list(LTT_FILES.values()), "script_function": "analysis/numbers_register.py::compute_longtask_tokens_v1"},
@@ -11612,7 +11622,7 @@ NUMBER_ENTRIES = [
      "data_files": ["results/token_reservation_check_v1.jsonl", "results/anthropic_token_calibration_20261021.jsonl",
                     "results/x2_post_run_check_live_v1.jsonl", "results/x2_post_run_check_local_v1.jsonl"],
      "script_function": "analysis/token_fix_replay.py::main"},
-    {"claim_id": "longtask-tokens-v1-sizing", "description": "Token-matched long tasks: v1 padded reference prompts "
+    {"claim_id": "longtask-tokens-v1-sizing", "description": "Long tasks sized to trace token targets: v1 padded reference prompts "
      "vs trace targets in Qwen3 tokens (v1 sized by chars/4), and the v2 tokenizer-sized pads",
      "compute": compute_longtask_tokens_v1_sizing, "data_files": [LT_SIZING_FILE],
      "script_function": "analysis/longtask_v2_sizing_check.py::main"},
@@ -11626,9 +11636,10 @@ NUMBER_ENTRIES = [
      "true default vs fitting window (contingency arm 4,096), BFCL multi-turn checker; not run; PENDING until run_end",
      "compute": compute_bfcl_mt_longctx_v1, "data_files": [BFCL_MTLC_FILE], "pending_ok": True,
      "require_run_end": [BFCL_MTLC_FILE], "script_function": "analysis/numbers_register.py::compute_bfcl_mt_longctx_v1"},
-    {"claim_id": "zach-evo-x2-split96", "description": "Zach's evo-x2 run sheet, split 96 GB (Adrenalin VGM): "
+    {"claim_id": "pkg1109-evo-x2-split96", "description": "Zach's evo-x2 run sheet, split 96 GB (Adrenalin VGM), credit Zach: "
      "CONTRACT-1 probe classes per stack and probe size (Part 1) and llama-bench row counts (Part 2); his data, kept "
-     "outside the repo; PENDING on a machine without that folder",
+     "outside the repo; the Vulkan cells (step 1.3) are confounded by a GPU driver install during the step (notes.txt "
+     "DRIVER RECORD) and are being rerun; PENDING on a machine without that folder",
      "compute": compute_zach_evo_x2_split96, "pending_ok": True,
      "data_files": [ZACH_SPLIT96_DIR + "/" + f for f in ("notes.txt", "contract1_ollama.jsonl",
                                                           "contract1_llama-server-vulkan.jsonl",

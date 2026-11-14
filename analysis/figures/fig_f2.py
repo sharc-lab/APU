@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import COLORS, MUTED, plt, row, save, style  # noqa: E402
+from _common import COL_IN, COLORS, MUTED, plt, row, save, style  # noqa: E402
 
 ROWS = ["A-24-flip-point-per-model", "A-24-flip-point-prediction"]
 NAME = "fig_f2.pdf"
@@ -41,26 +41,26 @@ def draw(out_dir=None):
     style()
     d = load()
     models = sorted(d, key=lambda m: d[m]["measured_first_fail"])
-    fig, ax = plt.subplots(figsize=(3.4, 2.15))
+    fig, ax = plt.subplots(figsize=(COL_IN, 2.75))
     ax.axvline(0, color=MUTED, lw=0.7)
     for j, m in enumerate(models):
         r = d[m]
         lo = r["measured_last_ok"] - r["measured_first_fail"]
         ax.add_patch(plt.Rectangle((lo, j - 0.32), -lo, 0.64, color="#cfcfcf", lw=0, zorder=1))
         for k, (key, _, mk, col) in enumerate(ACC):
-            ax.plot(r["pred"][key] - r["measured_first_fail"], j + (k - 1) * 0.16, mk, ms=3.6, color=col,
+            ax.plot(r["pred"][key] - r["measured_first_fail"], j + (k - 1) * 0.18, mk, ms=4.2, color=col,
                     mec="white", mew=0.4, zorder=3)
     ax.set_yticks(range(len(models)))
-    ax.set_yticklabels([f"{m}\n({d[m]['measured_last_ok']}, {d[m]['measured_first_fail']}]" for m in models],
-                       fontsize=5.6)
+    ax.set_yticklabels([f"{m}\n({d[m]['measured_last_ok']}, {d[m]['measured_first_fail']}]" for m in models])
+    ax.set_ylim(-0.55, len(models) - 0.45)
+    ax.set_xticks([-3000, -2000, -1000, 0, 1000])
     ax.grid(axis="y", visible=False)
-    ax.set_xlabel("predicted minus measured first refusal (tokens)")
+    ax.set_xlabel("predicted minus measured\nfirst refusal (tokens)")
     from matplotlib.lines import Line2D
     from matplotlib.patches import Patch
-    h = [Line2D([], [], marker=mk, color=col, ls="", ms=3.6, label=lab) for _, lab, mk, col in ACC]
-    h.append(Patch(color="#cfcfcf", label="measured (last start, first refusal]"))
-    ax.legend(handles=h, loc="upper center", bbox_to_anchor=(0.5, -0.24), ncol=2, frameon=False,
-              columnspacing=0.8, handletextpad=0.3)
+    h = [Line2D([], [], marker=mk, color=col, ls="", ms=4.2, label=lab) for _, lab, mk, col in ACC]
+    h.append(Patch(color="#cfcfcf", label="measured bracket"))
+    fig.legend(handles=h, loc="outside lower center", ncol=2, frameon=False, columnspacing=0.8, handletextpad=0.3)
     return save(fig, NAME, out_dir)
 
 

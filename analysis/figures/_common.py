@@ -56,15 +56,28 @@ def row(claim_id: str) -> dict:
     return entry(claim_id)["compute"](nr.REPO)
 
 
+# Printed widths (IEEEtran conference, 10 pt): docs/paper1/md2tex.py includes a column figure at 0.95\columnwidth
+# (0.95 x 252 pt) and a full-width figure at 0.95\textwidth (0.95 x 516 pt); 72.27 pt per inch. Each script sets its
+# figsize width to one of these and saves without a tight bounding box, so the PDF is included at scale 1.0 and the
+# font sizes below are the printed sizes.
+COL_IN = 0.95 * 252 / 72.27
+TEXT_IN = 0.95 * 516 / 72.27
+MIN_PT = 8   # smallest printed font size allowed in any figure
+
+
 def style():
     plt.rcParams.update({
         "font.family": "serif",
-        "font.size": 7,
-        "axes.titlesize": 7.5,
-        "axes.labelsize": 7,
-        "xtick.labelsize": 6.5,
-        "ytick.labelsize": 6.5,
-        "legend.fontsize": 6,
+        "font.size": MIN_PT,
+        "axes.titlesize": MIN_PT,
+        "axes.labelsize": MIN_PT,
+        "xtick.labelsize": MIN_PT,
+        "ytick.labelsize": MIN_PT,
+        "legend.fontsize": MIN_PT,
+        "legend.title_fontsize": MIN_PT,
+        "figure.constrained_layout.use": True,
+        "figure.constrained_layout.h_pad": 0.02,
+        "figure.constrained_layout.w_pad": 0.02,
         "axes.spines.top": False,
         "axes.spines.right": False,
         "axes.grid": True,
@@ -74,8 +87,7 @@ def style():
         "axes.linewidth": 0.6,
         "lines.linewidth": 1.2,
         "pdf.fonttype": 42,
-        "savefig.bbox": "tight",
-        "savefig.pad_inches": 0.02,
+        "savefig.bbox": None,
     })
 
 
@@ -83,6 +95,10 @@ def save(fig, name: str, out_dir: Path | None = None) -> Path:
     out = Path(out_dir or OUT_DIR)
     out.mkdir(parents=True, exist_ok=True)
     path = out / name
+    small = [x for x in fig.findobj(lambda o: hasattr(o, "get_fontsize") and hasattr(o, "get_text"))
+             if x.get_text().strip() and x.get_visible() and x.get_fontsize() < MIN_PT - 1e-6]
+    if small:
+        raise RuntimeError(f"{name}: text below {MIN_PT} pt: {[x.get_text() for x in small][:5]}")
     # Fixed metadata so a rerun on the same data gives the same file.
     fig.savefig(path, format="pdf", metadata={"CreationDate": None, "ModDate": None, "Creator": None,
                                                "Producer": None, "Author": None})

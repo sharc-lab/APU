@@ -120,6 +120,9 @@
 }
 
 % Source: ACL Anthology 2024.acl-long.172.
+% Verified 2026-11-13 against the arXiv 2308.14508 abstract: "most of them can only handle texts a few thousand tokens
+% long"; "Commercial model (GPT-3.5-Turbo-16k) outperforms other open-sourced models, but still struggles on longer
+% contexts". The draft's sentence quotes these two phrases.
 @inproceedings{bai2024longbench,
   author    = {Bai, Yushi and Lv, Xin and Zhang, Jiajie and Lyu, Hongchang and Tang, Jiankai and Huang, Zhidian and Du, Zhengxiao and Liu, Xiao and Zeng, Aohan and Hou, Lei and Dong, Yuxiao and Tang, Jie and Li, Juanzi},
   title     = {{LongBench}: A Bilingual, Multitask Benchmark for Long Context Understanding},
@@ -379,7 +382,9 @@
 }
 
 % Source: GitHub issue page and API, opened 2026-02-14 by akuligowski9, open as of 2026-11-13, label "documentation";
-% linked open PRs #14262 and #17145 (warnings on truncation), neither merged.
+% linked open PRs #14262 and #17145 (warnings on truncation), neither merged. The issue states the only log line is at
+% slog.Debug level in server/prompt.go (the proposed fix raises it to slog.Warn); a comment by YauhenBichel on
+% 2026-09-12 reports a ~120,000-token prompt returning HTTP 200 with prompt_tokens 32770 on 0.34.0 (Linux, ROCm).
 @misc{ollama14259,
   author       = {{akuligowski9}},
   title        = {Chat history and embedding truncation happens silently with no user-visible indication},
@@ -389,12 +394,15 @@
 }
 
 % ---------------------------------------------------------------------------
-% Prior work found in the 2026-11-13 novelty search. Not yet cited in the draft; added so the operator can cite them.
-% Each was opened on 2026-11-13 (GitHub API or the page itself).
+% Prior work found in the 2026-11-13 novelty search; desbiens2026contextpaw and ollama3839 are cited in Related Work
+% (2026-11-13). Each was opened on 2026-11-13 (GitHub API or the page itself).
 % ---------------------------------------------------------------------------
 
-% Blog post and repository (github.com/Linutesto/contextpaw, created 2026-07-11): Ollama returns success after
-% evaluating 16,387 of a 160,689-token prompt; llama-server returns exceed_context_size_error.
+% Blog post and repository (github.com/Linutesto/contextpaw, created 2026-07-11): Ollama returns HTTP 200 with
+% prompt_eval_count 16387 for a 160,689-token prompt at num_ctx 32768 and the model confabulates; llama-server at n_ctx
+% 4096 returns exceed_context_size_error for a 60,001-token request (the post calls it the same prompt; the counts
+% differ); a marker-only compaction recovered 0/3 evicted facts. No repeated runs or rates; one GPU (RTX 4090); no
+% memory analysis. Re-read 2026-11-13.
 @misc{desbiens2026contextpaw,
   author       = {Desbiens, Yan},
   title        = {Your {LLM} server lies to you when the context window overflows},
@@ -403,6 +411,8 @@
   note         = {Published 2026-07-11; accessed 2026-11-13}
 }
 
+% Opened 2024-04-23 by guoxf, label "feature request": asks for a flag or error when output is truncated because it
+% exceeds the context size. A 2026-07 comment by a repository collaborator says truncation is logged only at OLLAMA_DEBUG=1.
 @misc{ollama3839,
   author       = {{guoxf}},
   title        = {Feature Request: Detect Truncation Due to Exceeding Context Size},

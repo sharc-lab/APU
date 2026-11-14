@@ -3510,8 +3510,8 @@ before touching his files. Estimate the X2 hours. Don't run it until the splits 
 
 On a public agent benchmark we did not build, does the runtime's true default context window cost accuracy through
 truncation (memory), and is that cost silent (HTTP 200, no error to the client) on Ollama and loud (an error the client
-sees) on llama-server, as the CONTRACT-1 probes found for synthetic prompts [REG zach-contract1-20261109,
-zach-evo-x2-split96]? Or do the same entries fail at a fitting window too (capability)?
+sees) on llama-server, as the CONTRACT-1 probes found for synthetic prompts [REG pkg1109-contract1,
+pkg1109-evo-x2-split96]? Or do the same entries fail at a fitting window too (capability)?
 
 ### Benchmark subset (fixed now; checked 2026-11-13 against the BFCL source)
 
@@ -3628,7 +3628,7 @@ Per entry, within a model and runtime, fitting arm (F, or D under the contingenc
 - Loaded window not as expected (F, C): the cell is NOT RUN. Stale-server guard (harness/server_guard.py) on every
   call; a guard failure stops the cell and its partial rows are not scored.
 - Harness errors (not model errors) on more than 5% of a cell's entries: the cell is VOID.
-- GPU device lost or driver reset (Zach's Vulkan probe hit ErrorDeviceLost [REG zach-evo-x2-split96]): the cell stops;
+- GPU device lost or driver reset (Zach's Vulkan probe hit ErrorDeviceLost [REG pkg1109-evo-x2-split96]): the cell stops;
   entries not run are NOT RUN; a ROCm rerun needs an amendment.
 - A time cap is set in the run note before each window; entries not started are NOT RUN, never a verdict.
 - One X2 queue job per model; it calls `tq.advance()` on exit and sets no pause. Order: qwen3:8b then qwen3:14b; per

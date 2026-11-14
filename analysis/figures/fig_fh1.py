@@ -9,10 +9,11 @@ results/mx2_spill_stats.jsonl, results/mx2_validation.jsonl, results/t2s_night2_
 results/x2_70b_edge_reps.jsonl). x = per-process GPU memory / the dedicated block (`frac_dedicated`, boundary
 `dedicated_mib`); y = decode rate and TTFT at that window divided by the same model's smallest window from the same
 source file. Points are labelled with the served window; clamped points (served window < requested) are hollow
-and labelled requested -> served. Each point's
+and labelled requested -> served. Labels sit at evenly spaced x positions with leader lines to their points, so no
+two labels overlap at the printed 8 pt size. Each point's
 overflow path is read from its own `spill` field; the "spills to shared memory" region is shaded only if every point
-agrees with it. The hard crash far beyond the boundary is stated as panel text from the row's bisection record, not
-placed on the axis (its memory figure is the server's logged allocation, a different measure from the x counter).
+agrees with it. The hard crash far beyond the boundary (the row's bisection record) is stated in the paper text
+(Section 4.4), not drawn: its memory figure is the server's logged allocation, a different measure from the x counter.
 
 Panel (b) Intel iGPU. Register row A-24-effective-heap-limit, through numbers_register._a24_model_logs /
 _a24_model_parameters / _a24_heap_demand_points, the helpers its compute function calls (result files
@@ -23,7 +24,8 @@ refused device-compute allocation ('device compute refused'), divided by the upp
 host-compute bounds are not drawn (they do not decide whether the server starts).
 
 Panel (c) NVIDIA dGPU. Register row blade-k1-layer-split, through results/blade_k1_v2.summary.json (the one file its
-compute function reads): x = loaded model size / device VRAM at each tested window, labelled with the VRAM share. The
+compute function reads): x = loaded model size / device VRAM at each tested window, labelled (leader lines) with the
+window and the VRAM share. The
 cost of crossing (slowdown against spilled share) is NOT in verified results, so the panel draws placement only and
 marks the cost PENDING.
 
@@ -39,7 +41,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import COLORS, MUTED, REPO, entry, nr, plt, row, save, style  # noqa: E402
+from _common import COLORS, MUTED, REPO, TEXT_IN, entry, nr, plt, row, save, style  # noqa: E402
 
 ROWS = ["fh1-amd-boundary-llama-3.3-70b", "fh1-amd-boundary-qwen3-32b", "A-24-effective-heap-limit",
         "blade-k1-layer-split"]
@@ -87,11 +89,23 @@ def nvidia_points():
     return s["device"]["vram_total_mib"], out
 
 
+def _fan(ax, pts, x_lo, x_hi, y_text, color="#333333"):
+    """Label points (x, y, text) without overlap: labels sit at evenly spaced x positions in [x_lo, x_hi] (in point
+    order), rotated 90 degrees with their base at y_text, each joined to its point by a thin leader line."""
+    pts = sorted(pts)
+    n = len(pts)
+    for k, (x, y, txt) in enumerate(pts):
+        xt = x_lo + (x_hi - x_lo) * (k / (n - 1) if n > 1 else 0.5)
+        ax.plot([x, xt], [y, y_text], color="#9a9a9a", lw=0.5, zorder=1)
+        ax.text(xt, y_text, txt, rotation=90, ha="center", va="top", color=color, zorder=4,
+                bbox=dict(boxstyle="square,pad=0.1", fc="white", ec="none"))
+
+
 def draw(out_dir=None):
     from matplotlib.lines import Line2D
     style()
-    fig, axes = plt.subplots(1, 3, figsize=(7.16, 2.7), sharex=True,
-                             gridspec_kw={"width_ratios": [1.3, 1.0, 0.9], "wspace": 0.12})
+    fig, axes = plt.subplots(1, 3, figsize=(TEXT_IN, 2.8), sharex=True,
+                             gridspec_kw={"width_ratios": [1.35, 1.0, 1.0]})
     a, b, c = axes
     xlim = (0.0, 1.85)
 
@@ -104,8 +118,7 @@ def draw(out_dir=None):
     a.axhline(1.0, color="#bbbbbb", lw=0.6)
     if shade_ok:
         a.axvspan(1.0, xlim[1], color="#f0f0f0", zorder=0)
-        a.text(1.02, 1.045, "spills to shared memory, no error", fontsize=4.6, color="#555555", rotation=90,
-               va="top", ha="left")
+        a.text(1.83, 1.115, "spills to shared" + NL + "memory, no error", color="#555555", va="top", ha="right")
     for i, m in enumerate(models):
         col = COLORS[i]
         for p in [q for q in meas if q["model"] == m]:
@@ -115,68 +128,61 @@ def draw(out_dir=None):
     seen = {}
     for p in sorted(meas, key=lambda q: q["x"]):
         seen.setdefault((p["model"], p["req"], p["served"]), p)
-    for k, p in enumerate(sorted(seen.values(), key=lambda q: q["x"])):
-        txt = f"{p['served']}" if not p["clamped"] else f"{p['req']}→" + NL + f"{p['served']}"
-        y = min(p["decode"], p["ttft"])
-        dy = (-4, -11, -18)[k % 3]
-        a.annotate(txt, (p["x"], y), xytext=(0, dy), textcoords="offset points", fontsize=4.6, ha="center",
-                   va="top", color="#333333")
-    a.set_ylim(0.932, 1.068)
-    bis = details["llama-3.3-70b"]["bisection"]
-    a.text(0.99, 0.02, f"llama-3.3-70b hard limit: request {bis['first_fail']['n_ctx']}" + NL
-           + f"crashes the server (exit {bis['first_fail']['exit_code']});" + NL
-           + f"last start: request {bis['last_start']['n_ctx']}"
-           + (" (clamped)" if bis["last_start"]["clamped"] else ""),
-           transform=a.transAxes, fontsize=4.8, color="#333333", va="bottom", ha="right")
+    lab = [(p["x"], min(p["decode"], p["ttft"]) - 0.004,
+            f"{p['served']}" if not p["clamped"] else f"{p['req']}→{p['served']}") for p in seen.values()]
+    _fan(a, lab, 0.62, 1.80, 0.955)
+    a.set_ylim(0.72, 1.12)
+    a.set_yticks([0.95, 1.0, 1.05, 1.10])
     a.set_title("(a) AMD APU: soft spill", loc="left")
     a.set_ylabel("ratio to the smallest window")
     a.set_xlabel("GPU memory in use /" + NL + f"{ded:.0f} MiB dedicated block")
-    h = [Line2D([], [], color=COLORS[i], marker="s", ls="", ms=3.5, label=m) for i, m in enumerate(models)]
-    h += [Line2D([], [], color="#444444", marker="o", ls="", ms=3.5, label="decode"),
-          Line2D([], [], color="#444444", marker="^", ls="", ms=3.5, label="TTFT"),
-          Line2D([], [], color="#444444", marker="o", mfc="white", ls="", ms=3.5, label="clamped")]
-    a.legend(handles=h, loc="upper left", ncol=1, frameon=False, handletextpad=0.2, labelspacing=0.25)
+    h = [Line2D([], [], color=COLORS[i], marker="s", ls="", ms=4, label=m) for i, m in enumerate(models)]
+    h += [Line2D([], [], color="#444444", marker="o", ls="", ms=4, label="decode"),
+          Line2D([], [], color="#444444", marker="^", ls="", ms=4, label="TTFT"),
+          Line2D([], [], color="#444444", marker="o", mfc="white", ls="", ms=4, label="clamped")]
+    a.legend(handles=h, loc="lower left", ncol=1, frameon=False, handletextpad=0.2, labelspacing=0.2,
+             borderaxespad=0.1)
 
-    # (b) Intel iGPU
+    # (b) Intel mini PC iGPU
     l_lo, l_hi, ipts = intel_points()
     order = sorted(ipts)
     b.axvspan(l_lo / l_hi, 1.0, color="#cfcfcf", zorder=0)
     b.axvline(1.0, color=MUTED, lw=0.8, ls="--")
     for j, m in enumerate(order):
         st, rf = ipts[m]
-        b.plot([v / l_hi for v in st], [j + 0.1] * len(st), "o", ms=3.0, mfc=COLORS[2], mec="white", mew=0.4,
+        b.plot([v / l_hi for v in st], [j - 0.08] * len(st), "o", ms=3.4, mfc=COLORS[2], mec="white", mew=0.4,
                zorder=3)
-        b.plot([v / l_hi for v in rf], [j - 0.1] * len(rf), "x", ms=3.4, color=COLORS[1], mew=1.0, zorder=3)
-        b.text(0.03, j + 0.32, m, fontsize=5, color="#333333", va="center")
+        b.plot([v / l_hi for v in rf], [j - 0.08] * len(rf), "x", ms=4.0, color=COLORS[1], mew=1.1, zorder=3)
+        b.text(0.03, j + 0.36, m, color="#333333", va="center")
     b.set_yticks([])
-    b.set_ylim(-0.6, len(order) + 0.25)
+    b.set_ylim(-0.5, len(order) + 0.75)
     b.grid(axis="y", visible=False)
-    b.set_title("(b) Intel iGPU: start or refuse", loc="left")
+    b.set_title("(b) Intel mini PC: hard wall", loc="left")
     b.set_xlabel("shared-heap demand / L" + NL + f"(L ≤ {l_hi:.1f} MiB)")
-    b.legend(handles=[Line2D([], [], color=COLORS[2], marker="o", ls="", ms=3.2, label="started"),
-                      Line2D([], [], color=COLORS[1], marker="x", ls="", ms=3.2, label="refused")],
-             loc="upper left", ncol=2, frameon=False, handletextpad=0.2, columnspacing=0.6)
+    b.legend(handles=[Line2D([], [], color=COLORS[2], marker="o", ls="", ms=4, label="started"),
+                      Line2D([], [], color=COLORS[1], marker="x", ls="", ms=4, label="refused")],
+             loc="upper right", ncol=2, frameon=False, handletextpad=0.2, columnspacing=0.6, borderaxespad=0.1)
 
     # (c) NVIDIA dGPU: placement measured, cost pending
     vram, npts = nvidia_points()
     c.axvline(1.0, color=MUTED, lw=0.8, ls="--")
     for i, (m, ps) in enumerate(npts.items()):
-        y = 0.22 + 0.3 * i
-        c.plot([x for _, x, _ in ps], [y] * len(ps), "s", ms=3.2, color=COLORS[3 + i], zorder=3)
-        c.text(0.03, y + 0.1, m, fontsize=5, color="#333333", va="center")
-        for k, (ctx, x, share) in enumerate(ps):
-            c.annotate(f"{ctx}" + NL + f"{share:.2f}", (x, y), xytext=(0, 3 if k % 2 else -3),
-                       textcoords="offset points", fontsize=4.3, ha="center", va="bottom" if k % 2 else "top",
-                       color="#333333")
+        y = 0.08 + 0.36 * i
+        c.plot([x for _, x, _ in ps], [y] * len(ps), "s", ms=3.6, color=COLORS[3 + i], zorder=3)
+        c.text(0.03, y + 0.27, m, color="#333333", va="center")
+        n = len(ps)
+        for k, (ctx, x, share) in enumerate(sorted(ps, key=lambda q: q[1])):
+            xt = 0.35 + 1.3 * (k / (n - 1) if n > 1 else 0.5)
+            c.plot([x, xt], [y, y + 0.06], color="#9a9a9a", lw=0.5, zorder=1)
+            c.text(xt, y + 0.06, f"{ctx}" + NL + f"{share:.2f}", ha="center", va="bottom", color="#333333", zorder=4)
     c.set_ylim(0, 1)
     c.set_yticks([])
     c.grid(axis="y", visible=False)
     c.text(0.5, 0.87, "cost of crossing: PENDING" + NL + "(not in verified results)", transform=c.transAxes,
-           ha="center", va="center", fontsize=5.6, color="#8a3b00",
+           ha="center", va="center", color="#8a3b00",
            bbox=dict(boxstyle="round,pad=0.3", fc="#fff4e5", ec="#e0b080", lw=0.6))
-    c.text(0.03, 0.03, "labels: window / VRAM share", transform=c.transAxes, fontsize=4.6, color="#555555")
-    c.set_title("(c) NVIDIA dGPU: placement only", loc="left")
-    c.set_xlabel("loaded model size /" + NL + f"{vram} MiB VRAM")
+    c.set_title("(c) NVIDIA: placement only", loc="left")
+    c.set_xlabel(f"model size / VRAM ({vram} MiB)" + NL + "labels: window, VRAM share")
     for ax in axes:
         ax.set_xlim(*xlim)
     return save(fig, NAME, out_dir)

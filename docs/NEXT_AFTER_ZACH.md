@@ -20,7 +20,9 @@ pre-registered in docs/EXPERIMENTS.md with its target before it runs; numbers co
    only, registered next to the 40,960 row (`long-task-scale-local`).
    Status 2026-11-07: not triggered (item 1 found no truncation on this task set). A task set matched on tokens, not
    steps, would need its own pre-registration before this could apply.
-   Update 2026-11-09: the token-matched set exists (longtask-tokens-v1, exploratory, 3 tasks): llama3.3:70b at a
+   Update 2026-11-09: the token-sized set exists (longtask-tokens-v1, exploratory, 3 tasks; corrected 2026-11-13: its
+   reference prompts were 1.58x to 1.62x the trace targets in Qwen3 tokens, about 60% longer than the traces, so not
+   token-matched [REG longtask-tokens-v1-sizing]): llama3.3:70b at a
    window holding the whole prompt (131,072 loaded) failed 3/3 on wrong actions, so for 70B capability fails first;
    the 32B fitting arm was not a test (Ollama 0.34.4 loaded 40,960 for a 98,304 request) [REG longtask-tokens-v1].
    The real memory-vs-capability test is longtask-tokens-v2 (a 256K-native model; pre-registration filed, not run).
@@ -42,8 +44,9 @@ pre-registered in docs/EXPERIMENTS.md with its target before it runs; numbers co
   standard hybrid (every-call check) [REG pitch1-standard-hybrid-8192].
 - Savings only on short tasks so far.
 - Long-task savings: 0% to date. qwen3:14b and qwen3:32b solved 0/30 long tasks [REG long-task-scale-local];
-  llama3.3:70b 3/30 after the pre-registered tool-template fix [REG longtask-70b-toolfix], and 0/3 token-matched
-  tasks at a window that held the whole prompt [REG longtask-tokens-v1]. No long-task saving is claimed.
+  llama3.3:70b 3/30 after the pre-registered tool-template fix [REG longtask-70b-toolfix], and 0/3 long tasks
+  (about 1.6x the trace token targets, not token-matched [REG longtask-tokens-v1-sizing]) at a window that held the
+  whole prompt [REG longtask-tokens-v1]. No long-task saving is claimed.
 - False escalations are not reduced: 11/21 in the live 8192 run, and no rule change cuts them without losing caught
   failures [REG l1-false-escalation-candidates].
 - The live 8192 post-run check is reported as 29/30 with the turn 24 handoff explanation, not regraded

@@ -1,4 +1,9 @@
-"""Token-matched long tasks (longtask-tokens-v1, pre-registered 2026-11-09 in docs/EXPERIMENTS.md).
+"""Token-sized long tasks (longtask-tokens-v1, pre-registered 2026-11-09 in docs/EXPERIMENTS.md).
+
+Correction (2026-11-13, register row longtask-tokens-v1-sizing): the v1 pads (chars/4 x PROJ_CALIB) gave reference
+prompts of 1.58x to 1.62x the trace targets in Qwen3 tokens, so the v1 tasks were about 60% longer than the traces,
+not token-matched. The v2 pads (TokenizerSizing) end at 1.0009x to 1.0021x of the targets. LABEL below is recorded in result
+rows and is left unchanged.
 
 The step-matched set (harness/longtask_env.py) matches each OpenHands trajectory's STEP count, but its tool results are
 small JSON records, so its prompts stay near 11k tokens while the real traces reach 42k to 87k. This module keeps the

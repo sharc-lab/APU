@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import COLORS, MUTED, REPO, entry, nr, plt, row, save, style  # noqa: E402
+from _common import COL_IN, MIN_PT, MUTED, REPO, entry, nr, plt, row, save, style  # noqa: E402
 
 ROWS = ["fh1-amd-boundary-llama-3.3-70b", "A-24-effective-heap-limit", "blade-k1-layer-split",
         "x2-device-detect-mechanism"]
@@ -53,17 +53,17 @@ def load():
     return amd, lim, budget, s["device"], first_off
 
 
-def lane(ax, y, segs, h=0.5, fs=4.5):
+def lane(ax, y, segs, h=0.5, fs=MIN_PT):
     for x0, x1, fc, txt in segs:
         ax.add_patch(plt.Rectangle((x0, y - h / 2), x1 - x0, h, fc=fc, ec="#555555", lw=0.6, zorder=2))
         if txt:
             ax.text((x0 + x1) / 2, y, txt, ha="center", va="center", fontsize=fs, color="#222222", zorder=3, linespacing=1.0)
 
 
-def tick(ax, x, y, txt, h=0.5, above=True):
+def tick(ax, x, y, txt, h=0.5, above=True, ha="center"):
     ax.plot([x, x], [y - h / 2 - 0.06, y + h / 2 + 0.06], color="#222222", lw=0.9, zorder=4)
-    ax.text(x, y + (h / 2 + 0.09 if above else -h / 2 - 0.09), txt, ha="center", va="bottom" if above else "top",
-            fontsize=4.6, color="#222222")
+    ax.text(x, y + (h / 2 + 0.09 if above else -h / 2 - 0.09), txt, ha=ha, va="bottom" if above else "top",
+            color="#222222")
 
 
 def draw(out_dir=None):
@@ -74,45 +74,43 @@ def draw(out_dir=None):
     vram = dev["vram_total_mib"]
     lib = ", ".join(dev.get("libraries") or [])
 
-    fig, ax = plt.subplots(figsize=(3.45, 2.55))
-    ax.set_xlim(-1500, tot * 1.03)
-    ax.set_ylim(-0.5, 3.75)
+    fig, ax = plt.subplots(figsize=(COL_IN, 3.6))
+    ax.set_xlim(-1500, tot * 1.02)
+    ax.set_ylim(-0.75, 5.0)
     ax.axis("off")
-    fs = 4.6
+    bold = dict(weight="bold", va="bottom")
 
     # AMD APU (top)
-    y = 3.0
-    ax.text(0, y + 0.47, "AMD APU: unified memory", fontsize=5.8, weight="bold", va="bottom")
-    lane(ax, y, [(0, ded, GPU, "dedicated block: weights + KV cache"),
-                 (ded, tot, SHARED, "shared memory:" + NL + "spill past the block," + NL + "no error")])
-    tick(ax, ded, y, f"{ded:.0f}")
-    tick(ax, dl, y, f"device-local heap {dl:.0f}", above=False)
-    tick(ax, tot, y, f"{tot:.0f}")
-    ax.text(0, y - 0.52, "llama-server: Vulkan; Ollama: iGPU via ROCm", fontsize=fs, color=MUTED, va="top")
+    y = 4.0
+    ax.text(0, y + 0.62, "AMD APU: unified memory", **bold)
+    lane(ax, y, [(0, ded, GPU, "weights + KV cache"), (ded, tot, SHARED, "spill," + NL + "no error")], h=0.6)
+    tick(ax, ded, y, f"{ded:.0f}", h=0.6)
+    tick(ax, tot, y, f"{tot:.0f}", h=0.6, ha="right")
+    tick(ax, dl, y, f"device-local heap {dl:.0f}", h=0.6, above=False, ha="right")
+    ax.text(0, y - 0.72, "llama-server: Vulkan; Ollama: ROCm", color=MUTED, va="top")
 
     # Intel iGPU (middle)
-    y = 1.6
-    ax.text(0, y + 0.33, "Intel iGPU: unified memory, one shared heap", fontsize=5.8, weight="bold", va="bottom")
-    lane(ax, y, [(0, l_hi, GPU, "one heap: weights + KV cache +" + NL + "compute + host-visible buffers")])
-    ax.add_patch(plt.Rectangle((l_lo, y - 0.25), l_hi - l_lo, 0.5, fc="#333333", lw=0, zorder=3))
-    ax.text(l_hi + 1500, y + 0.06, f"budget {budget:.0f}; limit L \u2264 {l_hi:.0f}", va="bottom", fontsize=fs)
-    ax.plot([l_hi, l_hi], [y - 0.31, y + 0.31], color="#222222", lw=0.9, zorder=4)
-    ax.text(l_hi + 1500, y - 0.04, "past L: start refused", fontsize=fs, va="top", color="#222222")
-    ax.text(0, y - 0.34, "llama-server: Vulkan; Ollama: CPU as shipped", fontsize=fs, color=MUTED, va="top")
+    y = 2.05
+    ax.text(0, y + 0.62, "Intel mini PC iGPU: one shared heap", **bold)
+    lane(ax, y, [(0, l_hi, GPU, "weights, KV cache," + NL + "compute, host buffers")], h=0.75)
+    ax.add_patch(plt.Rectangle((l_lo, y - 0.375), l_hi - l_lo, 0.75, fc="#333333", lw=0, zorder=3))
+    ax.plot([l_hi, l_hi], [y - 0.45, y + 0.45], color="#222222", lw=0.9, zorder=4)
+    ax.text(l_hi + 2000, y + 0.05, f"budget {budget:.0f};" + NL + f"limit L ≤ {l_hi:.0f};", va="bottom")
+    ax.text(l_hi + 2000, y - 0.02, "past L: start refused", va="top")
+    ax.text(0, y - 0.48, "llama-server: Vulkan; Ollama: CPU", color=MUTED, va="top")
 
     # NVIDIA dGPU (bottom)
-    y = 0.3
-    ax.text(0, y + 0.33, "NVIDIA laptop dGPU: discrete VRAM", fontsize=5.8, weight="bold", va="bottom")
-    lane(ax, y, [(0, vram, GPU, "")])
+    y = 0.25
+    ax.text(0, y + 0.55, "NVIDIA laptop: discrete VRAM", **bold)
+    lane(ax, y, [(0, vram, GPU, "")], h=0.5)
     ax.plot([vram, vram], [y - 0.31, y + 0.31], color="#222222", lw=0.9, zorder=4)
-    ax.text(vram + 2000, y - 0.05, f"VRAM {vram}", fontsize=fs, va="top")
-    ax.annotate("", xy=(vram + 54000, y), xytext=(vram + 1200, y),
+    ax.text(vram + 2000, y - 0.06, f"VRAM {vram}", va="top")
+    ax.annotate("", xy=(vram + 76000, y), xytext=(vram + 1200, y),
                 arrowprops=dict(arrowstyle="->", lw=0.8, color="#222222"))
-    lane(ax, y, [(vram + 54000, vram + 90000, SHARED, "CPU RAM (not to scale)")])
-    ax.text(vram + 2000, y + 0.05, f"layers move at window \u2265 {first_off}", fontsize=fs, va="bottom")
-    ax.text(0, y - 0.34, f"VRAM: weights + KV cache; Ollama: {lib}", fontsize=fs, color=MUTED, va="top")
-
-    ax.text(tot * 1.03, -0.48, "bars in MiB, common scale", fontsize=fs, color=MUTED, ha="right", va="bottom")
+    lane(ax, y, [(vram + 76000, tot, SHARED, "CPU RAM")], h=0.5)
+    ax.text(vram + 2000, y + 0.06, f"layers move at window ≥ {first_off}", va="bottom")
+    ax.text(0, y - 0.38, f"VRAM: weights + KV cache; Ollama: {lib}", color=MUTED, va="top")
+    ax.text(tot * 1.02, -0.75, "MiB, common scale (CPU RAM not to scale)", color=MUTED, ha="right", va="bottom")
     return save(fig, NAME, out_dir)
 
 

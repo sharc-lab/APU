@@ -18,13 +18,14 @@ from __future__ import annotations
 
 import json
 import re
+import textwrap
 import sys
 from pathlib import Path
 
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import COLORS, REPO, entry, plt, row, save, style  # noqa: E402
+from _common import COL_IN, COLORS, REPO, entry, plt, row, save, style  # noqa: E402
 
 ROWS = ["trace-fraction-exceeds-4096", "T2S-vs-X2-default-ctx", "blade-k1-layer-split"]
 NAME = "fig_f5.pdf"
@@ -59,43 +60,44 @@ def defaults():
 
 
 def draw(out_dir=None):
+    from matplotlib.lines import Line2D
     style()
     tok = np.sort(step_lengths())
     intel, amd, nv = defaults()
-    fig, ax = plt.subplots(figsize=(3.4, 2.3))
+    fig, ax = plt.subplots(figsize=(COL_IN, 3.15))
     y = np.arange(1, len(tok) + 1) / len(tok)
     ax.step(tok, y, where="post", color="#333333", lw=1.1)
     ax.set_xscale("log", base=2)
     ax.set_xlim(2 ** 10, 2 ** 19)
     ax.set_ylim(0, 1.02)
 
-    # group models by (platform, window) so coinciding defaults share one line
+    # group models by (platform, window) so coinciding defaults share one line; the legend names them
     lines = {}
     for plat, d in (("Intel CPU", intel), ("NVIDIA GPU", nv), ("AMD iGPU", amd)):
         for m, w in d.items():
             lines.setdefault(w, []).append((plat, m))
     pcol = {"Intel CPU": COLORS[2], "NVIDIA GPU": COLORS[3], "AMD iGPU": COLORS[0]}
-    for w, items in sorted(lines.items()):
+    styles = ["--", "-.", ":", (0, (5, 1.5, 1, 1.5))]
+    h = []
+    for k, (w, items) in enumerate(sorted(lines.items())):
         frac = (tok <= w).mean()
         plats = sorted({p for p, _ in items})
         col = pcol[plats[0]] if len(plats) == 1 else "#444444"
-        ax.axvline(w, color=col, lw=1.0, ls="--", zorder=1)
-        ax.plot([w], [frac], "o", ms=3.2, color=col, zorder=3)
-        who = [f"{p}: " + ", ".join(m for q, m in items if q == p) for p in plats]
-        longer = f"{(1 - frac) * 100:.1f}% of steps longer"
-        if len(plats) > 1:  # shared default: horizontal block in the empty upper-left area
-            ax.text(w * 1.1, 0.98, NL.join([f"default {w}"] + who + [longer]), fontsize=4.8, color="#333333",
-                    ha="left", va="top", zorder=4,
-                    bbox=dict(boxstyle="square,pad=0.2", fc="white", ec="none", alpha=0.9))
-        else:
-            ax.text(w * 1.08, 0.03, f"default {w}: {'; '.join(who)}" + NL + longer, rotation=90,
-                    fontsize=4.6, color="#333333", ha="left", va="bottom")
+        ls = styles[k % len(styles)]
+        ax.axvline(w, color=col, lw=1.1, ls=ls, zorder=1)
+        ax.plot([w], [frac], "o", ms=3.6, color=col, zorder=3)
+        ax.text(w * 1.07, 0.98, f"{w}", rotation=90, ha="left", va="top", color="#333333")
+        who = "; ".join(f"{p}, " + ", ".join(m for q, m in items if q == p) for p in plats)
+        txt = NL.join(textwrap.wrap(f"{w}: {who}; {(1 - frac) * 100:.1f}% of steps longer", 48))
+        h.append(Line2D([], [], color=col, lw=1.1, ls=ls, marker="o", ms=3.6, label=txt))
     ticks = [2 ** k for k in range(10, 20, 2)]
     ax.set_xticks(ticks)
     ax.set_xticklabels([str(t) for t in ticks])
     ax.minorticks_off()
     ax.set_xlabel("agent step length (tokens, log scale)")
-    ax.set_ylabel(f"CDF of steps (n = {len(tok)})")
+    ax.set_ylabel("CDF of steps" + NL + f"(n = {len(tok)})")
+    fig.legend(handles=h, loc="outside lower center", ncol=1, frameon=False, handlelength=1.2, labelspacing=0.25,
+               handletextpad=0.4, title="default window: platform, models")
     return save(fig, NAME, out_dir)
 
 

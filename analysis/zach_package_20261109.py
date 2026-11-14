@@ -1,5 +1,5 @@
 """Zach's data package of 2026-11-09 (his ISPASS part), read from ~/zach_runs/data_20261109 (the user's home), outside
-the repo (his data, not committed). One function per README item, for the register rows zach-*-20261109. Credit:
+the repo (his data, not committed). One function per README item, for the register rows pkg1109-* (credit Zach). Credit:
 every run, score file and sealed prediction here is Zach's; this module only reads them, and recomputes the T4-8B
 counts and the PITCH-LL rates from his raw rows to check his README.
 

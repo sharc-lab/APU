@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import COLORS, REPO, entry, plt, row, save, style  # noqa: E402
+from _common import COL_IN, COLORS, REPO, entry, plt, row, save, style  # noqa: E402
 
 ROWS = ["R2-mechanism-lowlevel", "blade-mechanism-4096"]
 NAME = "fig_f7.pdf"
@@ -89,7 +89,7 @@ def draw(out_dir=None):
     rows = [(f"AMD {tier_label(a)}", _per_turn(rs), rs) for a, rs in amd.items()]
     rows.append((f"NVIDIA {tier_label(nv_arm)}", _per_turn(nv_rs), nv_rs))
     turns = sorted({r["turn_idx"] for _, _, rs in rows for r in rs})
-    fig, ax = plt.subplots(figsize=(3.45, 1.95))
+    fig, ax = plt.subplots(figsize=(COL_IN, 2.3))
     n = len(rows)
     for i, (lab, ev, _) in enumerate(rows):
         y = n - 1 - i
@@ -97,18 +97,17 @@ def draw(out_dir=None):
             ax.axhspan(y - 0.5, y + 0.5, color="#f2f2f2", zorder=0)
         for k, (name, mk, col) in enumerate(EVENTS):
             xs = sorted(ev[name])
-            ax.plot(xs, [y + (1 - k) * 0.25] * len(xs), mk, ms=2.6 if mk != "v" else 3.6, color=col, mec="white", mew=0.3, ls="",
-                    zorder=3)
+            ax.plot(xs, [y + (1 - k) * 0.26] * len(xs), mk, ms=3.0 if mk != "v" else 4.0, color=col, mec="white",
+                    mew=0.3, ls="", zorder=3)
     ax.set_yticks(range(n))
-    ax.set_yticklabels([lab for lab, _, _ in rows][::-1], fontsize=5.8)
+    ax.set_yticklabels([lab for lab, _, _ in rows][::-1])
     ax.set_ylim(-0.6, n - 0.4)
     ax.set_xlim(min(turns) - 0.8, max(turns) + 0.8)
     ax.set_xlabel("turn")
     ax.grid(axis="y", visible=False)
     from matplotlib.lines import Line2D
-    ax.legend(handles=[Line2D([], [], marker=mk, color=col, ls="", ms=3, label=nm) for nm, mk, col in EVENTS],
-              loc="upper center", bbox_to_anchor=(0.45, 1.16), ncol=3, frameon=False, columnspacing=1.0,
-              handletextpad=0.2)
+    fig.legend(handles=[Line2D([], [], marker=mk, color=col, ls="", ms=4, label=nm) for nm, mk, col in EVENTS],
+               loc="outside upper center", ncol=3, frameon=False, columnspacing=0.8, handletextpad=0.2)
     return save(fig, NAME, out_dir)
 
 
