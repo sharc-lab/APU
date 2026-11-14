@@ -5741,12 +5741,64 @@ def compute_token_estimate_audit(repo):
             "n": "90 jobs at 8192 + 6 long-task files"}
 
 
+def compute_token_reservation_replay(repo):
+    """analysis/token_fix_replay.py (2026-11-13, operator-approved fix of the spend reservation): the old whitespace
+    word count and the new byte upper bound (src/cloud/client.upper_bound_input_tokens) against measured Anthropic
+    token counts (40 count_tokens results; per-text counts in results/token_reservation_check_v1.jsonl) and against
+    the billed first call of every escalated task of the live 8192 run (exact rebuild), plus the per-task cap replay
+    (later calls ESTIMATED). Replay of recorded files, USD 0. Analysis decided after the data, at the operator's ask."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("token_fix_replay_nr", Path(repo) / "analysis" / "token_fix_replay.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    out = []
+    m.r1(None, out)
+    m.r2(out)
+    keep = ("  n=", "  old word count", "  new upper bound", "  call 1 (exact rebuild)", "  per-task cap replay",
+            "PART R2")
+    lines = [x.strip() for x in out if x.startswith(keep)]
+    return {"value": "REPLAY, USD 0 / " + " / ".join(lines), "n": "40 measured texts + 20 escalated live tasks"}
+
+
+def compute_longtask_tokens_v1_sizing(repo):
+    """analysis/longtask_v2_sizing_check.py (2026-11-13): the token-matched long tasks' padded reference prompts counted
+    with the Qwen3 tokenizer as the chat template frames them. v1 pads (chars/4 x PROJ_CALIB, as run in
+    longtask-tokens-v1) against the v2 pads (tokenizer-sized), each vs the matched trace's final step."""
+    rows = [json.loads(x) for x in (Path(repo) / LT_SIZING_FILE).read_text(encoding="utf-8").splitlines() if x.strip()]
+    parts = []
+    for seed in sorted({r["seed"] for r in rows}):
+        x = [r for r in rows if r["seed"] == seed]
+        v1 = sorted(r["v1_ratio"] for r in x)
+        v2 = sorted(r["v2_ratio"] for r in x)
+        parts.append(f"seed {seed}: v1 final prompt / trace final {v1[0]:.3f} to {v1[-1]:.3f}; v2 {v2[0]:.4f} to "
+                     f"{v2[-1]:.4f}; v2 reference passes {sum(r['v2_oracle_ok'] for r in x)}/{len(x)} (n={len(x)} "
+                     f"tasks)")
+    return {"value": ("MEASURED with the Qwen3 tokenizer (sha256 " + rows[0]["tokenizer_sha256"][:16] + "...), no "
+                      "model call: longtask-tokens-v1's padded reference prompts were about 1.6x the trace targets "
+                      "they were sized to (the chars/4 estimate under-counts the digit-heavy log padding), so v1's "
+                      "'token-matched' tasks were longer than the traces / " + " / ".join(parts)),
+            "n": f"{len(rows)} task x seed"}
+
+
+LT_SIZING_FILE = "results/longtask_v2_sizing_check_v1.jsonl"
+
+
 LTT2_FILE = "results/x2_longtask_tokens_v2_qwen3_30b_a3b_2507.jsonl"
 
 
 def compute_longtask_tokens_v2(repo):
     """longtask-tokens-v2 (pre-registered 2026-11-12): the reading rule is applied once the run exists; not run."""
     raise RuntimeError("longtask-tokens-v2 not run; this row stays PENDING until its file has run_end")
+
+
+BFCL_MTLC_FILE = "results/x2_bfcl_mt_longctx_v1.jsonl"
+
+
+def compute_bfcl_mt_longctx_v1(repo):
+    """bfcl-mt-longctx-v1 (pre-registered 2026-11-13): BFCL v4 multi_turn_long_context, 200 entries, qwen3:8b and
+    qwen3:14b on Ollama and llama-server, true default vs fitting window (contingency arm 4,096); the reading rule in
+    docs/EXPERIMENTS.md is applied once the run exists; not run."""
+    raise RuntimeError("bfcl-mt-longctx-v1 not run; this row stays PENDING until its file has run_end")
 
 
 ZACH_PKG_DIR = "~/zach_runs/data_20261109"   # Zach's data package, outside the repo under the user's home (not committed)
@@ -11553,11 +11605,27 @@ NUMBER_ENTRIES = [
                     "results/x2_longtask_tokens_v1_llama33_70b.jsonl", "results/x2_longtask_toolfix_v1_llama33_70b.jsonl",
                     "results/x2_longtask_scale_v1_qwen3_32b.jsonl", "results/x2_longtask_scale_v1_llama33_70b.jsonl"],
      "script_function": "analysis/token_estimate_audit.py::main"},
+    {"claim_id": "token-reservation-replay", "description": "Spend reservation token count before/after the "
+     "2026-11-13 fix (word count -> byte upper bound): vs measured Anthropic counts and the live 8192 run's billed "
+     "first calls, and the per-task cap replay; USD 0",
+     "compute": compute_token_reservation_replay,
+     "data_files": ["results/token_reservation_check_v1.jsonl", "results/anthropic_token_calibration_20261021.jsonl",
+                    "results/x2_post_run_check_live_v1.jsonl", "results/x2_post_run_check_local_v1.jsonl"],
+     "script_function": "analysis/token_fix_replay.py::main"},
+    {"claim_id": "longtask-tokens-v1-sizing", "description": "Token-matched long tasks: v1 padded reference prompts "
+     "vs trace targets in Qwen3 tokens (v1 sized by chars/4), and the v2 tokenizer-sized pads",
+     "compute": compute_longtask_tokens_v1_sizing, "data_files": [LT_SIZING_FILE],
+     "script_function": "analysis/longtask_v2_sizing_check.py::main"},
     {"claim_id": "longtask-tokens-v2", "description": "longtask-tokens-v2 (pre-registered 2026-11-12): memory vs "
      "capability, qwen3:30b-a3b-instruct-2507 (256K native), true default vs fitting window (contingency arm 40,960), "
      "10 token-matched tasks x 3 fresh seeds, server/tokenizer counts; not run; PENDING until run_end",
      "compute": compute_longtask_tokens_v2, "data_files": [LTT2_FILE], "pending_ok": True,
      "require_run_end": [LTT2_FILE], "script_function": "analysis/numbers_register.py::compute_longtask_tokens_v2"},
+    {"claim_id": "bfcl-mt-longctx-v1", "description": "bfcl-mt-longctx-v1 (pre-registered 2026-11-13): BFCL v4 "
+     "multi_turn_long_context (200 entries, pinned gorilla 6ea57973), qwen3:8b and qwen3:14b, Ollama and llama-server, "
+     "true default vs fitting window (contingency arm 4,096), BFCL multi-turn checker; not run; PENDING until run_end",
+     "compute": compute_bfcl_mt_longctx_v1, "data_files": [BFCL_MTLC_FILE], "pending_ok": True,
+     "require_run_end": [BFCL_MTLC_FILE], "script_function": "analysis/numbers_register.py::compute_bfcl_mt_longctx_v1"},
     {"claim_id": "zach-evo-x2-split96", "description": "Zach's evo-x2 run sheet, split 96 GB (Adrenalin VGM): "
      "CONTRACT-1 probe classes per stack and probe size (Part 1) and llama-bench row counts (Part 2); his data, kept "
      "outside the repo; PENDING on a machine without that folder",

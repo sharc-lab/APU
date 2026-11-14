@@ -383,6 +383,52 @@ def _approx_token_count(messages: list[dict[str, Any]]) -> int:
     return max(1, len(text.split()))
 
 
+# Conservative input-token upper bound for the spend reservation (operator decision 2026-11-13: the hard cap is the
+# product's core promise, so the reservation must never under-count). Basis: a byte-level BPE token covers at least
+# one UTF-8 byte of text, so the tokens of a text are at most its byte count; the JSON serialization below adds keys,
+# quotes and escapes, so it is longer still. Framing the provider adds (role markers, message boundaries, the hidden
+# tool-use system prompt) is not in the text, so it gets explicit allowances. A non-text block (image, document) is
+# priced by its tokens, not its bytes, so it gets a fixed allowance on top of its bytes. Checked against 40 measured
+# Anthropic count_tokens results (results/anthropic_token_calibration_20261021.jsonl): 2.14 to 3.50 chars per token,
+# so the bound is at least 2.1x the real count there. Replaces the whitespace word count, which counts long code or
+# JSON runs as one token each and under-counts real prompts.
+UPPER_BASE_TOKENS = 64
+UPPER_PER_MESSAGE_TOKENS = 16
+UPPER_TOOL_USE_SYSTEM_TOKENS = 1024
+UPPER_NON_TEXT_BLOCK_TOKENS = 12000
+
+
+NON_TEXT_BLOCK_TYPES = ("image", "image_url", "document", "file", "input_audio", "input_image", "input_file")
+
+
+def _non_text_blocks(messages: list[dict[str, Any]]) -> int:
+    """Media blocks in message content (a tool_result's content included); tool schemas are not walked."""
+    def walk(content: Any) -> int:
+        if not isinstance(content, list):
+            return 0
+        n = 0
+        for b in content:
+            if isinstance(b, dict):
+                n += 1 if b.get("type") in NON_TEXT_BLOCK_TYPES else 0
+                n += walk(b.get("content"))
+        return n
+    return sum(walk(m.get("content")) for m in messages if isinstance(m, dict))
+
+
+def upper_bound_input_tokens(messages: list[dict[str, Any]], kwargs: dict[str, Any] | None = None) -> int:
+    """Input tokens of one request, never fewer than the provider will bill (see the constants above). Counts every
+    message (all fields, serialized) and the request fields that reach the model's prompt: tools, tool_choice,
+    system."""
+    kwargs = kwargs or {}
+    parts = [messages] + [kwargs[k] for k in ("tools", "tool_choice", "system") if kwargs.get(k) is not None]
+    n_bytes = sum(len(json.dumps(p, ensure_ascii=False, default=str).encode("utf-8")) for p in parts)
+    n = UPPER_BASE_TOKENS + UPPER_PER_MESSAGE_TOKENS * len(messages) + n_bytes
+    if kwargs.get("tools"):
+        n += UPPER_TOOL_USE_SYSTEM_TOKENS
+    n += UPPER_NON_TEXT_BLOCK_TOKENS * _non_text_blocks(messages)
+    return n
+
+
 def estimate_cost_usd(model_id: str, input_tokens: int, output_tokens: int) -> float:
     """Project the USD cost of a call from the shared price files (Standard list prices; long-context rates above
     the table's boundary). Every input token is charged at the uncached input rate: cache-read discounts are never
@@ -931,11 +977,9 @@ class CloudClient:
     @staticmethod
     def _reservation(model_id: str, messages: list[dict[str, Any]], expected_output_tokens: int,
                      kwargs: dict[str, Any]) -> tuple[int, float]:
-        """(input token estimate, upper-bound reservation USD) of one call: the figure prepare() reserves against the
-        cap. Needs a priced model id."""
-        input_tokens = _approx_token_count(messages)
-        if kwargs.get("tools"):
-            input_tokens += max(1, len(json.dumps(kwargs["tools"]).split()))
+        """(input token upper bound, upper-bound reservation USD) of one call: the figure prepare() reserves against
+        the cap. Needs a priced model id. Tokens: upper_bound_input_tokens (never fewer than billed)."""
+        input_tokens = upper_bound_input_tokens(messages, kwargs)
         return input_tokens, reservation_cost_usd(
             model_id, input_tokens, expected_output_tokens,
             request_cache_ttl(messages, kwargs) if _uses_cache_control(messages, kwargs) else None)

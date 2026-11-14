@@ -17,7 +17,10 @@ from src.cloud import client as cc  # noqa: E402
 from src.cloud import task_budget as TB  # noqa: E402
 
 MODEL = "claude-sonnet-5-5"
-RESULT = REPO / "results" / "per_task_budget_check_v1.jsonl"
+RESULT = REPO / "results" / "per_task_budget_check_v1.jsonl"   # word-count reservation (before 2026-11-13), pinned
+# The forced-retry test regenerates v2: the same loop under the byte upper-bound reservation
+# (src/cloud/client.upper_bound_input_tokens, operator decision 2026-11-13).
+RESULT_V2 = REPO / "results" / "per_task_budget_check_v2.jsonl"
 MESSAGES = [{"role": "user", "content": "word " * 2000}]
 
 
@@ -88,9 +91,9 @@ def test_forced_retry_loop_stops_at_cap(tmp_path):
              "task1_counted_within_cap": refusal["task_spent_usd"] <= cap + 1e-12,
              "billed_within_cap": sum(c["billed_usd"] for c in calls) <= cap,
              "retry_after_refusal_sent": False, "outcome_recorded": True, "next_task_fresh_budget": True}]
-    out = tmp_path / RESULT.name               # never the committed file
+    out = tmp_path / RESULT_V2.name            # never the committed file
     out.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8", newline="\n")
-    assert out.read_bytes() == RESULT.read_bytes().replace(b"\r\n", b"\n"), "result differs from the committed file"
+    assert out.read_bytes() == RESULT_V2.read_bytes().replace(b"\r\n", b"\n"), "result differs from the committed file"
 
 
 PINNED_SHA256 = "3d9c8495d27527480b86c6c0dc8707901d58daa3b86a451fed1436add3f159c6"   # committed content, LF ends
@@ -150,9 +153,12 @@ def test_cloud_redo_live_turn_tool_loop_hits_cap(tmp_path):
 
     inner = _client(tmp_path, fake)
     model = CR.escalation_model(CR.load_price_table())
-    lane = TB.BudgetedClient(inner, 0.05)
+    # cap 0.40: above the first call's upper-bound reservation (byte bound, 2026-11-13), so the cap stops the loop
+    # mid-task after some billed calls, not before the first call and not at the tool-round limit
+    cap = 0.40
+    lane = TB.BudgetedClient(inner, cap)
     lane.start_task("k")
     rates = CR.model_rates(CR.load_price_table(), model)
     with pytest.raises(TB.TaskBudgetExhausted):
         CR.live_turn(lane, model, es, built, rates, 2048, CR.THINKING_OFF.get(model))
-    assert 1 <= len(n) < CR.MAX_TOOL_ROUNDS + 1 and lane.task_spent_usd <= 0.05
+    assert 2 <= len(n) < CR.MAX_TOOL_ROUNDS + 1 and lane.task_spent_usd <= cap

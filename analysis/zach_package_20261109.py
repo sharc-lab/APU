@@ -250,8 +250,9 @@ def qual1_text() -> str:
     oth = "; ".join(f"{k}: {100 * v['delta']:+.1f} pp [{100 * v['ci95'][0]:+.1f}, {100 * v['ci95'][1]:+.1f}] "
                     f"(n={v.get('n')})" for k, v in other.items())
     return (f"SEALED (S2), {CREDIT}: RULER, 4-bit (u4) KV vs reference {100 * r['delta']:+.1f} pp, 95% CI "
-            f"[{100 * r['ci95'][0]:.1f}, {100 * r['ci95'][1]:+.1f}] (n={r['n']} paired items): at the edge of the 5 pp "
-            f"margin, a 5 pp loss NOT RULED OUT / {oth} / BFCL multi-turn i8 {100 * b['acc_ref']:.0f}% vs u4 "
+            f"[{100 * r['ci95'][0]:.1f}, {100 * r['ci95'][1]:+.1f}] (n={r['n']} paired items; delta = reference - "
+            f"4-bit, so a 4-bit loss is positive): upper bound below the sealed 5 pp non-inferiority margin, "
+            f"{q['verdicts']['P-S2-QUAL-RULER']} (sealed: upper 95% bound < 5 pp) / {oth} / BFCL multi-turn i8 {100 * b['acc_ref']:.0f}% vs u4 "
             f"{100 * b['acc_cmp']:.0f}%, {100 * b['delta']:+.1f} pp [{100 * b['ci95'][0]:+.1f}, {100 * b['ci95'][1]:+.1f}] "
             f"(n={b['n']}): {b['verdict']} (power), kept as sealed")
 

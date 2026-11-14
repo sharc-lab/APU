@@ -77,3 +77,68 @@ def test_run_long_task_with_padding_oracle_correct_and_long():
 def test_fitting_arm_holds_the_largest_reference_prompt():
     big = max(T.oracle_profile(t, e)["oracle_max"] for t, e in L.build_tasks(20260907, OH))
     assert X.ARMS["ctx_98304"]["num_ctx"] > big
+
+
+# ── v2 sizing (longtask-tokens-v2): pads sized with the model's tokenizer ────────────────────────────────────────
+def _qwen_tokenizer_json():
+    import glob
+    pytest.importorskip("tokenizers")
+    hub = Path.home() / ".cache" / "huggingface" / "hub"
+    for repo in ("models--Qwen--Qwen3-30B-A3B-Instruct-2507", "models--Qwen--Qwen3-8B"):
+        hits = glob.glob(str(hub / repo / "snapshots" / "*" / "tokenizer.json"))
+        if hits:
+            return hits[0]
+    pytest.skip("no Qwen3 tokenizer.json in the local Hugging Face cache")
+
+
+def test_log_lines_is_a_fixed_prefix_of_one_sequence():
+    a, b = T.log_lines(50, 11), T.log_lines(80, 11)
+    assert b.startswith(a) and a.count("\n") == 49 and T.log_lines(0, 11) == ""
+    assert T.log_lines(50, 12) != a
+
+
+def test_v2_reference_prompt_hits_the_trace_target_in_model_tokens():
+    sz = T.TokenizerSizing(tokenizer_json=_qwen_tokenizer_json())
+    for task, env in L.build_tasks(20260911, OH[:2]):
+        p = T.oracle_profile(task, env, sz)
+        assert p["oracle_ok"]
+        assert 1.0 <= p["final_ratio"] <= 1.005           # within 0.5% above the trace's final step, never below
+
+
+def test_v2_pad_is_the_smallest_line_count_reaching_each_target():
+    import copy
+    sz = T.TokenizerSizing(tokenizer_json=_qwen_tokenizer_json())
+    task, env = L.build_tasks(20260911, OH[:1])[0]
+    lines = T.pad_lines(task, env, sz)
+    curve = T.trace_curve(task.trajectory_id)
+    calls = T._reference_calls(task, env)
+    n, S = len(calls), len(curve)
+    target = [curve[round(k * (S - 1) / max(n - 1, 1))] for k in range(n)]
+    e = copy.deepcopy(env)
+    msgs = [{"role": "system", "content": L.SYSTEM_PROMPT}, {"role": "user", "content": L.user_message(task)}]
+    for k, c in enumerate(calls[:3]):
+        res = L.execute(e, c)
+        msgs.append({"role": "assistant", "content": "", "tool_calls": [{"function": dict(c)}]})
+        nxt = target[k + 1] if k + 1 < n else target[-1]
+        seed = T._pad_seed(task, k)
+        at = lambda m: sz.model_tokens(msgs + [L.tool_message(c, {**res, T.PAD_FIELD: T.log_lines(m, seed)} if m else res)])  # noqa: E731
+        if lines[k]:
+            assert at(lines[k]) >= nxt > at(lines[k] - 1)
+        msgs.append(L.tool_message(c, {**res, T.PAD_FIELD: T.log_lines(lines[k], seed)} if lines[k] else res))
+
+
+def test_v2_padder_and_v1_padder_differ_only_by_sizing():
+    sz = T.TokenizerSizing(encode=lambda s: max(1, len(s) // 3))     # any counter: v2 pads are log_lines
+    task, env = L.build_tasks(20260911, OH[:1])[0]
+    v1, v2 = T.Padder(task, env), T.Padder(task, env, sz)
+    r1, r2 = v1(0, {"ok": True}), v2(0, {"ok": True})
+    assert r1["ok"] and r2["ok"]
+    assert r2.get(T.PAD_FIELD, "") == T.log_lines(v2.pads[0], T._pad_seed(task, 0))
+
+
+def test_tokenizer_sizing_refuses_without_a_tokenizer():
+    import types
+    args = types.SimpleNamespace(pad_sizing="tokenizer", tokenizer_json=None)
+    with pytest.raises(SystemExit):
+        X._pad_sizing(T, args)
+    assert X._pad_sizing(T, types.SimpleNamespace(pad_sizing="estimate", tokenizer_json=None)) is None

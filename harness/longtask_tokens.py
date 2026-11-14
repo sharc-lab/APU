@@ -60,8 +60,101 @@ def _reference_calls(task: L.LongTask, env_before: dict) -> list[dict]:
     return [m["tool_calls"][0]["function"] for m in msgs if m.get("role") == "assistant" and m.get("tool_calls")]
 
 
-def _model_tokens(msgs: list[dict]) -> int:
+def _model_tokens(msgs: list[dict], sizing=None) -> int:
+    if sizing is not None:
+        return sizing.model_tokens(msgs)
     return round(ag.prompt_tokens_est(msgs, L.tools_payload()) * EV.PROJ_CALIB)
+
+
+# ── v2 sizing (longtask-tokens-v2, pre-registered 2026-11-12; written 2026-11-13) ─────────────────────────────────
+# v1 sized each pad from the harness's chars/4 estimate x PROJ_CALIB, which under-counted Qwen tokens by about a
+# third on these padded logs (row token-estimate-audit). v2 sizes them with the model's own tokenizer: the prompt is
+# counted as the model's chat template frames it (src/dse/token_count.TokenizerCounter, ChatML, equal to the Qwen3
+# template token for token, tools included), and each pad is the SMALLEST number of log lines whose padded tool
+# result brings the reference prompt to the trace target (the count includes the JSON escaping of the log inside the
+# tool result). Pads are stored as line counts; the lines are a fixed prefix of one seeded sequence per call, so a
+# pad of n lines is always the same text. v1 behaviour (sizing=None) is unchanged.
+
+def _log_line(rng: random.Random) -> str:
+    return (f"{rng.randint(0, 23):02d}:{rng.randint(0, 59):02d}:{rng.randint(0, 59):02d} worker-{rng.randint(1, 64)}"
+            f" {rng.choice(_VERBS)}, {rng.randint(100, 99999)} rows, {rng.randint(0, 999)} ms")
+
+
+def log_lines(n_lines: int, seed: int) -> str:
+    """The first n_lines of the seeded log sequence (v2 pads)."""
+    rng = random.Random(seed)
+    return "\n".join(_log_line(rng) for _ in range(max(0, n_lines)))
+
+
+class TokenizerSizing:
+    """Model-token counts from the model's tokenizer (v2). tokenizer_json: the model's Hugging Face tokenizer.json
+    (qwen3:30b-a3b-instruct-2507 uses the Qwen3 tokenizer, sha256 aeb13307a71acd8f... identical to Qwen3-8B's)."""
+
+    def __init__(self, tokenizer_json: str | None = None, encode=None):
+        import sys as _sys
+        root = str(Path(__file__).resolve().parents[1])
+        if root not in _sys.path:
+            _sys.path.insert(0, root)
+        from src.dse.token_count import TokenizerCounter
+        if encode is None:
+            from tokenizers import Tokenizer
+            tok = Tokenizer.from_file(str(tokenizer_json))
+            encode = lambda s: len(tok.encode(s, add_special_tokens=False).ids)   # noqa: E731
+        cache: dict[str, int] = {}
+
+        def cached(s: str) -> int:          # each message is framed and encoded on its own, so cache by its text
+            if s not in cache:
+                cache[s] = encode(s)
+            return cache[s]
+        self.counter = TokenizerCounter("chatml", encode=cached)
+        self.tools = L.tools_payload()
+        self.source = "model tokenizer: " + self.counter.source
+
+    def model_tokens(self, msgs: list[dict]) -> int:
+        counts, framing = self.counter.counts(msgs, self.tools)
+        return sum(counts) + framing
+
+
+def _fit_lines(msgs: list[dict], c: dict, res: dict, target: int, seed: int, sizing, max_lines: int = 200000) -> int:
+    """Smallest n with model_tokens(msgs + padded tool result of n lines) >= target (0 if already there)."""
+    def total(n):
+        tail = L.tool_message(c, {**res, PAD_FIELD: log_lines(n, seed)} if n else res)
+        return sizing.model_tokens(msgs + [tail])
+    if total(0) >= target:
+        return 0
+    lo, hi = 0, 64
+    while total(hi) < target:
+        lo, hi = hi, hi * 2
+        if hi > max_lines:
+            raise ValueError(f"pad target {target} not reached with {max_lines} lines")
+    while hi - lo > 1:
+        mid = (lo + hi) // 2
+        if total(mid) >= target:
+            hi = mid
+        else:
+            lo = mid
+    return hi
+
+
+def pad_lines(task: L.LongTask, env_before: dict, sizing) -> list[int]:
+    """v2: per reference tool call k, the pad in log LINES that brings the reference prompt before call k + 1 to the
+    trace target, counted with the model's tokenizer."""
+    import copy
+    curve = trace_curve(task.trajectory_id)
+    calls = _reference_calls(task, env_before)
+    n, S = len(calls), len(curve)
+    target = [curve[round(k * (S - 1) / max(n - 1, 1))] for k in range(n)]
+    msgs = [{"role": "system", "content": L.SYSTEM_PROMPT}, {"role": "user", "content": L.user_message(task)}]
+    env = copy.deepcopy(env_before)
+    out = []
+    for k, c in enumerate(calls):
+        res = L.execute(env, c)
+        msgs.append({"role": "assistant", "content": "", "tool_calls": [{"function": dict(c)}]})
+        nxt = target[k + 1] if k + 1 < n else target[-1]
+        lines = _fit_lines(msgs, c, res, nxt, _pad_seed(task, k), sizing)
+        out.append(lines)
+        msgs.append(L.tool_message(c, {**res, PAD_FIELD: log_lines(lines, _pad_seed(task, k))} if lines else res))
+    return out
 
 
 def pad_tokens(task: L.LongTask, env_before: dict) -> list[int]:
@@ -93,27 +186,32 @@ def _pad_seed(task: L.LongTask, k: int) -> int:
 class Padder:
     """pad(k, result) -> result with the activity_log for the k-th tool call the model makes in this task."""
 
-    def __init__(self, task: L.LongTask, env_before: dict):
-        self.task, self.pads = task, pad_tokens(task, env_before)
+    def __init__(self, task: L.LongTask, env_before: dict, sizing=None):
+        self.task, self.sizing = task, sizing
+        # v1: pads in estimated tokens (log_text); v2 (sizing given): pads in log lines (log_lines)
+        self.pads = pad_tokens(task, env_before) if sizing is None else pad_lines(task, env_before, sizing)
 
     def __call__(self, k: int, result: dict) -> dict:
         n = self.pads[k] if k < len(self.pads) else (self.pads[-1] if self.pads else 0)
-        return {**result, PAD_FIELD: log_text(n, _pad_seed(self.task, k))} if n else result
+        if not n:
+            return result
+        seed = _pad_seed(self.task, k)
+        return {**result, PAD_FIELD: log_text(n, seed) if self.sizing is None else log_lines(n, seed)}
 
 
-def oracle_profile(task: L.LongTask, env_before: dict) -> dict:
+def oracle_profile(task: L.LongTask, env_before: dict, sizing=None) -> dict:
     """The padded reference transcript's prompt (model tokens) before each call, against the trace curve."""
     import copy
-    pad = Padder(task, env_before)
+    pad = Padder(task, env_before, sizing)
     calls = _reference_calls(task, env_before)
     env = copy.deepcopy(env_before)
     msgs = [{"role": "system", "content": L.SYSTEM_PROMPT}, {"role": "user", "content": L.user_message(task)}]
-    prof = [_model_tokens(msgs)]
+    prof = [_model_tokens(msgs, sizing)]
     for k, c in enumerate(calls):
         res = pad(k, L.execute(env, c))
         msgs.append({"role": "assistant", "content": "", "tool_calls": [{"function": dict(c)}]})
         msgs.append(L.tool_message(c, res))
-        prof.append(_model_tokens(msgs))
+        prof.append(_model_tokens(msgs, sizing))
     curve = trace_curve(task.trajectory_id)
     first_over = next((i for i, p in enumerate(prof) if p > 40960), None)
     return {"task_id": task.task_id, "ref_steps": task.ref_steps, "trace_steps": len(curve),

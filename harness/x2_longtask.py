@@ -455,8 +455,26 @@ def build_arg_parser():
                     help="tokens: tool results padded to the matched trace's token curve (harness/longtask_tokens.py)")
     ap.add_argument("--tool-prompt", choices=TOOL_PROMPTS, default="ollama",
                     help="persistent: tool definitions also in the system prompt, and calls after prose parsed")
+    ap.add_argument("--pad-sizing", choices=("estimate", "tokenizer"), default="estimate",
+                    help="tokens set only: estimate = v1 (chars/4 x PROJ_CALIB); tokenizer = v2 (the model's tokenizer, "
+                         "harness/longtask_tokens.TokenizerSizing, longtask-tokens-v2)")
+    ap.add_argument("--tokenizer-json", default=None, help="the model's Hugging Face tokenizer.json (--pad-sizing tokenizer)")
     ap.add_argument("--check-plan", action="store_true")
     return ap
+
+
+def _pad_sizing(TK, args):
+    """v2 sizing object, or None for v1. Refuses tokenizer sizing without a tokenizer file (never falls back)."""
+    if getattr(args, "pad_sizing", "estimate") != "tokenizer":
+        return None
+    if not args.tokenizer_json or not Path(args.tokenizer_json).exists():
+        raise SystemExit(f"--pad-sizing tokenizer needs --tokenizer-json (got {args.tokenizer_json!r}); nothing run")
+    return TK.TokenizerSizing(tokenizer_json=args.tokenizer_json)
+
+
+def _sha256(path) -> str:
+    import hashlib
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 def main(argv=None, advance=True, deps=None) -> str:
@@ -475,7 +493,9 @@ def main(argv=None, advance=True, deps=None) -> str:
         cp = check_plan(seeds, arms, model)
         if args.task_set == "tokens":
             import longtask_tokens as TK
-            cp["tokens_profile"] = [TK.oracle_profile(t, e) for s in seeds for t, e in L.build_tasks(s, task_ids)]
+            sz = _pad_sizing(TK, args)
+            cp["pad_sizing"] = sz.source if sz else "harness estimate x PROJ_CALIB (v1)"
+            cp["tokens_profile"] = [TK.oracle_profile(t, e, sz) for s in seeds for t, e in L.build_tasks(s, task_ids)]
         print(json.dumps(cp, indent=1, default=str))
         return "check-plan"
     log = deps.get("log", print)
@@ -515,15 +535,18 @@ def main(argv=None, advance=True, deps=None) -> str:
                                    "the tray app")
         server = deps.get("server") or Server(hc)
         plan = check_plan(seeds, arms, model)
-        TK = None
+        TK = SZ = None
         if args.task_set == "tokens":
             import longtask_tokens as TK
+            SZ = _pad_sizing(TK, args)
         if not plan["oracle_all_ok"]:
             raise RuntimeError("oracle self-check failed: a reference solution does not pass the grader")
         emit({"record": "run_start", "harness": HARNESS, "job_id": args.job_id, "ts_utc": utc_iso(), "model_id": model,
               "think": think, "seeds": list(seeds), "arms": {a: ARMS[a] for a in arms},
               "arm_order": list(arms), "tasks": [list(t) for t in L.LONG_TASKS if not task_ids or t[0] in task_ids],
               "task_label": TK.LABEL if TK else L.LABEL, "task_set": args.task_set,
+              "pad_sizing": (SZ.source if SZ else "harness estimate x PROJ_CALIB (v1)") if TK else None,
+              "tokenizer_sha256": _sha256(args.tokenizer_json) if SZ else None,
               "offered_tools": list(L.OFFERED_TOOLS), "step_cap_rule":
               f"{L.STEP_CAP_FACTOR} x ref_steps + {L.STEP_CAP_EXTRA}", "max_tokens_per_call": ag.MAX_TOKENS_PER_CALL,
               "keep_alive": ag.KEEP_ALIVE, "stop_after_utc": args.stop_after_utc, "tool_prompt": args.tool_prompt,
@@ -558,7 +581,7 @@ def main(argv=None, advance=True, deps=None) -> str:
                         break
                     try:
                         row = run_long_task(rt, model, cfg["num_ctx"], think, task, env, log,
-                                            tool_prompt=args.tool_prompt, pad=TK.Padder(task, env) if TK else None)
+                                            tool_prompt=args.tool_prompt, pad=TK.Padder(task, env, SZ) if TK else None)
                     except ag.SessionIncomplete as e:   # failed after its one recorded retry; the run stops, no run_end
                         first = getattr(e, "first_attempt", None)
                         emit({"record": "longtask_task_incomplete", "incomplete": True, "harness": HARNESS,

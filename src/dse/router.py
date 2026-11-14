@@ -264,7 +264,10 @@ class EnvelopeRouter:
 # model's calibration ratio (register R2-real-v1-token-calib: turn-1 prompt_eval_count / estimate, median over
 # sessions; 1.0 for a model without a measured ratio), rounded up per message. Tools: the estimate of
 # json.dumps(tools), same ratio. Override per step with "token_counts", or per router with token_counter=callable
-# (message dict -> int), e.g. a real tokenizer.
+# (message dict -> int), or (2026-11-13, operator decision) a src/dse/token_count.py counter object with
+# .counts(messages, tools) -> (per-message counts, tools/framing tokens): the server's tokenize endpoint
+# (llama-server) or the model's tokenizer (Ollama), from token_count.make_counter. The product path passes one; the
+# chars/4 default remains only for replays of recorded runs that were routed on it.
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 import json as _json
@@ -520,6 +523,13 @@ class Router:
             counts = [int(_math.ceil(c)) for c in step["token_counts"]]
             if len(counts) != len(msgs):
                 raise ValueError(f"token_counts has {len(counts)} entries for {len(msgs)} messages")
+        elif self.token_counter is not None and hasattr(self.token_counter, "counts"):
+            # src/dse/token_count.py counter (server tokenize or model tokenizer): messages and tools together
+            counts, framing = self.token_counter.counts(msgs, step.get("tools"))
+            counts = [int(c) for c in counts]
+            if step.get("tools_tokens") is not None:
+                return counts, int(step["tools_tokens"])
+            return counts, int(framing)
         elif self.token_counter is not None:
             counts = [int(self.token_counter(m)) for m in msgs]
         else:

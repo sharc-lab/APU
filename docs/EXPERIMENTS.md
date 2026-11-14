@@ -3498,3 +3498,215 @@ estimate 34,170) [REG longtask-tokens-v1].
   (then the split is reported as a deviation). Not run until the operator says.
 
 Row `longtask-tokens-v2` PENDING until the result file has run_end.
+
+## PRE-REGISTRATION (2026-11-13): bfcl-mt-longctx-v1, BFCL multi-turn long-context at the true default vs a fitting window
+
+**Status: filed before any run. Nothing run, nothing pulled, no harness written yet.** Operator 2026-11-13: "BFCL
+replication: pre-register a replication on the BFCL multi-turn long-context subset. Models qwen3:8b and qwen3:14b, true
+default vs a fitting window, on Ollama and llama-server, local only. Reuse Zach's BFCL setup if possible, and ask me
+before touching his files. Estimate the X2 hours. Don't run it until the splits are done."
+
+### Question
+
+On a public agent benchmark we did not build, does the runtime's true default context window cost accuracy through
+truncation (memory), and is that cost silent (HTTP 200, no error to the client) on Ollama and loud (an error the client
+sees) on llama-server, as the CONTRACT-1 probes found for synthetic prompts [REG zach-contract1-20261109,
+zach-evo-x2-split96]? Or do the same entries fail at a fitting window too (capability)?
+
+### Benchmark subset (fixed now; checked 2026-11-13 against the BFCL source)
+
+- Berkeley Function Calling Leaderboard, BFCL v4 (`VERSION_PREFIX = "BFCL_v4"` in
+  `bfcl_eval/constants/category_mapping.py`), category id `multi_turn_long_context` (listed in `MULTI_TURN_CATEGORY`
+  there). Source pinned at ShishirPatil/gorilla commit 6ea57973c7a6097fd7c5915698c54c17c5b1b6c8 (2026-03-23; PyPI
+  bfcl-eval 2026.3.23), the same pin as Zach's QUAL-1 seal S-2.
+- Files: `bfcl_eval/data/BFCL_v4_multi_turn_long_context.json` sha256 78c3268c5cc8e97c...d822749324 and
+  `bfcl_eval/data/possible_answer/BFCL_v4_multi_turn_long_context.json` sha256 e82aa0e839c39d23...0d18. Both hashes
+  equal the ones in Zach's QUAL-1 BFCL start rows (~/zach_runs/data_20261109/5_qual1, window 20261108_163516).
+- All 200 entries, `multi_turn_long_context_0` to `multi_turn_long_context_199`: 734 user turns, 1,203 ground-truth
+  calls (counted from the possible_answer file). The long context is in the tool backends: BFCL builds each involved
+  class with `long_context=True`, so tool results (directory listings, ticket lists and the like) are long and the
+  prompt grows with the model's own tool calls. Step limit per user turn: BFCL's `MAXIMUM_STEP_LIMIT = 20`; an entry
+  that hits it is force-quit and scored invalid, as BFCL and Zach do.
+- Prompt sizes known now (Zach's Qwen3-4B-Instruct-2507 trajectories, first 50 entries, both KV arms, Qwen3 tokenizer):
+  largest prompt per entry mean 5,928, p90 7,939, max 12,265 tokens; 85 of 100 entry-runs passed 4,096 tokens and 9
+  passed 8,192. Our models' trajectories will differ; these numbers size the arms, they are not results.
+
+### Models, runtimes, machine (fixed now)
+
+- qwen3:8b and qwen3:14b, Q4_K_M, thinking off (Ollama `think: false`; llama-server reasoning off), f16 KV, greedy
+  (temperature 0), at most 512 output tokens per call (Zach's value), the same in every arm.
+- Ollama: library tags `qwen3:8b` (on the X2, digest 500a1f067a9f, docs/X2_CHANGELOG.md) and `qwen3:14b` (on the X2
+  since the R2 runs; digest read and recorded in run_start), the 0.34.4 side-by-side build via OLLAMA_BIN as in
+  longtask-tokens-v1 and v2 (the installed 0.40.14 belongs to Zach's runs and is not touched), `/api/chat` with native
+  tools.
+- llama-server: build b10970 Vulkan, `-ngl 99 -np 1 --jinja`, the official Qwen GGUFs Qwen3-8B-Q4_K_M.gguf
+  (5,027,783,488 bytes) and Qwen3-14B-Q4_K_M.gguf (9,001,752,960 bytes), hash-checked in docs/X2_CHANGELOG.md, the
+  files harness/xruntime_llamacpp.py and harness/x2_outcome_table.py use; `/v1/chat/completions` with tools. Context
+  shift at the server default. One fresh server per cell.
+- The two runtimes run the same quantization type but not the same file (Ollama library blob vs official GGUF) and not
+  the same template rendering, so the primary contrast is within a runtime; the cross-runtime contrast is reported,
+  not tested.
+- evo-x2 only, after Zach's BIOS splits are done and the X2 is restored (64 GB); the VGM split is read and recorded at
+  run_start, and any other split is a reported deviation. Local only, no cloud call, USD 0. No pull is needed (both
+  tags and both GGUFs are on the X2); if one is missing, stop and ask.
+
+### Arms (fixed now; per model and runtime)
+
+- D, true default: no window sent (no `num_ctx`, no `-c`). Expected to load 40,960 on both runtimes: Ollama loaded
+  40,960 for qwen3:8b on the X2 [REG T2S-vs-X2-default-ctx] (its VRAM-based default 262,144, docs/X2_CHANGELOG.md,
+  capped at the trained 40,960), and llama-server b10970 loaded n_ctx 40,960 for qwen3:14b
+  [REG xruntime-llamacpp-wrong-rate]. The other two model and runtime pairs are not measured yet.
+- F, fitting: a window fixed before the run that holds the longest prompt: the smallest multiple of 4,096 at or above
+  1.5 x the largest prompt of the gold replay (below) plus 512, and at least 16,384. It must be at most 40,960 (the
+  trained length); if the rule gives more, stop and amend.
+- C, non-fitting: 4,096, the true default Ollama loads on a smaller GPU (evo-t2s: 4,096 for qwen3:8b
+  [REG T2S-vs-X2-default-ctx]). By Zach's sizes most entries pass it.
+- Positive control and contingency, the logic of longtask-tokens-v2: D's loaded window is read from the server log
+  (Ollama `n_ctx` plus `ollama ps`; llama-server `/props` n_ctx and its log) before any entry. If D loads at least F, D
+  cannot fail for memory: D is the fitting arm, F is not run, and C is run as the non-fitting arm. If D loads less than
+  F, D is the non-fitting arm (the true default does not fit), F is run, and C is not. Either way 2 arms per model and
+  runtime, 8 cells.
+- A cell whose loaded window differs from the value sent (F, C) stops before its first entry and is NOT RUN.
+- Detector probe per server start (xruntime_llamacpp's probe; for Ollama one prompt of known size over the window): the
+  cut must show in the server's count (Ollama keeps num_ctx/2 + 2 [REG ollama-overflow-keeps-half]) or log, or the
+  silent/loud split of that cell is not read.
+
+### Token counting (fixed now; not chars/4)
+
+- Before the run, on the controller (CPU only, no model): a gold replay of all 200 entries through bfcl_eval's own
+  backends (`long_context=True`), each turn's ground-truth calls executed and their results appended, rendered with the
+  Qwen3 chat template and tools and counted with the Qwen3 tokenizer (tokenizer.json from Qwen/Qwen3-8B and
+  Qwen/Qwen3-14B at pinned Hugging Face revisions, recorded in run_start). Its largest prompt sets F. Filed as a dated
+  note here before any X2 run.
+- In the run, each call's prompt count from the server (Ollama prompt_eval_count; llama-server usage.prompt_tokens and
+  timings) and the tokenizer count of the same messages are both recorded. Over the window means the tokenizer count
+  plus 512 is above the loaded window; the server count or log is the confirmation of a cut.
+
+### Scoring (fixed now)
+
+- BFCL's own multi-turn checker, unchanged: `bfcl_eval.eval_checker.multi_turn_eval.multi_turn_checker.multi_turn_checker`
+  at the pinned commit (state checker and per-turn response checks against possible_answer). An entry is correct only
+  if every turn passes. Before the run the checker must score the gold calls 200/200 valid (Zach's start rows record
+  the same self-test, n_valid 100 of 100 on his 100 entries).
+- Native tool calls are converted to BFCL's call strings by one converter, the same in every cell; a reply with no
+  parseable call ends the step as BFCL's loop does.
+
+### Hypotheses, targets and reading rule (fixed now)
+
+Per entry, within a model and runtime, fitting arm (F, or D under the contingency) vs non-fitting arm (C, or D):
+
+- Fails only at the non-fitting arm, passes at the fitting arm, and the non-fitting run has window evidence (a call over
+  the loaded window by the tokenizer count, confirmed by the server count or log): **memory**.
+  - Silent memory: every call of that entry returned HTTP 200 with no error field (the client was not told).
+  - Loud memory: at least one call returned an HTTP 4xx context error or an error field.
+- Fails at both arms: **capability**. Fails only at the fitting arm: **other** (not expected). Passes at both: no
+  failure. A non-fitting failure with no window evidence is counted as capability, not memory.
+
+| id | statement | target |
+|---|---|---|
+| H1 Ollama harm | accuracy(fitting) - accuracy(non-fitting), paired over 200 entries, per model | 95% Newcombe lower bound above 0 |
+| H2 Ollama silent | share of memory entries that are silent, per model | at least 90% |
+| H3 llama-server loud | share of memory entries that are loud; silent_cut log events at the non-fitting arm | at least 90% loud; 0 silent cuts |
+| H4 capability | accuracy at the fitting arm, per model and runtime | reported, no target |
+
+- Floor rule (fixed now): if a model's fitting-arm accuracy on a runtime is under 5% (under 10 of 200), H1 to H3 for
+  that pair are NOT INFORMATIVE (nothing left to lose) and reported as such.
+- Class counts are reported per model and runtime with n; the cross-runtime difference at the fitting arm is reported,
+  no target. Met or missed is reported as is.
+
+### Sample size and stats
+
+- n = 200 entries per cell (the whole category), one pass per entry, paired across arms. Per server start 1 warm-up
+  call (a fixed short prompt, not a BFCL entry, discarded), then the 200 measured entries. Stats as Zach's: paired
+  difference with the 95% Newcombe interval, discordant counts, and the exact McNemar p.
+- Smoke gate per cell: entries 0 and 1 first; 2 entry rows, 0 harness errors and a start record, written to a gate file
+  that stops the queue on failure (Zach's fixed gate, his amendment QUAL1_BFCL_DEV_2026-11-08). Smoke rows are kept and
+  never scored.
+
+### Stop rules (fixed now)
+
+- Loaded window not as expected (F, C): the cell is NOT RUN. Stale-server guard (harness/server_guard.py) on every
+  call; a guard failure stops the cell and its partial rows are not scored.
+- Harness errors (not model errors) on more than 5% of a cell's entries: the cell is VOID.
+- GPU device lost or driver reset (Zach's Vulkan probe hit ErrorDeviceLost [REG zach-evo-x2-split96]): the cell stops;
+  entries not run are NOT RUN; a ROCm rerun needs an amendment.
+- A time cap is set in the run note before each window; entries not started are NOT RUN, never a verdict.
+- One X2 queue job per model; it calls `tq.advance()` on exit and sets no pause. Order: qwen3:8b then qwen3:14b; per
+  model Ollama then llama-server; per runtime the fitting arm then the non-fitting arm.
+
+### Deviations from Zach's QUAL-1 BFCL setup
+
+- Machine and runtime: his was evo-t2s, OpenVINO GenAI, raw HF-rendered prompts; ours is evo-x2, Ollama and
+  llama-server chat endpoints with native tools (the path real clients use, which is the path the silent-truncation
+  claim is about). His first-turn token-identity check becomes a recorded comparison of the server's first-turn count
+  with the tokenizer render; a gap over 2% stops the cell (template mismatch).
+- Model: his Qwen3-4B-Instruct-2507 int4 (no think handling) vs our hybrid qwen3:8b and qwen3:14b (his fixed
+  `thinking_off_assistant_prefix` handles the hybrid template; a generation with `<think>` is still refused).
+- Arms: his KV precision (i8 vs u4) at one window vs our window (default, fitting, 4,096) at f16 KV.
+- Entries: his first 50 of multi_turn_base and of multi_turn_long_context vs all 200 of multi_turn_long_context.
+- Same as his: BFCL pin and file hashes, step limit, force-quit scored invalid, 512 output tokens, thinking off, resume
+  keyed by entry and arm (his `done_ids` fix), the gated smoke.
+- His scripts (tools/qual1_bfcl.py, tools/bfcl_feasibility_probe.py, run_queue_t2s_bfcl2.sh, tests/test_qual1_bfcl.py
+  at his head 9a1f2b19) are not in the data package or this repo. Reusing them is asked of the operator first; nothing
+  of his is copied, moved or changed until then.
+
+### Schedule and cost (estimate; not a measurement)
+
+- Model calls per cell: ASSUMED one call per tool step plus one closing reply per user turn, 1,203 + 734 = 1,937 (high:
+  twice that).
+- Decode on evo-x2: qwen3-8b 50.11 tok/s, qwen3-14b 27.43 tok/s [REG decode-rate-per-machine]. Prefill: qwen3:14b
+  2,059.6 tok/s, the mean of the three per-session p90 values of B5 policy (a) f16 (1,990.8, 2,002.5, 2,185.5)
+  [REG kv-precision-evidence]; qwen3:8b is not registered, ASSUMED 1.7x that (3,501 tok/s). Output 80 tokens per call
+  ASSUMED (high 200). New prompt tokens per call with the prefix cache 600 ASSUMED; with no cache, Zach's mean largest
+  prompt, 5,928, every call (an upper bound).
+- Per cell: qwen3:8b 0.95 h (cache) to 1.77 h (no cache); qwen3:14b 1.73 to 3.12 h. 8 cells (2 models x 2 runtimes x 2
+  arms): 10.7 to 19.6 h; x 1.067 on the llama-server half (measured llama-server / Ollama ratio, qwen3-14b
+  [REG xruntime-llamacpp-hours]): 11.1 to 20.2 h; plus 8 server starts at about 27 s each and the smoke gates (under
+  0.5 h).
+- Cross-check: Zach's T2S run took 3,226 s for 318 long-context user turns (10.15 s per turn, 4B, both arms); scaled to
+  734 turns and by decode rate (T2S qwen3-4b-2507 16.04 tok/s [REG decode-rate-per-machine], ASSUMED comparable to his
+  OpenVINO rate) it gives 0.66 h (8b) and 1.21 h (14b) per cell, 7.5 h for 8 cells.
+- Estimate: **11 to 21 X2 hours** (about 15), cross-check 7.5 h; worst case (twice the calls, 200 output tokens, no
+  cache) 68 h, not expected. The non-fitting arms are likely faster (Ollama processes a cut prompt; llama-server rejects
+  at once). Two windows: qwen3:8b about 4 to 7 h, qwen3:14b about 7 to 13 h.
+- Not run until the BIOS splits are done, the X2 is restored, and the operator says.
+
+Row `bfcl-mt-longctx-v1` PENDING until the result file has run_end.
+
+## NOTE (2026-11-13): longtask-tokens-v2 padding written; longtask-tokens-v1 was not token-matched
+
+Written before any v2 run, as the 2026-11-12 pre-registration required. Nothing has run.
+
+- **v2 padding** (harness/longtask_tokens.py, TokenizerSizing, pad_lines, log_lines; harness/x2_longtask.py
+  `--pad-sizing tokenizer --tokenizer-json F`, which refuses to start without the file). Each pad is the smallest
+  number of log lines whose padded tool result brings the reference prompt to the trace target, counted with the
+  model's tokenizer as its chat template frames the prompt (src/dse/token_count.TokenizerCounter, ChatML, equal to the
+  Qwen3 template token for token with tools, tests/test_token_count.py). The count includes the JSON escaping of the
+  log inside the tool result. Tokenizer: Qwen/Qwen3-30B-A3B-Instruct-2507 tokenizer.json, sha256 aeb13307a71acd8f...,
+  byte-identical to Qwen3-8B's. The run_start row records the sizing source and the tokenizer hash.
+- **Check** (row `longtask-tokens-v1-sizing`, analysis/longtask_v2_sizing_check.py): v2 reference prompts end at
+  1.0009x to 1.0021x of the trace's final step, and all 20 reference solutions (seeds 20260907 and 20260911) pass.
+- **Finding about v1**: v1's pads (chars/4 x PROJ_CALIB) give reference prompts of 1.58x to 1.62x the trace targets
+  in Qwen3 tokens. The log padding is digit-heavy and the estimate under-counts it. So v1's tasks were about 60%
+  longer than the traces they were described as matching. The v1 reading (70B failed 3/3 at a window that held the
+  whole prompt) is unchanged, since that window held the longer prompt; the description "trace-token matched" is wrong
+  for v1 and is corrected in the row text.
+- Still open before v2 runs: the Ollama-side check that Ollama's qwen3 template frames the prompt as the Hugging Face
+  template does (server prompt_eval_count vs TokenizerCounter on an uncut prompt), on evo-x2 after the BIOS splits.
+
+## NOTE (2026-11-13): token estimates replaced in the product path (operator-approved)
+
+- **Router**: src/dse/token_count.py. llama-server: /apply-template + /tokenize (exact). Ollama has no tokenize
+  endpoint: the model's tokenizer with the family template, ChatML only (exact against the Qwen3 template); a Llama
+  model on Ollama gets TokenCountUnavailable (the llama3 framing measured +16% / +85% against the Hugging Face
+  template, so it is not used). Router(token_counter=counter) routes on it; there is no silent chars/4 fallback in
+  make_counter. The chars/4 default stays only for replays of recorded runs routed on it.
+- **Spend reservation**: src/cloud/client.upper_bound_input_tokens (bytes of the serialized request + framing
+  allowances) replaces the whitespace word count. Row `token-reservation-replay`: the word count was below the real
+  Anthropic count on 40 of 40 measured prompts (0.13x to 0.42x) and on 20 of 20 billed first calls of the live 8192
+  run (0.25x to 0.29x); the bound is above on all (2.2x to 3.6x; 2.6x to 2.8x).
+- **Consequence, not decided**: with the per-task cap at USD 0.25 and task_budget's rule (a settled call counts at its
+  reservation when that is larger), 16 of 20 live 8192 tasks would stop at the cap before their last call; counting a
+  settled call at its post-call upper bound instead leaves 2 of 20 (calls after call 1 ESTIMATED). Operator decision
+  pending; task_budget.py is unchanged. results/per_task_budget_check_v1.jsonl (word count) stays pinned; v2 is the
+  same forced-retry test under the bound.
